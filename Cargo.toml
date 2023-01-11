@@ -6,4 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+core-foundation = "0.9.3"
+core-graphics = "0.22.3"
 libc = "0.2.139"
+vi = { git = "https://github.com/ZeroX-DG/vi-rs" }
