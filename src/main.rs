@@ -1,7 +1,7 @@
-use std::{sync::mpsc::channel, thread};
+use std::{sync::mpsc::channel, thread, ascii::AsciiExt};
 
 use core_foundation::runloop::{CFRunLoop, kCFRunLoopCommonModes};
-use core_graphics::{event::{EventField, CGEventTap, CGEventTapLocation, CGEventTapPlacement, CGEventTapOptions, CGEventType, KeyCode, CGKeyCode, CGEventFlags, CGEvent}, event_source::{CGEventSource, self, CGEventSourceStateID}};
+use core_graphics::{event::{EventField, CGEventTap, CGEventTapLocation, CGEventTapPlacement, CGEventTapOptions, CGEventType, KeyCode, CGKeyCode, CGEventFlags, CGEvent}, event_source::{CGEventSource, self}};
 
 use crate::keymap::get_printable_char;
 
@@ -56,7 +56,7 @@ fn main() {
         }
     });
 
-    let mut buf = String::new();
+    let mut buf = vec![];
     let mut current_word = String::new();
     loop {
         if let Ok((key_code, has_shift)) = rx.recv() {
@@ -70,8 +70,7 @@ fn main() {
                 }
                 c => {
                     if let Some(chr) = get_printable_char(c) {
-                        let chs = if has_shift { chr.to_uppercase().to_string() } else { chr.to_lowercase().to_string() };
-                        buf.push_str(&chs);
+                        buf.push(if has_shift { chr.to_ascii_uppercase() } else { chr });
                     } else {
                         buf.clear();
                     }
@@ -79,13 +78,12 @@ fn main() {
             }
             println!("Buffer: {:?} - Last word: {} - {}", buf, current_word, current_word.chars().count());
             if buf.len() > 0 {
-                if let (true, result) = vi::telex::transform_buffer(&buf.chars().collect::<Vec<char>>()) {
-                    println!("Transformed: {:?}", result);
-                    let del_count = if !current_word.is_empty() { current_word.chars().count() + 1 } else { buf.chars().count() };
-                    _ = send_backspace(del_count);
-                    _ = send_string(&result);
-                    current_word = result.clone();
-                }
+                let result = vi::telex::transform_buffer(&buf);
+                println!("Transformed: {:?}", result);
+                let del_count = if !current_word.is_empty() { current_word.chars().count() + 1 } else { buf.len() };
+                _ = send_backspace(del_count);
+                _ = send_string(&result);
+                current_word = result.clone();
             }
         }
     }

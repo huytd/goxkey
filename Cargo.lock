@@ -279,8 +279,8 @@ checksum = "84a22b9f218b40614adcb3f4ff08b703773ad44fa9423e4e0d346d5db86e4ebc"
 
 [[package]]
 name = "vi"
-version = "0.2.0"
-source = "git+https://github.com/ZeroX-DG/vi-rs#e5dad02b6e8b32555f86ed7945520637deca6e51"
+version = "0.2.1"
+source = "git+https://github.com/ZeroX-DG/vi-rs#bf7cb2cd918c41d6856de40ca733b9d33726593f"
 dependencies = [
  "phf",
  "regex",
