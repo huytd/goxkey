@@ -1,11 +1,13 @@
-use std::{sync::mpsc::channel, thread, ascii::AsciiExt};
+use std::{cmp::Ordering, sync::Mutex};
 
 use core_foundation::runloop::{CFRunLoop, kCFRunLoopCommonModes};
-use core_graphics::{event::{EventField, CGEventTap, CGEventTapLocation, CGEventTapPlacement, CGEventTapOptions, CGEventType, KeyCode, CGKeyCode, CGEventFlags, CGEvent}, event_source::{CGEventSource, self}};
+use core_graphics::{event::{EventField, CGEventTap, CGEventTapLocation, CGEventTapPlacement, CGEventTapOptions, CGEventType, KeyCode, CGKeyCode, CGEventFlags, CGEvent, CGEventTapProxy}, event_source::{CGEventSource, self}};
 
 use crate::keymap::get_printable_char;
 
 mod keymap;
+
+static mut TYPING_BUF: Mutex<Vec<char>> = Mutex::new(vec![]);
 
 fn send_backspace(count: usize) -> Result<(), ()> {
     let source = CGEventSource::new(event_source::CGEventSourceStateID::Private)?;
@@ -28,64 +30,58 @@ fn send_string(string: &str) -> Result<(), ()> {
     Ok(())
 }
 
-fn main() {
-    let (tx, rx) = channel();
-
-    thread::spawn(move || {
-        let current = CFRunLoop::get_current();
-        if let Ok(event_tap) = CGEventTap::new(
-            CGEventTapLocation::HID,
-            CGEventTapPlacement::HeadInsertEventTap,
-            CGEventTapOptions::Default,
-            vec![CGEventType::KeyDown],
-            |_, _, event| {
-                let source_state_id = event.get_integer_value_field(EventField::EVENT_SOURCE_STATE_ID);
-                if source_state_id == 1 {
-                    let key_code = event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE) as CGKeyCode;
-                    let has_shift = event.get_flags().contains(CGEventFlags::CGEventFlagShift);
-                    _ = tx.send((key_code, has_shift));
-                }
-                None
-            }) {
-            unsafe {
-                let loop_source = event_tap.mach_port.create_runloop_source(0).expect("Somethings is bad ");
-                current.add_source(&loop_source, kCFRunLoopCommonModes);
-                event_tap.enable();
-                CFRunLoop::run_current();
-            }
-        }
-    });
-
-    let mut buf = vec![];
-    let mut current_word = String::new();
-    loop {
-        if let Ok((key_code, has_shift)) = rx.recv() {
+fn callback(_proxy: CGEventTapProxy, _event_type: CGEventType, event: &CGEvent) -> Option<CGEvent> {
+    unsafe {
+        let mut typing_buf = TYPING_BUF.lock().unwrap();
+        let source_state_id = event.get_integer_value_field(EventField::EVENT_SOURCE_STATE_ID);
+        if source_state_id == 1 {
+            let key_code = event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE) as CGKeyCode;
+            let has_shift = event.get_flags().contains(CGEventFlags::CGEventFlagShift);
             match key_code {
                 KeyCode::SPACE | KeyCode::RETURN => {
-                    buf.clear();
-                    current_word.clear();
+                    typing_buf.clear();
                 }
                 KeyCode::DELETE => {
-                    buf.pop();
+                    typing_buf.pop();
                 }
                 c => {
                     if let Some(chr) = get_printable_char(c) {
-                        buf.push(if has_shift { chr.to_ascii_uppercase() } else { chr });
+                        typing_buf.push(if has_shift { chr.to_ascii_uppercase() } else { chr });
                     } else {
-                        buf.clear();
+                        typing_buf.clear();
                     }
                 }
             }
-            println!("Buffer: {:?} - Last word: {} - {}", buf, current_word, current_word.chars().count());
-            if buf.len() > 0 {
-                let result = vi::telex::transform_buffer(&buf);
-                println!("Transformed: {:?}", result);
-                let del_count = if !current_word.is_empty() { current_word.chars().count() + 1 } else { buf.len() };
-                _ = send_backspace(del_count);
-                _ = send_string(&result);
-                current_word = result.clone();
+
+            if !typing_buf.is_empty() {
+                let ret = vi::telex::transform_buffer(typing_buf.as_slice());
+                if ret.chars().cmp(typing_buf.clone().into_iter()) != Ordering::Equal {
+                    // println!("BUF {:?} - RET {:?}", typing_buf, ret);
+                    let backspace_count = typing_buf.len();
+                    _ = send_backspace(backspace_count);
+                    _ = send_string(&ret);
+                    *typing_buf = ret.chars().collect();
+                    return None;
+                }
             }
         }
+        Some(event.to_owned())
     }
+}
 
+fn main() {
+    let current = CFRunLoop::get_current();
+    if let Ok(event_tap) = CGEventTap::new(
+        CGEventTapLocation::HID,
+        CGEventTapPlacement::HeadInsertEventTap,
+        CGEventTapOptions::Default,
+        vec![CGEventType::KeyDown],
+        callback) {
+        unsafe {
+            let loop_source = event_tap.mach_port.create_runloop_source(0).expect("Somethings is bad ");
+            current.add_source(&loop_source, kCFRunLoopCommonModes);
+            event_tap.enable();
+            CFRunLoop::run_current();
+        }
+    }
 }
