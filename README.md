@@ -22,10 +22,10 @@ The following diagram explains how `bogo-rs` communicates with other components 
 
 ```
 INPUT LAYER
-+------------------+            FRONTEND               ENGINE
-| macOS            | [d,a,a,y]  +---------+ "daay"     +-------+
-|  +- CGEventTap   | ---------> | bogo-rs | ---------> | vi-rs |
-|                  |            +---------+            +-------+
++------------------+              FRONTEND                ENGINE
+| macOS            | [d,d,a,a,y]  +---------+ "ddaay"     +-------+
+|  +- CGEventTap   | -----------> | bogo-rs | ----------> | vi-rs |
+|                  |              +---------+             +-------+
 | Linux   (TBD)    |               |  ^                    |
 | Windows (TBD)    |               |  |              "đây" |
 +------------------+               |  +--------------------+
