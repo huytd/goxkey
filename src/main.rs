@@ -78,7 +78,7 @@ fn main() {
         vec![CGEventType::KeyDown],
         callback) {
         unsafe {
-            let loop_source = event_tap.mach_port.create_runloop_source(0).expect("Somethings is bad ");
+            let loop_source = event_tap.mach_port.create_runloop_source(0).expect("Cannot start event tap. Make sure you have granted Accessibility Access for the application.");
             current.add_source(&loop_source, kCFRunLoopCommonModes);
             event_tap.enable();
             CFRunLoop::run_current();
