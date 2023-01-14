@@ -8,5 +8,8 @@ edition = "2021"
 [dependencies]
 core-foundation = "0.9.3"
 core-graphics = "0.22.3"
+env_logger = "0.10.0"
+lazy_static = "1.4.0"
 libc = "0.2.139"
+log = "0.4.17"
 vi = { git = "https://github.com/ZeroX-DG/vi-rs" }

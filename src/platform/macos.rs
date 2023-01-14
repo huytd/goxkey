@@ -1,7 +1,23 @@
 use core_foundation::runloop::{CFRunLoop, kCFRunLoopCommonModes};
 use core_graphics::{event::{EventField, CGEventTap, CGEventTapLocation, CGEventTapPlacement, CGEventTapOptions, CGEventType, KeyCode, CGKeyCode, CGEventFlags, CGEvent}, event_source::{CGEventSource, self}};
-
+use lazy_static::lazy_static;
 use super::{CallbackFn, KEY_ENTER, KEY_SPACE, KEY_TAB, KEY_DELETE, KEY_ESCAPE};
+
+struct SharedBox<T>(T);
+unsafe impl<T> Send for SharedBox<T> {}
+unsafe impl<T> Sync for SharedBox<T> {}
+impl<T> SharedBox<T> {
+    unsafe fn new(v: T) -> Self {
+        Self(v)
+    }
+}
+
+lazy_static! {
+    static ref EVENT_SOURCE: SharedBox<CGEventSource> = unsafe { SharedBox::new(CGEventSource::new(event_source::CGEventSourceStateID::Private).unwrap()) };
+    static ref BACKSPACE_DOWN: SharedBox<CGEvent> = unsafe { SharedBox::new(CGEvent::new_keyboard_event(EVENT_SOURCE.0.clone(), KeyCode::DELETE, true).unwrap()) };
+    static ref BACKSPACE_UP: SharedBox<CGEvent> = unsafe { SharedBox::new(CGEvent::new_keyboard_event(EVENT_SOURCE.0.clone(), KeyCode::DELETE, false).unwrap()) };
+    static ref SENDKEY: SharedBox<CGEvent> = unsafe { SharedBox::new(CGEvent::new_keyboard_event(EVENT_SOURCE.0.clone(), 0, true).unwrap()) };
+}
 
 // Modified from http://ritter.ist.psu.edu/projects/RUI/macosx/rui.c
 fn get_char(keycode: CGKeyCode) -> Option<char> {
@@ -52,23 +68,16 @@ fn get_char(keycode: CGKeyCode) -> Option<char> {
 }
 
 pub fn send_backspace(count: usize) -> Result<(), ()> {
-    let source = CGEventSource::new(event_source::CGEventSourceStateID::Private)?;
-    let backspace_down = CGEvent::new_keyboard_event(source.clone(), KeyCode::DELETE, true)?;
-    let backspace_up = CGEvent::new_keyboard_event(source.clone(), KeyCode::DELETE, false)?;
-
     for _ in 0..count {
-        backspace_down.post(CGEventTapLocation::HID);
-        backspace_up.post(CGEventTapLocation::HID);
+        BACKSPACE_DOWN.0.post(CGEventTapLocation::HID);
+        BACKSPACE_UP.0.post(CGEventTapLocation::HID);
     }
-
     Ok(())
 }
 
 pub fn send_string(string: &str) -> Result<(), ()> {
-    let source = CGEventSource::new(event_source::CGEventSourceStateID::Private)?;
-    let event = CGEvent::new_keyboard_event(source, 0, true)?;
-    event.set_string(string);
-    event.post(CGEventTapLocation::HID);
+    SENDKEY.0.set_string(string);
+    SENDKEY.0.post(CGEventTapLocation::HID);
     Ok(())
 }
 

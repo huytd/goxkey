@@ -1,8 +1,8 @@
 mod platform;
 
 use std::{cmp::Ordering, sync::Mutex};
-
 use platform::{send_backspace, send_string, run_event_listener, KEY_ENTER, KEY_TAB, KEY_SPACE, KEY_ESCAPE, KEY_DELETE};
+use log::debug;
 
 static mut TYPING_BUF: Mutex<Vec<char>> = Mutex::new(vec![]);
 
@@ -25,8 +25,9 @@ fn event_handler(keycode: char, shift: bool) -> bool {
         if ['a', 'e', 'o', 'd', 's', 't', 'j', 'f', 'x', 'r', 'w'].contains(&keycode) {
             let ret = vi::telex::transform_buffer(typing_buf.as_slice());
             if ret.chars().cmp(typing_buf.clone().into_iter()) != Ordering::Equal {
-                // println!("BUF {:?} - RET {:?}", typing_buf, ret);
+                debug!("BUF {:?} - RET {:?}", typing_buf, ret);
                 let backspace_count = typing_buf.len();
+                debug!("  DEL {} - SEND {}", backspace_count, ret);
                 _ = send_backspace(backspace_count);
                 _ = send_string(&ret);
                 *typing_buf = ret.chars().collect();
@@ -38,5 +39,6 @@ fn event_handler(keycode: char, shift: bool) -> bool {
 }
 
 fn main() {
+    env_logger::init();
     run_event_listener(&event_handler);
 }
