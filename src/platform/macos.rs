@@ -1,7 +1,13 @@
-use core_foundation::runloop::{CFRunLoop, kCFRunLoopCommonModes};
-use core_graphics::{event::{EventField, CGEventTap, CGEventTapLocation, CGEventTapPlacement, CGEventTapOptions, CGEventType, KeyCode, CGKeyCode, CGEventFlags, CGEvent}, event_source::{CGEventSource, self}};
+use super::{CallbackFn, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB};
+use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
+use core_graphics::{
+    event::{
+        CGEvent, CGEventFlags, CGEventTap, CGEventTapLocation, CGEventTapOptions,
+        CGEventTapPlacement, CGEventType, CGKeyCode, EventField, KeyCode,
+    },
+    event_source::{self, CGEventSource},
+};
 use lazy_static::lazy_static;
-use super::{CallbackFn, KEY_ENTER, KEY_SPACE, KEY_TAB, KEY_DELETE, KEY_ESCAPE};
 
 struct SharedBox<T>(T);
 unsafe impl<T> Send for SharedBox<T> {}
@@ -13,10 +19,22 @@ impl<T> SharedBox<T> {
 }
 
 lazy_static! {
-    static ref EVENT_SOURCE: SharedBox<CGEventSource> = unsafe { SharedBox::new(CGEventSource::new(event_source::CGEventSourceStateID::Private).unwrap()) };
-    static ref BACKSPACE_DOWN: SharedBox<CGEvent> = unsafe { SharedBox::new(CGEvent::new_keyboard_event(EVENT_SOURCE.0.clone(), KeyCode::DELETE, true).unwrap()) };
-    static ref BACKSPACE_UP: SharedBox<CGEvent> = unsafe { SharedBox::new(CGEvent::new_keyboard_event(EVENT_SOURCE.0.clone(), KeyCode::DELETE, false).unwrap()) };
-    static ref SENDKEY: SharedBox<CGEvent> = unsafe { SharedBox::new(CGEvent::new_keyboard_event(EVENT_SOURCE.0.clone(), 0, true).unwrap()) };
+    static ref EVENT_SOURCE: SharedBox<CGEventSource> = unsafe {
+        SharedBox::new(CGEventSource::new(event_source::CGEventSourceStateID::Private).unwrap())
+    };
+    static ref BACKSPACE_DOWN: SharedBox<CGEvent> = unsafe {
+        SharedBox::new(
+            CGEvent::new_keyboard_event(EVENT_SOURCE.0.clone(), KeyCode::DELETE, true).unwrap(),
+        )
+    };
+    static ref BACKSPACE_UP: SharedBox<CGEvent> = unsafe {
+        SharedBox::new(
+            CGEvent::new_keyboard_event(EVENT_SOURCE.0.clone(), KeyCode::DELETE, false).unwrap(),
+        )
+    };
+    static ref SENDKEY: SharedBox<CGEvent> = unsafe {
+        SharedBox::new(CGEvent::new_keyboard_event(EVENT_SOURCE.0.clone(), 0, true).unwrap())
+    };
 }
 
 // Modified from http://ritter.ist.psu.edu/projects/RUI/macosx/rui.c
@@ -49,21 +67,21 @@ fn get_char(keycode: CGKeyCode) -> Option<char> {
         45 => Some('n'),
         46 => Some('m'),
         18 => Some('1'),
-		19 => Some('2'),
-		20 => Some('3'),
-		21 => Some('4'),
-		22 => Some('6'),
-		23 => Some('5'),
-		25 => Some('9'),
-		26 => Some('7'),
-		28 => Some('8'),
-		29 => Some('0'),
-		36 | 52 => Some(KEY_ENTER), // ENTER
-		49 => Some(KEY_SPACE), // SPACE
-		48 => Some(KEY_TAB), // TAB
-		51 => Some(KEY_DELETE), // DELETE
-		53 => Some(KEY_ESCAPE), // ESC
-        _ => None
+        19 => Some('2'),
+        20 => Some('3'),
+        21 => Some('4'),
+        22 => Some('6'),
+        23 => Some('5'),
+        25 => Some('9'),
+        26 => Some('7'),
+        28 => Some('8'),
+        29 => Some('0'),
+        36 | 52 => Some(KEY_ENTER), // ENTER
+        49 => Some(KEY_SPACE),      // SPACE
+        48 => Some(KEY_TAB),        // TAB
+        51 => Some(KEY_DELETE),     // DELETE
+        53 => Some(KEY_ESCAPE),     // ESC
+        _ => None,
     }
 }
 
@@ -91,7 +109,8 @@ pub fn run_event_listener(callback: &CallbackFn) {
         |_, _, event| {
             let source_state_id = event.get_integer_value_field(EventField::EVENT_SOURCE_STATE_ID);
             if source_state_id == 1 {
-                let key_code = event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE) as CGKeyCode;
+                let key_code =
+                    event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE) as CGKeyCode;
                 let has_shift = event.get_flags().contains(CGEventFlags::CGEventFlagShift);
                 if let Some(key_char) = get_char(key_code) {
                     if callback(key_char, has_shift) {
@@ -101,7 +120,8 @@ pub fn run_event_listener(callback: &CallbackFn) {
                 }
             }
             Some(event.to_owned())
-        }) {
+        },
+    ) {
         unsafe {
             let loop_source = event_tap.mach_port.create_runloop_source(0).expect("Cannot start event tap. Make sure you have granted Accessibility Access for the application.");
             current.add_source(&loop_source, kCFRunLoopCommonModes);

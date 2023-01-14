@@ -1,8 +1,11 @@
 mod platform;
 
-use std::{cmp::Ordering, sync::Mutex};
-use platform::{send_backspace, send_string, run_event_listener, KEY_ENTER, KEY_TAB, KEY_SPACE, KEY_ESCAPE, KEY_DELETE};
 use log::debug;
+use platform::{
+    run_event_listener, send_backspace, send_string, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE,
+    KEY_TAB,
+};
+use std::{cmp::Ordering, sync::Mutex};
 
 static mut TYPING_BUF: Mutex<Vec<char>> = Mutex::new(vec![]);
 

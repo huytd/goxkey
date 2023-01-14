@@ -11,4 +11,4 @@ pub const KEY_ESCAPE: char = '\x26';
 
 pub type CallbackFn = dyn Fn(char, bool) -> bool;
 
-pub use os::{send_string, send_backspace, run_event_listener};
+pub use os::{run_event_listener, send_backspace, send_string};
