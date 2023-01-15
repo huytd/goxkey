@@ -29,7 +29,7 @@ fn event_handler(handle: Handle, keycode: char, shift: bool) -> bool {
             let ret = vi::telex::transform_buffer(typing_buf.as_slice());
             if ret.chars().cmp(typing_buf.clone().into_iter()) != Ordering::Equal {
                 debug!("BUF {:?} - RET {:?}", typing_buf, ret);
-                let backspace_count = typing_buf.len();
+                let backspace_count = typing_buf.len() - 1;
                 debug!("  DEL {} - SEND {}", backspace_count, ret);
                 _ = send_backspace(handle, backspace_count);
                 _ = send_string(handle, &ret);
