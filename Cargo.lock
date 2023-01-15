@@ -18,20 +18,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
-name = "bogo-rs"
-version = "0.1.0"
-dependencies = [
- "core-foundation",
- "core-graphics",
- "env_logger",
- "foreign-types",
- "lazy_static",
- "libc",
- "log",
- "vi",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -132,6 +118,20 @@ name = "foreign-types-shared"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
+
+[[package]]
+name = "goxkey"
+version = "0.1.0"
+dependencies = [
+ "core-foundation",
+ "core-graphics",
+ "env_logger",
+ "foreign-types",
+ "lazy_static",
+ "libc",
+ "log",
+ "vi",
+]
 
 [[package]]
 name = "hermit-abi"

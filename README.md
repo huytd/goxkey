@@ -1,4 +1,4 @@
-# Bộgõ-rs
+# gõ-key
 
 This is my attempt to build an input method editor using only Rust. It's not the first, and definitely not the last.
 
@@ -18,13 +18,13 @@ in the roadmap. If you're on these OSes, any help would be greatly appreciated!
 This project will only focus on the input handling logic, and provide a frontend for the
 input engine ([`vi-rs`](https://github.com/zerox-dg/vi-rs)).
 
-The following diagram explains how `bogo-rs` communicates with other components like OS's input source and `vi-rs`:
+The following diagram explains how `goxkey` communicates with other components like OS's input source and `vi-rs`:
 
 ```
 INPUT LAYER
 +------------------+              FRONTEND                ENGINE
 | macOS            | [d,d,a,a,y]  +---------+ "ddaay"     +-------+
-|  +- CGEventTap   | -----------> | bogo-rs | ----------> | vi-rs |
+|  +- CGEventTap   | -----------> | goxkey  | ----------> | vi-rs |
 |                  |              +---------+             +-------+
 | Linux   (TBD)    |               |  ^                    |
 | Windows (TBD)    |               |  |              "đây" |
@@ -43,7 +43,7 @@ This buffer will be reset whenever the user hit the `SPACE` or `ENTER` key.
 The input engine (`vi-rs`) will receive this buffer and convert it to a correct word, for example: `vieetj` will be
 transformed into `việt`.
 
-The result string will be sent back to `bogo-rs`, and from here, we will perform an edit on the target application. The edit
+The result string will be sent back to `goxkey`, and from here, we will perform an edit on the target application. The edit
 is done using [the BACKSPACE technique](https://notes.huy.rocks/posts/go-tieng-viet-linux.html#k%C4%A9-thu%E1%BA%ADt-backspace). It's
 unreliable but it has the benefit of not having the pre-edit line, worth it.
 
