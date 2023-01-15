@@ -9,6 +9,6 @@ pub const KEY_TAB: char = '\x09';
 pub const KEY_DELETE: char = '\x08';
 pub const KEY_ESCAPE: char = '\x26';
 
-pub type CallbackFn = dyn Fn(char, bool) -> bool;
+pub type CallbackFn = dyn Fn(os::Handle, char, bool) -> bool;
 
-pub use os::{run_event_listener, send_backspace, send_string};
+pub use os::{run_event_listener, send_backspace, send_string, Handle};

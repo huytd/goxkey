@@ -3,13 +3,13 @@ mod platform;
 use log::debug;
 use platform::{
     run_event_listener, send_backspace, send_string, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE,
-    KEY_TAB,
+    KEY_TAB, Handle,
 };
 use std::{cmp::Ordering, sync::Mutex};
 
 static mut TYPING_BUF: Mutex<Vec<char>> = Mutex::new(vec![]);
 
-fn event_handler(keycode: char, shift: bool) -> bool {
+fn event_handler(handle: Handle, keycode: char, shift: bool) -> bool {
     unsafe {
         let mut typing_buf = TYPING_BUF.lock().unwrap();
         match keycode {
@@ -31,8 +31,8 @@ fn event_handler(keycode: char, shift: bool) -> bool {
                 debug!("BUF {:?} - RET {:?}", typing_buf, ret);
                 let backspace_count = typing_buf.len();
                 debug!("  DEL {} - SEND {}", backspace_count, ret);
-                _ = send_backspace(backspace_count);
-                _ = send_string(&ret);
+                _ = send_backspace(handle, backspace_count);
+                _ = send_string(handle, &ret);
                 *typing_buf = ret.chars().collect();
                 return true;
             }

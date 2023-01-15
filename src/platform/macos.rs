@@ -1,41 +1,15 @@
+use std::ptr;
+
 use super::{CallbackFn, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB};
 use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
 use core_graphics::{
     event::{
-        CGEvent, CGEventFlags, CGEventTap, CGEventTapLocation, CGEventTapOptions,
-        CGEventTapPlacement, CGEventType, CGKeyCode, EventField, KeyCode,
-    },
-    event_source::{self, CGEventSource},
+        CGEventFlags, CGEventTap, CGEventTapLocation, CGEventTapOptions,
+        CGEventTapPlacement, CGEventType, CGKeyCode, EventField, KeyCode, CGEventTapProxy,
+    }, sys,
 };
-use lazy_static::lazy_static;
 
-struct SharedBox<T>(T);
-unsafe impl<T> Send for SharedBox<T> {}
-unsafe impl<T> Sync for SharedBox<T> {}
-impl<T> SharedBox<T> {
-    unsafe fn new(v: T) -> Self {
-        Self(v)
-    }
-}
-
-lazy_static! {
-    static ref EVENT_SOURCE: SharedBox<CGEventSource> = unsafe {
-        SharedBox::new(CGEventSource::new(event_source::CGEventSourceStateID::Private).unwrap())
-    };
-    static ref BACKSPACE_DOWN: SharedBox<CGEvent> = unsafe {
-        SharedBox::new(
-            CGEvent::new_keyboard_event(EVENT_SOURCE.0.clone(), KeyCode::DELETE, true).unwrap(),
-        )
-    };
-    static ref BACKSPACE_UP: SharedBox<CGEvent> = unsafe {
-        SharedBox::new(
-            CGEvent::new_keyboard_event(EVENT_SOURCE.0.clone(), KeyCode::DELETE, false).unwrap(),
-        )
-    };
-    static ref SENDKEY: SharedBox<CGEvent> = unsafe {
-        SharedBox::new(CGEvent::new_keyboard_event(EVENT_SOURCE.0.clone(), 0, true).unwrap())
-    };
-}
+pub type Handle = CGEventTapProxy;
 
 // Modified from http://ritter.ist.psu.edu/projects/RUI/macosx/rui.c
 fn get_char(keycode: CGKeyCode) -> Option<char> {
@@ -85,17 +59,42 @@ fn get_char(keycode: CGKeyCode) -> Option<char> {
     }
 }
 
-pub fn send_backspace(count: usize) -> Result<(), ()> {
+
+#[link(name = "CoreGraphics", kind = "framework")]
+extern {
+    fn CGEventTapPostEvent(proxy: CGEventTapProxy, event: sys::CGEventRef);
+    fn CGEventCreateKeyboardEvent(source: sys::CGEventSourceRef, keycode: CGKeyCode,
+        keydown: bool) -> sys::CGEventRef;
+    fn CGEventKeyboardSetUnicodeString(event: sys::CGEventRef,
+                                       length: libc::c_ulong,
+                                       string: *const u16);
+}
+
+pub fn send_backspace(handle: Handle, count: usize) -> Result<(), ()> {
     for _ in 0..count {
-        BACKSPACE_DOWN.0.post(CGEventTapLocation::HID);
-        BACKSPACE_UP.0.post(CGEventTapLocation::HID);
+        unsafe {
+            let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
+            let event_bs_down = CGEventCreateKeyboardEvent(null_event_source, KeyCode::DELETE, true);
+            let event_bs_up = CGEventCreateKeyboardEvent(null_event_source, KeyCode::DELETE, false);
+
+            CGEventTapPostEvent(handle, event_bs_down);
+            CGEventTapPostEvent(handle, event_bs_up);
+        }
     }
     Ok(())
 }
 
-pub fn send_string(string: &str) -> Result<(), ()> {
-    SENDKEY.0.set_string(string);
-    SENDKEY.0.post(CGEventTapLocation::HID);
+pub fn send_string(handle: Handle, string: &str) -> Result<(), ()> {
+    let utf_16_str: Vec<u16> = string.encode_utf16().collect();
+    let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
+
+    unsafe {
+        let event_str = CGEventCreateKeyboardEvent(null_event_source, 0, true);
+        let buflen = utf_16_str.len() as libc::c_ulong;
+        let bufptr = utf_16_str.as_ptr();
+        CGEventKeyboardSetUnicodeString(event_str, buflen, bufptr);
+        CGEventTapPostEvent(handle, event_str);
+    }
     Ok(())
 }
 
@@ -106,14 +105,14 @@ pub fn run_event_listener(callback: &CallbackFn) {
         CGEventTapPlacement::HeadInsertEventTap,
         CGEventTapOptions::Default,
         vec![CGEventType::KeyDown],
-        |_, _, event| {
+        |proxy, _, event| {
             let source_state_id = event.get_integer_value_field(EventField::EVENT_SOURCE_STATE_ID);
             if source_state_id == 1 {
                 let key_code =
                     event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE) as CGKeyCode;
                 let has_shift = event.get_flags().contains(CGEventFlags::CGEventFlagShift);
                 if let Some(key_char) = get_char(key_code) {
-                    if callback(key_char, has_shift) {
+                    if callback(proxy, key_char, has_shift) {
                         // block the key if already processed
                         return None;
                     }
