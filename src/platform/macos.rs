@@ -229,39 +229,48 @@ pub fn run_event_listener(callback: &CallbackFn) {
         CGEventTapLocation::HID,
         CGEventTapPlacement::HeadInsertEventTap,
         CGEventTapOptions::Default,
-        vec![CGEventType::KeyDown],
+        vec![CGEventType::KeyDown, CGEventType::RightMouseDown, CGEventType::LeftMouseDown, CGEventType::OtherMouseDown],
         |proxy, _, event| {
-            let source_state_id = event.get_integer_value_field(EventField::EVENT_SOURCE_STATE_ID);
-            if source_state_id == 1 {
-                let key_code =
-                    event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE) as CGKeyCode;
-                let mut modifiers = KeyModifier::new();
-                let flags = event.get_flags();
-                if flags.contains(CGEventFlags::CGEventFlagShift) {
-                    modifiers.add_shift();
-                }
-                if flags.contains(CGEventFlags::CGEventFlagControl) {
-                    modifiers.add_control();
-                }
-                if flags.contains(CGEventFlags::CGEventFlagCommand) {
-                    modifiers.add_super();
-                }
-                if flags.contains(CGEventFlags::CGEventFlagAlternate) {
-                    modifiers.add_alt();
-                }
-                if callback(proxy, get_char(key_code), modifiers) {
-                    // block the key if already processed
-                    return None;
+            match event.get_type() {
+                CGEventType::KeyDown => {
+                    let source_state_id = event.get_integer_value_field(EventField::EVENT_SOURCE_STATE_ID);
+                    if source_state_id == 1 {
+                        let key_code =
+                            event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE) as CGKeyCode;
+                        let mut modifiers = KeyModifier::new();
+                        let flags = event.get_flags();
+                        if flags.contains(CGEventFlags::CGEventFlagShift) {
+                            modifiers.add_shift();
+                        }
+                        if flags.contains(CGEventFlags::CGEventFlagControl) {
+                            modifiers.add_control();
+                        }
+                        if flags.contains(CGEventFlags::CGEventFlagCommand) {
+                            modifiers.add_super();
+                        }
+                        if flags.contains(CGEventFlags::CGEventFlagAlternate) {
+                            modifiers.add_alt();
+                        }
+                        if callback(proxy, get_char(key_code), modifiers) {
+                            // block the key if already processed
+                            return None;
+                        }
+                    }
+                },
+                _ => {
+                    // A callback with None char for dismissing the tracking buffer
+                    // but it's up to the implementor on the behavior
+                    callback(proxy, None, KeyModifier::new());
                 }
             }
             Some(event.to_owned())
         },
-    ) {
-        unsafe {
-            let loop_source = event_tap.mach_port.create_runloop_source(0).expect("Cannot start event tap. Make sure you have granted Accessibility Access for the application.");
-            current.add_source(&loop_source, kCFRunLoopCommonModes);
-            event_tap.enable();
-            CFRunLoop::run_current();
+        ) {
+            unsafe {
+                let loop_source = event_tap.mach_port.create_runloop_source(0).expect("Cannot start event tap. Make sure you have granted Accessibility Access for the application.");
+                current.add_source(&loop_source, kCFRunLoopCommonModes);
+                event_tap.enable();
+                CFRunLoop::run_current();
+            }
         }
-    }
 }
