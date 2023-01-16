@@ -1,12 +1,15 @@
 use std::ptr;
 
-use super::{CallbackFn, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB};
+use super::{
+    CallbackFn, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, KeyModifier,
+};
 use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
 use core_graphics::{
     event::{
-        CGEventFlags, CGEventTap, CGEventTapLocation, CGEventTapOptions,
-        CGEventTapPlacement, CGEventType, CGKeyCode, EventField, KeyCode, CGEventTapProxy,
-    }, sys,
+        CGEventFlags, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement, CGEventTapProxy,
+        CGEventType, CGKeyCode, EventField, KeyCode,
+    },
+    sys,
 };
 
 pub type Handle = CGEventTapProxy;
@@ -59,15 +62,19 @@ fn get_char(keycode: CGKeyCode) -> Option<char> {
     }
 }
 
-
 #[link(name = "CoreGraphics", kind = "framework")]
-extern {
+extern "C" {
     fn CGEventTapPostEvent(proxy: CGEventTapProxy, event: sys::CGEventRef);
-    fn CGEventCreateKeyboardEvent(source: sys::CGEventSourceRef, keycode: CGKeyCode,
-        keydown: bool) -> sys::CGEventRef;
-    fn CGEventKeyboardSetUnicodeString(event: sys::CGEventRef,
-                                       length: libc::c_ulong,
-                                       string: *const u16);
+    fn CGEventCreateKeyboardEvent(
+        source: sys::CGEventSourceRef,
+        keycode: CGKeyCode,
+        keydown: bool,
+    ) -> sys::CGEventRef;
+    fn CGEventKeyboardSetUnicodeString(
+        event: sys::CGEventRef,
+        length: libc::c_ulong,
+        string: *const u16,
+    );
 }
 
 pub fn send_backspace(handle: Handle, count: usize) -> Result<(), ()> {
@@ -75,7 +82,7 @@ pub fn send_backspace(handle: Handle, count: usize) -> Result<(), ()> {
     let (event_bs_down, event_bs_up) = unsafe {
         (
             CGEventCreateKeyboardEvent(null_event_source, KeyCode::DELETE, true),
-            CGEventCreateKeyboardEvent(null_event_source, KeyCode::DELETE, false)
+            CGEventCreateKeyboardEvent(null_event_source, KeyCode::DELETE, false),
         )
     };
     for _ in 0..count {
@@ -102,12 +109,24 @@ pub fn send_string(handle: Handle, string: &str) -> Result<(), ()> {
 }
 
 mod new_tap {
-    use std::{mem::{ManuallyDrop, self}, ptr};
+    use std::{
+        mem::{self, ManuallyDrop},
+        ptr,
+    };
 
-    use core_foundation::{mach_port::{CFMachPort, CFMachPortRef}, base::TCFType};
-    use core_graphics::{event::{CGEventTapProxy, CGEventType, CGEvent, CGEventTapLocation, CGEventTapPlacement, CGEventTapOptions, CGEventMask, CGEventTapCallBackFn}, sys};
-    use libc::c_void;
+    use core_foundation::{
+        base::TCFType,
+        mach_port::{CFMachPort, CFMachPortRef},
+    };
+    use core_graphics::{
+        event::{
+            CGEvent, CGEventMask, CGEventTapCallBackFn, CGEventTapLocation, CGEventTapOptions,
+            CGEventTapPlacement, CGEventTapProxy, CGEventType,
+        },
+        sys,
+    };
     use foreign_types::ForeignType;
+    use libc::c_void;
 
     type CGEventTapCallBackInternal = unsafe extern "C" fn(
         proxy: CGEventTapProxy,
@@ -117,7 +136,7 @@ mod new_tap {
     ) -> sys::CGEventRef;
 
     #[link(name = "CoreGraphics", kind = "framework")]
-    extern {
+    extern "C" {
         fn CGEventTapCreate(
             tap: CGEventTapLocation,
             place: CGEventTapPlacement,
@@ -144,7 +163,7 @@ mod new_tap {
             None => {
                 mem::forget(event);
                 ptr::null_mut() as sys::CGEventRef
-            },
+            }
         }
     }
 
@@ -192,7 +211,7 @@ mod new_tap {
                         callback_ref: Box::from_raw(cbr),
                     })
                 } else {
-                    Box::from_raw(cbr);
+                    _ = Box::from_raw(cbr);
                     Err(())
                 }
             }
@@ -216,9 +235,22 @@ pub fn run_event_listener(callback: &CallbackFn) {
             if source_state_id == 1 {
                 let key_code =
                     event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE) as CGKeyCode;
-                let has_shift = event.get_flags().contains(CGEventFlags::CGEventFlagShift);
+                let mut modifiers = KeyModifier::new();
+                let flags = event.get_flags();
+                if flags.contains(CGEventFlags::CGEventFlagShift) {
+                    modifiers.add_shift();
+                }
+                if flags.contains(CGEventFlags::CGEventFlagControl) {
+                    modifiers.add_control();
+                }
+                if flags.contains(CGEventFlags::CGEventFlagCommand) {
+                    modifiers.add_super();
+                }
+                if flags.contains(CGEventFlags::CGEventFlagAlternate) {
+                    modifiers.add_alt();
+                }
                 if let Some(key_char) = get_char(key_code) {
-                    if callback(proxy, key_char, has_shift) {
+                    if callback(proxy, key_char, modifiers) {
                         // block the key if already processed
                         return None;
                     }
