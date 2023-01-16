@@ -21,10 +21,12 @@ impl InputState {
 
     pub fn toggle_vietnamese(&mut self) {
         self.enabled = !self.enabled;
+        self.clear();
     }
 
     pub fn set_method(&mut self, method: TypingMethod) {
         self.method = method;
+        self.clear();
     }
 
     pub fn should_process(&self, c: &char) -> bool {
