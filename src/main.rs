@@ -25,33 +25,35 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                 return true;
             }
 
-            match keycode {
-                KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
-                    input_state.clear();
-                }
-                KEY_DELETE => {
-                    input_state.pop();
-                }
-                c => {
-                    if modifiers.is_super() || modifiers.is_control() || modifiers.is_alt() {
+            if input_state.enabled {
+                match keycode {
+                    KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
                         input_state.clear();
-                    } else {
-                        input_state.push(if modifiers.is_shift() {
-                            c.to_ascii_uppercase()
+                    }
+                    KEY_DELETE => {
+                        input_state.pop();
+                    }
+                    c => {
+                        if modifiers.is_super() || modifiers.is_control() || modifiers.is_alt() {
+                            input_state.clear();
                         } else {
-                            c
-                        });
+                            input_state.push(if modifiers.is_shift() {
+                                c.to_ascii_uppercase()
+                            } else {
+                                c
+                            });
 
-                        if input_state.should_process(&keycode) {
-                            let output = input_state.process_key();
-                            if !input_state.buffer.eq(&output) {
-                                debug!("BUF {:?} - RET {:?}", input_state.buffer, output);
-                                let backspace_count = input_state.buffer.chars().count() - 1;
-                                debug!("  DEL {} - SEND {}", backspace_count, output);
-                                _ = send_backspace(handle, backspace_count);
-                                _ = send_string(handle, &output);
-                                input_state.replace(output);
-                                return true;
+                            if input_state.should_process(&keycode) {
+                                let output = input_state.process_key();
+                                if !input_state.buffer.eq(&output) {
+                                    debug!("BUF {:?} - RET {:?}", input_state.buffer, output);
+                                    let backspace_count = input_state.buffer.chars().count() - 1;
+                                    debug!("  DEL {} - SEND {}", backspace_count, output);
+                                    _ = send_backspace(handle, backspace_count);
+                                    _ = send_string(handle, &output);
+                                    input_state.replace(output);
+                                    return true;
+                                }
                             }
                         }
                     }
