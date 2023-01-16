@@ -59,6 +59,6 @@ impl KeyModifier {
     }
 }
 
-pub type CallbackFn = dyn Fn(os::Handle, char, KeyModifier) -> bool;
+pub type CallbackFn = dyn Fn(os::Handle, Option<char>, KeyModifier) -> bool;
 
 pub use os::{run_event_listener, send_backspace, send_string, Handle};

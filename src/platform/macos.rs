@@ -249,11 +249,9 @@ pub fn run_event_listener(callback: &CallbackFn) {
                 if flags.contains(CGEventFlags::CGEventFlagAlternate) {
                     modifiers.add_alt();
                 }
-                if let Some(key_char) = get_char(key_code) {
-                    if callback(proxy, key_char, modifiers) {
-                        // block the key if already processed
-                        return None;
-                    }
+                if callback(proxy, get_char(key_code), modifiers) {
+                    // block the key if already processed
+                    return None;
                 }
             }
             Some(event.to_owned())
