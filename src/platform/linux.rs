@@ -10,6 +10,6 @@ pub fn send_string(string: &str) -> Result<(), ()> {
     todo!()
 }
 
-pub fn run_event_listener(callback: &CallbackFn) {
+pub fn run_event_listener(callback: &CallbackFn, event_sink: ExtEventSink) {
     todo!()
 }

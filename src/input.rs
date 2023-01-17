@@ -1,3 +1,7 @@
+use std::sync::Mutex;
+
+use lazy_static::lazy_static;
+
 #[derive(PartialEq, Eq)]
 pub enum TypingMethod {
     VNI,
@@ -64,4 +68,8 @@ impl InputState {
     pub fn clear(&mut self) {
         self.buffer.clear();
     }
+}
+
+lazy_static! {
+    pub static ref INPUT_STATE: Mutex<InputState> = Mutex::new(InputState::new());
 }

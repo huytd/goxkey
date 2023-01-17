@@ -11,6 +11,7 @@ use core_graphics::{
     },
     sys,
 };
+use druid::ExtEventSink;
 
 pub type Handle = CGEventTapProxy;
 
@@ -223,7 +224,7 @@ mod new_tap {
     }
 }
 
-pub fn run_event_listener(callback: &CallbackFn) {
+pub fn run_event_listener(callback: &CallbackFn, event_sink: ExtEventSink) {
     let current = CFRunLoop::get_current();
     if let Ok(event_tap) = new_tap::CGEventTap::new(
         CGEventTapLocation::HID,
@@ -251,7 +252,7 @@ pub fn run_event_listener(callback: &CallbackFn) {
                         if flags.contains(CGEventFlags::CGEventFlagAlternate) {
                             modifiers.add_alt();
                         }
-                        if callback(proxy, get_char(key_code), modifiers) {
+                        if callback(proxy, get_char(key_code), modifiers, event_sink.clone()) {
                             // block the key if already processed
                             return None;
                         }
@@ -260,7 +261,7 @@ pub fn run_event_listener(callback: &CallbackFn) {
                 _ => {
                     // A callback with None char for dismissing the tracking buffer
                     // but it's up to the implementor on the behavior
-                    callback(proxy, None, KeyModifier::new());
+                    callback(proxy, None, KeyModifier::new(), event_sink.clone());
                 }
             }
             Some(event.to_owned())
