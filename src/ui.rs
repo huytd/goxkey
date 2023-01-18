@@ -1,4 +1,4 @@
-use druid::{Lens, Data, Widget, widget::{Flex, Controller, Switch, Label, RadioGroup, Button, Container}, WidgetExt, Selector, EventCtx, Event, Env, Color, theme::{BORDER_DARK, BACKGROUND_DARK, PLACEHOLDER_COLOR}};
+use druid::{Lens, Data, Widget, widget::{Flex, Controller, Switch, Label, RadioGroup, Button, Container}, WidgetExt, Selector, EventCtx, Event, Env, theme::{BORDER_DARK, BACKGROUND_DARK, PLACEHOLDER_COLOR}};
 use crate::input::{INPUT_STATE, InputState, TypingMethod};
 
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
