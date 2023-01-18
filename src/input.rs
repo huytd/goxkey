@@ -1,7 +1,12 @@
-use std::sync::Mutex;
-
 use druid::Data;
 use once_cell::sync::Lazy;
+use std::sync::Mutex;
+
+// According to Google search, the longest possible Vietnamese word
+// is "nghiêng", which is 7 letters long. Add a little buffer for
+// tone and marks, I guess the longest possible buffer length would
+// be around 10 to 12.
+const MAX_POSSIBLE_WORD_LENGTH: usize = 10;
 
 #[derive(PartialEq, Eq, Data, Clone, Copy)]
 pub enum TypingMethod {
@@ -59,7 +64,9 @@ impl InputState {
     }
 
     pub fn push(&mut self, c: char) {
-        self.buffer.push(c);
+        if self.buffer.len() <= MAX_POSSIBLE_WORD_LENGTH {
+            self.buffer.push(c);
+        }
     }
 
     pub fn pop(&mut self) {

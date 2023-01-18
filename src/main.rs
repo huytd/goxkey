@@ -3,17 +3,48 @@ mod platform;
 mod ui;
 
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
-use input::INPUT_STATE;
+use input::{InputState, INPUT_STATE};
 use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
     run_event_listener, send_backspace, send_string, Handle, KeyModifier, KEY_DELETE, KEY_ENTER,
     KEY_ESCAPE, KEY_SPACE, KEY_TAB,
 };
-use std::thread;
+use std::{sync::MutexGuard, thread};
 use ui::{GoxData, UPDATE_UI};
 
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
+
+fn process_character(
+    input_state: &mut MutexGuard<InputState>,
+    handle: Handle,
+    c: char,
+    modifiers: KeyModifier,
+) -> bool {
+    if modifiers.is_super() || modifiers.is_control() || modifiers.is_alt() {
+        input_state.clear();
+    } else {
+        input_state.push(if modifiers.is_shift() {
+            c.to_ascii_uppercase()
+        } else {
+            c
+        });
+        debug!("BUFFER: {:?}", input_state.buffer);
+        if input_state.should_process(&c) {
+            let output = input_state.process_key();
+            debug!("TRANSFORMED: {:?}", output);
+            if !input_state.buffer.eq(&output) {
+                let backspace_count = input_state.buffer.chars().count() - 1;
+                debug!("BACKSPACE: {}", backspace_count);
+                _ = send_backspace(handle, backspace_count);
+                _ = send_string(handle, &output);
+                input_state.replace(output);
+                return true;
+            }
+        }
+    }
+    return false;
+}
 
 fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) -> bool {
     let mut input_state = INPUT_STATE.lock().unwrap();
@@ -38,28 +69,7 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                         input_state.pop();
                     }
                     c => {
-                        if modifiers.is_super() || modifiers.is_control() || modifiers.is_alt() {
-                            input_state.clear();
-                        } else {
-                            input_state.push(if modifiers.is_shift() {
-                                c.to_ascii_uppercase()
-                            } else {
-                                c
-                            });
-
-                            if input_state.should_process(&keycode) {
-                                let output = input_state.process_key();
-                                if !input_state.buffer.eq(&output) {
-                                    debug!("BUF {:?} - RET {:?}", input_state.buffer, output);
-                                    let backspace_count = input_state.buffer.chars().count() - 1;
-                                    debug!("  DEL {} - SEND {}", backspace_count, output);
-                                    _ = send_backspace(handle, backspace_count);
-                                    _ = send_string(handle, &output);
-                                    input_state.replace(output);
-                                    return true;
-                                }
-                            }
-                        }
+                        return process_character(&mut input_state, handle, c, modifiers);
                     }
                 }
             }
