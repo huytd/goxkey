@@ -1,9 +1,31 @@
-# gõ-key
+<p align="center">
+<img src="https://user-images.githubusercontent.com/613943/213092793-6f482b68-008e-43f3-bac6-3e93345379ac.png" width="90px" />
+
+</p>
 
 This is my attempt to build an input method editor using only Rust. It's not the first, and definitely not the last.
 
 The goal is to create an input method editor that allows the user to type Vietnamese text on the computer. Using
 either VNI or TELEX method. Other than that, no other feature are planned.
+
+## How to install
+
+Currently, we're still in a very early stage, hence, no pre-built binaries are provided.
+
+But you can get the source code and compile it yourself, it's very easy:
+
+1. Get the latest stable version of the Rust compiler ([see here](https://rustup.rs/))
+2. Install the [cargo-bundle](https://github.com/burtonageo/cargo-bundle) extension, this is neccessary for bundling macOS apps
+3. Checkout the source code of the **gõkey** project
+   ```
+   git clone https://github.com/huytd/goxkey && cd goxkey
+   ```
+4. Run the bundle command:
+   ```
+   cargo bundle
+   ```
+
+After this, you'll find the `Gõ Key.app` file in the `target/debug/bundle` folder.
 
 ## Dependencies
 

@@ -1,4 +1,9 @@
-#[derive(PartialEq, Eq)]
+use std::sync::Mutex;
+
+use druid::Data;
+use once_cell::sync::Lazy;
+
+#[derive(PartialEq, Eq, Data, Clone, Copy)]
 pub enum TypingMethod {
     VNI,
     Telex,
@@ -65,3 +70,5 @@ impl InputState {
         self.buffer.clear();
     }
 }
+
+pub static INPUT_STATE: Lazy<Mutex<InputState>> = Lazy::new(|| Mutex::new(InputState::new()));
