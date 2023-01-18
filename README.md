@@ -29,6 +29,10 @@ But you can get the source code and compile it yourself, it's very easy:
 
 After this, you'll find the `Gõ Key.app` file in the `target/debug/bundle` folder.
 
+<p align="center">
+   <img width="320" alt="image" src="https://user-images.githubusercontent.com/613943/213217673-e58c873a-9219-4a33-8487-620a07210206.png">
+</p>
+
 ## Dependencies
 
 - [core-foundation](https://crates.io/crates/core-foundation), [core-graphics](https://crates.io/crates/core-graphics): for event handling on macOS
