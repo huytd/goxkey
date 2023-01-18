@@ -1,8 +1,6 @@
 use std::ptr;
 
-use super::{
-    CallbackFn, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, KeyModifier,
-};
+use super::{CallbackFn, KeyModifier, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB};
 use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
 use core_graphics::{
     event::{
@@ -229,14 +227,21 @@ pub fn run_event_listener(callback: &CallbackFn) {
         CGEventTapLocation::HID,
         CGEventTapPlacement::HeadInsertEventTap,
         CGEventTapOptions::Default,
-        vec![CGEventType::KeyDown, CGEventType::RightMouseDown, CGEventType::LeftMouseDown, CGEventType::OtherMouseDown],
+        vec![
+            CGEventType::KeyDown,
+            CGEventType::RightMouseDown,
+            CGEventType::LeftMouseDown,
+            CGEventType::OtherMouseDown,
+        ],
         |proxy, _, event| {
             match event.get_type() {
                 CGEventType::KeyDown => {
-                    let source_state_id = event.get_integer_value_field(EventField::EVENT_SOURCE_STATE_ID);
+                    let source_state_id =
+                        event.get_integer_value_field(EventField::EVENT_SOURCE_STATE_ID);
                     if source_state_id == 1 {
-                        let key_code =
-                            event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE) as CGKeyCode;
+                        let key_code = event
+                            .get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE)
+                            as CGKeyCode;
                         let mut modifiers = KeyModifier::new();
                         let flags = event.get_flags();
                         if flags.contains(CGEventFlags::CGEventFlagShift) {
@@ -256,7 +261,7 @@ pub fn run_event_listener(callback: &CallbackFn) {
                             return None;
                         }
                     }
-                },
+                }
                 _ => {
                     // A callback with None char for dismissing the tracking buffer
                     // but it's up to the implementor on the behavior
@@ -265,12 +270,12 @@ pub fn run_event_listener(callback: &CallbackFn) {
             }
             Some(event.to_owned())
         },
-        ) {
-            unsafe {
-                let loop_source = event_tap.mach_port.create_runloop_source(0).expect("Cannot start event tap. Make sure you have granted Accessibility Access for the application.");
-                current.add_source(&loop_source, kCFRunLoopCommonModes);
-                event_tap.enable();
-                CFRunLoop::run_current();
-            }
+    ) {
+        unsafe {
+            let loop_source = event_tap.mach_port.create_runloop_source(0).expect("Cannot start event tap. Make sure you have granted Accessibility Access for the application.");
+            current.add_source(&loop_source, kCFRunLoopCommonModes);
+            event_tap.enable();
+            CFRunLoop::run_current();
         }
+    }
 }

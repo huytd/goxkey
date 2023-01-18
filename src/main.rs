@@ -2,7 +2,7 @@ mod input;
 mod platform;
 mod ui;
 
-use druid::{WindowDesc, AppLauncher, ExtEventSink, Target};
+use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
 use input::INPUT_STATE;
 use log::debug;
 use once_cell::sync::OnceCell;
@@ -10,8 +10,8 @@ use platform::{
     run_event_listener, send_backspace, send_string, Handle, KeyModifier, KEY_DELETE, KEY_ENTER,
     KEY_ESCAPE, KEY_SPACE, KEY_TAB,
 };
-use ui::{GoxData, UPDATE_UI};
 use std::thread;
+use ui::{GoxData, UPDATE_UI};
 
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
 
@@ -63,7 +63,7 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                     }
                 }
             }
-        },
+        }
         None => {
             input_state.clear();
         }

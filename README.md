@@ -79,5 +79,21 @@ To get yourself familiar with IME, there are some good article on the topic:
 - [Bỏ dấu trong tiếng Việt](https://viethung.space/blog/2020/07/14/Bo-dau-trong-tieng-Viet/), zerox-dg
 - [Chuyện gõ tiếng Việt trên Linux](https://notes.huy.rocks/posts/go-tieng-viet-linux.html), huytd
 
+## Local development setup
 
+To setup the project locally, first, checkout the code and run the install script to have all the Git hooks configured:
 
+```sh
+$ git clone https://github.com/huytd/goxkey && cd goxkey
+$ make setup
+```
+
+After this step, you can use the `make` commands to run or bundle the code as needed:
+
+```sh
+$ make run
+
+# or
+
+$ make bundle
+```
