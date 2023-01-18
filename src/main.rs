@@ -71,7 +71,7 @@ fn main() {
 
     let win = WindowDesc::new(ui::main_ui_builder)
         .title("gõkey")
-        .window_size((300.0, 100.0));
+        .window_size((340.0, 210.0));
     let app = AppLauncher::with_window(win);
     let event_sink = app.get_external_handle();
 

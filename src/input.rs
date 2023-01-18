@@ -1,8 +1,9 @@
 use std::sync::Mutex;
 
+use druid::Data;
 use lazy_static::lazy_static;
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Data, Clone, Copy)]
 pub enum TypingMethod {
     VNI,
     Telex,
