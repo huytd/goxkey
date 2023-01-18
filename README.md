@@ -1,5 +1,6 @@
 <p align="center">
-<img src="https://user-images.githubusercontent.com/613943/213092536-834556c0-9551-49b3-b0d7-3de3defc8e72.png" width="84px"/>
+<img src="https://user-images.githubusercontent.com/613943/213092793-6f482b68-008e-43f3-bac6-3e93345379ac.png" width="90px" />
+
 </p>
 
 This is my attempt to build an input method editor using only Rust. It's not the first, and definitely not the last.
