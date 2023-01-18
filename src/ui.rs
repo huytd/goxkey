@@ -98,7 +98,7 @@ pub fn main_ui_builder() -> impl Widget<GoxData> {
         .with_child(
             Flex::row()
             .with_child(Label::new("Bật tắt gõ tiếng Việt"))
-            .with_child(Label::new("⌃ + ⌘ + Space").border(Color::GRAY, 1.0).rounded(4.0))
+            .with_child(Label::new("⌃ ⌘ Space").border(Color::GRAY, 1.0).rounded(4.0))
             .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
             .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
             .must_fill_main_axis(true)
