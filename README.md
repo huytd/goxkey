@@ -1,7 +1,6 @@
 <p align="center">
-   <img align="center" src="https://user-images.githubusercontent.com/613943/213090220-12c4af57-b2ff-42ab-8ef9-e984909ba991.png"/>
+<img src="https://user-images.githubusercontent.com/613943/213092536-834556c0-9551-49b3-b0d7-3de3defc8e72.png" width="84px"/>
 </p>
-<h1 align="center">gõkey</h1>
 
 This is my attempt to build an input method editor using only Rust. It's not the first, and definitely not the last.
 
