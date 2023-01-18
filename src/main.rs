@@ -5,6 +5,7 @@ mod ui;
 use druid::{WindowDesc, AppLauncher, ExtEventSink, Target};
 use input::INPUT_STATE;
 use log::debug;
+use once_cell::sync::OnceCell;
 use platform::{
     run_event_listener, send_backspace, send_string, Handle, KeyModifier, KEY_DELETE, KEY_ENTER,
     KEY_ESCAPE, KEY_SPACE, KEY_TAB,
@@ -12,7 +13,9 @@ use platform::{
 use ui::{GoxData, UPDATE_UI};
 use std::thread;
 
-fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier, event_sink: ExtEventSink) -> bool {
+static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
+
+fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) -> bool {
     let mut input_state = INPUT_STATE.lock().unwrap();
 
     match keycode {
@@ -20,7 +23,9 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier, 
             // Toggle Vietnamese input mod with Ctrl + Cmd + Space key
             if modifiers.is_control() && modifiers.is_super() && keycode == KEY_SPACE {
                 input_state.toggle_vietnamese();
-                _ = event_sink.submit_command(UPDATE_UI, (), Target::Auto);
+                if let Some(event_sink) = UI_EVENT_SINK.get() {
+                    _ = event_sink.submit_command(UPDATE_UI, (), Target::Auto);
+                }
                 return true;
             }
 
@@ -71,12 +76,13 @@ fn main() {
 
     let win = WindowDesc::new(ui::main_ui_builder)
         .title("gõkey")
-        .window_size((340.0, 210.0));
+        .window_size((320.0, 200.0));
     let app = AppLauncher::with_window(win);
     let event_sink = app.get_external_handle();
+    _ = UI_EVENT_SINK.set(event_sink);
 
     thread::spawn(|| {
-        run_event_listener(&event_handler, event_sink);
+        run_event_listener(&event_handler);
     });
 
     _ = app.launch(GoxData::new());

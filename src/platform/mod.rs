@@ -4,7 +4,6 @@
 mod os;
 
 use bitflags::bitflags;
-use druid::ExtEventSink;
 pub use os::{run_event_listener, send_backspace, send_string, Handle};
 
 pub const KEY_ENTER: char = '\x13';
@@ -61,4 +60,4 @@ impl KeyModifier {
     }
 }
 
-pub type CallbackFn = dyn Fn(os::Handle, Option<char>, KeyModifier, ExtEventSink) -> bool;
+pub type CallbackFn = dyn Fn(os::Handle, Option<char>, KeyModifier) -> bool;

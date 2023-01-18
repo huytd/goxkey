@@ -678,9 +678,9 @@ dependencies = [
  "druid",
  "env_logger",
  "foreign-types",
- "lazy_static",
  "libc",
  "log",
+ "once_cell",
  "vi",
 ]
 

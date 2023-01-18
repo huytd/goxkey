@@ -1,4 +1,4 @@
-use druid::{Lens, Data, Widget, widget::{Flex, Controller, Switch, Label, RadioGroup, Align, Button}, WidgetExt, Selector, EventCtx, Event, Env, Color};
+use druid::{Lens, Data, Widget, widget::{Flex, Controller, Switch, Label, RadioGroup, Button, Container}, WidgetExt, Selector, EventCtx, Event, Env, Color, theme::{BORDER_DARK, BACKGROUND_DARK, PLACEHOLDER_COLOR}};
 use crate::input::{INPUT_STATE, InputState, TypingMethod};
 
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
@@ -64,58 +64,68 @@ pub fn main_ui_builder() -> impl Widget<GoxData> {
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
         .main_axis_alignment(druid::widget::MainAxisAlignment::Start)
         .with_child(
-            Flex::row()
-            .with_child(Label::new("Chế độ gõ tiếng Việt"))
-            .with_child(
-                Switch::new()
-                .lens(GoxData::is_enabled)
-                .on_click(|_, data, _| {
-                    data.toggle_vietnamese();
-                })
-            )
-            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-            .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
-            .must_fill_main_axis(true)
-            .expand_width()
-            .padding(8.0)
-        )
-        .with_child(
-            Flex::row()
-            .with_child(Label::new("Kiểu gõ"))
-            .with_child(
-                RadioGroup::new(vec![
-                    ("Telex", TypingMethod::Telex),
-                    ("VNI", TypingMethod::VNI),
-                ])
-                .lens(GoxData::typing_method)
-            )
-            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-            .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
-            .must_fill_main_axis(true)
-            .expand_width()
-            .padding(8.0)
-        )
-        .with_child(
-            Flex::row()
-            .with_child(Label::new("Bật tắt gõ tiếng Việt"))
-            .with_child(Label::new("⌃ ⌘ Space").border(Color::GRAY, 1.0).rounded(4.0))
-            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-            .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
-            .must_fill_main_axis(true)
-            .expand_width()
-            .padding(8.0)
-        )
-        .with_child(
-            Flex::row()
-            .with_child(Button::new("Cài đặt mặc định").fix_height(28.0))
-            .with_spacer(8.0)
-            .with_child(Button::new("Đóng").fix_width(100.0).fix_height(28.0))
-            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-            .main_axis_alignment(druid::widget::MainAxisAlignment::End)
-            .must_fill_main_axis(true)
-            .expand_width()
-            .padding(8.0)
-        )
-        .padding(8.0)
-        .controller(GoxUIController)
+            Container::new(
+                Flex::column()
+                    .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                    .main_axis_alignment(druid::widget::MainAxisAlignment::Start)
+                    .with_child(
+                        Flex::row()
+                        .with_child(Label::new("Chế độ gõ tiếng Việt"))
+                        .with_child(
+                            Switch::new()
+                            .lens(GoxData::is_enabled)
+                            .on_click(|_, data, _| {
+                                data.toggle_vietnamese();
+                            })
+                            )
+                        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                        .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+                        .must_fill_main_axis(true)
+                        .expand_width()
+                        .padding(8.0)
+                        )
+                    .with_child(
+                        Flex::row()
+                        .with_child(Label::new("Kiểu gõ"))
+                        .with_child(
+                            RadioGroup::new(vec![
+                                            ("Telex", TypingMethod::Telex),
+                                            ("VNI", TypingMethod::VNI),
+                            ])
+                            .lens(GoxData::typing_method)
+                            )
+                        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                        .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+                        .must_fill_main_axis(true)
+                        .expand_width()
+                        .padding(8.0)
+                        )
+                    .with_child(
+                        Flex::row()
+                        .with_child(Label::new("Bật tắt gõ tiếng Việt"))
+                        .with_child(Label::new("⌃ ⌘ Space").border(PLACEHOLDER_COLOR, 1.0).rounded(4.0))
+                        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                        .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+                        .must_fill_main_axis(true)
+                        .expand_width()
+                        .padding(8.0)
+                        )
+                    )
+                    .border(BORDER_DARK, 1.0)
+                    .rounded(4.0)
+                    .background(BACKGROUND_DARK)
+                )
+                .with_spacer(8.0)
+                .with_child(
+                    Flex::row()
+                    .with_child(Button::new("Cài đặt mặc định").fix_height(28.0))
+                    .with_spacer(8.0)
+                    .with_child(Button::new("Đóng").fix_width(100.0).fix_height(28.0))
+                    .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                    .main_axis_alignment(druid::widget::MainAxisAlignment::End)
+                    .must_fill_main_axis(true)
+                    .expand_width()
+                )
+                .padding(8.0)
+                .controller(GoxUIController)
 }

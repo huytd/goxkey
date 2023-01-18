@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
 use druid::Data;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 
 #[derive(PartialEq, Eq, Data, Clone, Copy)]
 pub enum TypingMethod {
@@ -71,6 +71,4 @@ impl InputState {
     }
 }
 
-lazy_static! {
-    pub static ref INPUT_STATE: Mutex<InputState> = Mutex::new(InputState::new());
-}
+pub static INPUT_STATE: Lazy<Mutex<InputState>> = Lazy::new(|| Mutex::new(InputState::new()));
