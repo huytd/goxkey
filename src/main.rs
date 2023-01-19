@@ -3,7 +3,7 @@ mod platform;
 mod ui;
 
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
-use input::{InputState, INPUT_STATE};
+use input::{user_attempted_to_restore_a_word, InputState, INPUT_STATE};
 use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
@@ -22,8 +22,8 @@ fn process_character(
     modifiers: KeyModifier,
 ) -> bool {
     if modifiers.is_super() || modifiers.is_control() || modifiers.is_alt() {
-        input_state.clear();
-    } else {
+        input_state.new_word();
+    } else if input_state.should_track {
         input_state.push(if modifiers.is_shift() {
             c.to_ascii_uppercase()
         } else {
@@ -38,7 +38,11 @@ fn process_character(
                 debug!("BACKSPACE: {}", backspace_count);
                 _ = send_backspace(handle, backspace_count);
                 _ = send_string(handle, &output);
-                input_state.replace(output);
+                if user_attempted_to_restore_a_word(&input_state.buffer, &output) {
+                    input_state.stop_tracking();
+                } else {
+                    input_state.replace(output);
+                }
                 return true;
             }
         }
@@ -63,7 +67,7 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
             if input_state.enabled {
                 match keycode {
                     KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
-                        input_state.clear();
+                        input_state.new_word();
                     }
                     KEY_DELETE => {
                         input_state.pop();
@@ -75,7 +79,7 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
             }
         }
         None => {
-            input_state.clear();
+            input_state.new_word();
         }
     }
     false

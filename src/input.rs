@@ -8,6 +8,17 @@ use std::sync::Mutex;
 // be around 10 to 12.
 const MAX_POSSIBLE_WORD_LENGTH: usize = 10;
 
+const TONABLE_VOWELS: [char; 144] = [
+    'a', 'à', 'ả', 'ã', 'á', 'ạ', 'ă', 'ằ', 'ẳ', 'ẵ', 'ắ', 'ặ', 'â', 'ầ', 'ẩ', 'ẫ', 'ấ', 'ậ', 'A',
+    'À', 'Ả', 'Ã', 'Á', 'Ạ', 'Ă', 'Ằ', 'Ẳ', 'Ẵ', 'Ắ', 'Ặ', 'Â', 'Ầ', 'Ẩ', 'Ẫ', 'Ấ', 'Ậ', 'e', 'è',
+    'ẻ', 'ẽ', 'é', 'ẹ', 'ê', 'ề', 'ể', 'ễ', 'ế', 'ệ', 'E', 'È', 'Ẻ', 'Ẽ', 'É', 'Ẹ', 'Ê', 'Ề', 'Ể',
+    'Ễ', 'Ế', 'Ệ', 'i', 'ì', 'ỉ', 'ĩ', 'í', 'ị', 'I', 'Ì', 'Ỉ', 'Ĩ', 'Í', 'Ị', 'o', 'ò', 'ỏ', 'õ',
+    'ó', 'ọ', 'ô', 'ồ', 'ổ', 'ỗ', 'ố', 'ộ', 'ơ', 'ờ', 'ở', 'ỡ', 'ớ', 'ợ', 'O', 'Ò', 'Ỏ', 'Õ', 'Ó',
+    'Ọ', 'Ô', 'Ồ', 'Ổ', 'Ỗ', 'Ố', 'Ộ', 'Ơ', 'Ờ', 'Ở', 'Ỡ', 'Ớ', 'Ợ', 'u', 'ù', 'ủ', 'ũ', 'ú', 'ụ',
+    'ư', 'ừ', 'ử', 'ữ', 'ứ', 'ự', 'U', 'Ù', 'Ủ', 'Ũ', 'Ú', 'Ụ', 'Ư', 'Ừ', 'Ử', 'Ữ', 'Ứ', 'Ự', 'y',
+    'ỳ', 'ỷ', 'ỹ', 'ý', 'ỵ', 'Y', 'Ỳ', 'Ỷ', 'Ỹ', 'Ý', 'Ỵ',
+];
+
 #[derive(PartialEq, Eq, Data, Clone, Copy)]
 pub enum TypingMethod {
     VNI,
@@ -18,6 +29,7 @@ pub struct InputState {
     pub buffer: String,
     pub method: TypingMethod,
     pub enabled: bool,
+    pub should_track: bool,
 }
 
 impl InputState {
@@ -26,17 +38,28 @@ impl InputState {
             buffer: String::new(),
             method: TypingMethod::Telex,
             enabled: true,
+            should_track: true,
         }
+    }
+
+    pub fn new_word(&mut self) {
+        self.clear();
+        self.should_track = true;
+    }
+
+    pub fn stop_tracking(&mut self) {
+        self.clear();
+        self.should_track = false;
     }
 
     pub fn toggle_vietnamese(&mut self) {
         self.enabled = !self.enabled;
-        self.clear();
+        self.new_word();
     }
 
     pub fn set_method(&mut self, method: TypingMethod) {
         self.method = method;
-        self.clear();
+        self.new_word();
     }
 
     pub fn should_process(&self, c: &char) -> bool {
@@ -71,6 +94,9 @@ impl InputState {
 
     pub fn pop(&mut self) {
         self.buffer.pop();
+        if self.buffer.is_empty() {
+            self.new_word();
+        }
     }
 
     pub fn clear(&mut self) {
@@ -79,3 +105,20 @@ impl InputState {
 }
 
 pub static INPUT_STATE: Lazy<Mutex<InputState>> = Lazy::new(|| Mutex::new(InputState::new()));
+
+// Detect whenever the user is attempting to restore the English word or not by
+// checking for any toned vowels in the input, and see if the output has any vowels.
+// This should be a temporary fix until the engine (vi-rs) implemented a proper one.
+pub fn user_attempted_to_restore_a_word(input: &str, output: &str) -> bool {
+    let input_has_toned_vowels = input
+        .chars()
+        .filter(|c| TONABLE_VOWELS.contains(c) && c > &'z')
+        .count()
+        > 0;
+    let output_has_no_toned_vowels = output
+        .chars()
+        .filter(|c| TONABLE_VOWELS.contains(c) && c > &'z')
+        .count()
+        == 0;
+    return input_has_toned_vowels && output_has_no_toned_vowels;
+}
