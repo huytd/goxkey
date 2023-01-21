@@ -17,7 +17,7 @@ Currently, we're still in a very early stage, hence, no pre-built binaries are p
 But you can get the source code and compile it yourself, it's very easy:
 
 1. Get the latest stable version of the Rust compiler ([see here](https://rustup.rs/))
-2. Install the [cargo-bundle](https://github.com/burtonageo/cargo-bundle) extension, this is neccessary for bundling macOS apps
+2. Install the [cargo-bundle](https://github.com/burtonageo/cargo-bundle) extension, this is necessary for bundling macOS apps
 3. Checkout the source code of the **gõkey** project
    ```
    git clone https://github.com/huytd/goxkey && cd goxkey
