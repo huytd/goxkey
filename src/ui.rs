@@ -8,12 +8,12 @@ use druid::{
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
 
 #[derive(Clone, Data, Lens)]
-pub struct GoxData {
+pub struct UIDataAdapter {
     is_enabled: bool,
     typing_method: TypingMethod,
 }
 
-impl GoxData {
+impl UIDataAdapter {
     pub fn new() -> Self {
         let mut ret = Self {
             is_enabled: true,
@@ -36,15 +36,15 @@ impl GoxData {
     }
 }
 
-pub struct GoxUIController;
+pub struct UIController;
 
-impl<W: Widget<GoxData>> Controller<GoxData, W> for GoxUIController {
+impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
     fn event(
         &mut self,
         child: &mut W,
         ctx: &mut EventCtx,
         event: &Event,
-        data: &mut GoxData,
+        data: &mut UIDataAdapter,
         env: &Env,
     ) {
         match event {
@@ -61,7 +61,7 @@ impl<W: Widget<GoxData>> Controller<GoxData, W> for GoxUIController {
     }
 }
 
-pub fn main_ui_builder() -> impl Widget<GoxData> {
+pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
         .main_axis_alignment(druid::widget::MainAxisAlignment::Start)
@@ -73,7 +73,7 @@ pub fn main_ui_builder() -> impl Widget<GoxData> {
                     .with_child(
                         Flex::row()
                             .with_child(Label::new("Chế độ gõ tiếng Việt"))
-                            .with_child(Switch::new().lens(GoxData::is_enabled).on_click(
+                            .with_child(Switch::new().lens(UIDataAdapter::is_enabled).on_click(
                                 |_, data, _| {
                                     data.toggle_vietnamese();
                                 },
@@ -92,7 +92,7 @@ pub fn main_ui_builder() -> impl Widget<GoxData> {
                                     ("Telex", TypingMethod::Telex),
                                     ("VNI", TypingMethod::VNI),
                                 ])
-                                .lens(GoxData::typing_method),
+                                .lens(UIDataAdapter::typing_method),
                             )
                             .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
                             .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
@@ -131,5 +131,5 @@ pub fn main_ui_builder() -> impl Widget<GoxData> {
                 .expand_width(),
         )
         .padding(8.0)
-        .controller(GoxUIController)
+        .controller(UIController)
 }

@@ -11,7 +11,7 @@ use platform::{
     KEY_ESCAPE, KEY_SPACE, KEY_TAB,
 };
 use std::{sync::MutexGuard, thread};
-use ui::{GoxData, UPDATE_UI};
+use ui::{UIDataAdapter, UPDATE_UI};
 
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
 
@@ -100,5 +100,5 @@ fn main() {
         run_event_listener(&event_handler);
     });
 
-    _ = app.launch(GoxData::new());
+    _ = app.launch(UIDataAdapter::new());
 }
