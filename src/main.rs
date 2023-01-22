@@ -34,11 +34,11 @@ fn process_character(
             let output = input_state.process_key();
             debug!("TRANSFORMED: {:?}", output);
             if !input_state.buffer.eq(&output) {
-                let backspace_count = input_state.buffer.chars().count() - 1;
+                let backspace_count = input_state.get_backspace_count();
                 debug!("BACKSPACE: {}", backspace_count);
                 _ = send_backspace(handle, backspace_count);
                 _ = send_string(handle, &output);
-                if user_attempted_to_restore_a_word(&input_state.buffer, &output) {
+                if user_attempted_to_restore_a_word(&input_state.display_buffer, &output) {
                     input_state.stop_tracking();
                 } else {
                     input_state.replace(output);

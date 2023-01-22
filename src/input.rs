@@ -27,6 +27,7 @@ pub enum TypingMethod {
 
 pub struct InputState {
     pub buffer: String,
+    pub display_buffer: String,
     pub method: TypingMethod,
     pub enabled: bool,
     pub should_track: bool,
@@ -36,6 +37,7 @@ impl InputState {
     pub fn new() -> Self {
         Self {
             buffer: String::new(),
+            display_buffer: String::new(),
             method: TypingMethod::Telex,
             enabled: true,
             should_track: true,
@@ -82,18 +84,24 @@ impl InputState {
         return output;
     }
 
+    pub fn get_backspace_count(&self) -> usize {
+        self.display_buffer.chars().count() - 1
+    }
+
     pub fn replace(&mut self, buf: String) {
-        self.buffer = buf;
+        self.display_buffer = buf;
     }
 
     pub fn push(&mut self, c: char) {
         if self.buffer.len() <= MAX_POSSIBLE_WORD_LENGTH {
             self.buffer.push(c);
+            self.display_buffer.push(c);
         }
     }
 
     pub fn pop(&mut self) {
         self.buffer.pop();
+        self.display_buffer.pop();
         if self.buffer.is_empty() {
             self.new_word();
         }
@@ -101,6 +109,7 @@ impl InputState {
 
     pub fn clear(&mut self) {
         self.buffer.clear();
+        self.display_buffer.clear();
     }
 }
 
