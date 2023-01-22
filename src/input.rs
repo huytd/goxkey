@@ -8,6 +8,8 @@ use std::sync::Mutex;
 // be around 10 to 12.
 const MAX_POSSIBLE_WORD_LENGTH: usize = 10;
 
+const MAX_DUPLICATE_LENGTH: usize = 4;
+
 const TONABLE_VOWELS: [char; 144] = [
     'a', 'à', 'ả', 'ã', 'á', 'ạ', 'ă', 'ằ', 'ẳ', 'ẵ', 'ắ', 'ặ', 'â', 'ầ', 'ẩ', 'ẫ', 'ấ', 'ậ', 'A',
     'À', 'Ả', 'Ã', 'Á', 'Ạ', 'Ă', 'Ằ', 'Ẳ', 'Ẵ', 'Ắ', 'Ặ', 'Â', 'Ầ', 'Ẩ', 'Ẫ', 'Ấ', 'Ậ', 'e', 'è',
@@ -96,6 +98,9 @@ impl InputState {
         if self.buffer.len() <= MAX_POSSIBLE_WORD_LENGTH {
             self.buffer.push(c);
             self.display_buffer.push(c);
+            if self.should_stop_tracking() {
+                self.stop_tracking();
+            }
         }
     }
 
@@ -110,6 +115,20 @@ impl InputState {
     pub fn clear(&mut self) {
         self.buffer.clear();
         self.display_buffer.clear();
+    }
+
+    // a set of rules that will trigger a hard stop for tracking
+    // maybe these weird stuff should not be here, but let's
+    // implement it anyway. we'll figure out where to put these
+    // later on.
+    pub fn should_stop_tracking(&mut self) -> bool {
+        let len = self.buffer.len();
+        if len >= MAX_DUPLICATE_LENGTH {
+            let buf = &self.buffer[len-MAX_DUPLICATE_LENGTH..];
+            let first = buf.chars().nth(0).unwrap();
+            return buf.chars().all(|c| c == first);
+        }
+        return false;
     }
 }
 
