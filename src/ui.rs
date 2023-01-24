@@ -1,4 +1,4 @@
-use crate::input::{InputState, TypingMethod, INPUT_STATE};
+use crate::input::{TypingMethod, INPUT_STATE};
 use druid::{
     theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR},
     widget::{Button, Container, Controller, Flex, Label, RadioGroup, Switch},
@@ -19,20 +19,22 @@ impl UIDataAdapter {
             is_enabled: true,
             typing_method: TypingMethod::Telex,
         };
-        let input_state = INPUT_STATE.lock().unwrap();
-        ret.update(&input_state);
+        ret.update();
         ret
     }
 
-    pub fn update(&mut self, input_state: &InputState) {
-        self.is_enabled = input_state.enabled;
-        self.typing_method = input_state.method;
+    pub fn update(&mut self) {
+        unsafe {
+            self.is_enabled = INPUT_STATE.is_enabled();
+            self.typing_method = INPUT_STATE.get_method();
+        }
     }
 
     pub fn toggle_vietnamese(&mut self) {
-        let mut input_state = INPUT_STATE.lock().unwrap();
-        input_state.toggle_vietnamese();
-        self.update(&input_state);
+        unsafe {
+            INPUT_STATE.toggle_vietnamese();
+        }
+        self.update();
     }
 }
 
@@ -50,8 +52,7 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
         match event {
             Event::Command(cmd) => match cmd.get(UPDATE_UI) {
                 Some(_) => {
-                    let input_state = INPUT_STATE.lock().unwrap();
-                    data.update(&input_state);
+                    data.update();
                 }
                 None => {}
             },

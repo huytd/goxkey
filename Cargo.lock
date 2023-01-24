@@ -1635,9 +1635,9 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "vi"
-version = "0.3.0"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7af060e9bce54ac3d950c3a281d5f291b546d2b74318a1e2595638444ea13786"
+checksum = "6b67b028d316426c189e901e7e8ef69f2668f9d6cd5599c94c16ebc3655fbf90"
 dependencies = [
  "phf",
  "regex",

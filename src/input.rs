@@ -1,6 +1,6 @@
 use druid::Data;
+use log::debug;
 use once_cell::sync::Lazy;
-use std::sync::Mutex;
 
 // According to Google search, the longest possible Vietnamese word
 // is "nghiêng", which is 7 letters long. Add a little buffer for
@@ -21,6 +21,8 @@ const TONABLE_VOWELS: [char; 144] = [
     'ỳ', 'ỷ', 'ỹ', 'ý', 'ỵ', 'Y', 'Ỳ', 'Ỷ', 'Ỹ', 'Ý', 'Ỵ',
 ];
 
+pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(|| InputState::new());
+
 #[derive(PartialEq, Eq, Data, Clone, Copy)]
 pub enum TypingMethod {
     VNI,
@@ -28,11 +30,11 @@ pub enum TypingMethod {
 }
 
 pub struct InputState {
-    pub buffer: String,
-    pub display_buffer: String,
-    pub method: TypingMethod,
-    pub enabled: bool,
-    pub should_track: bool,
+    buffer: String,
+    display_buffer: String,
+    method: TypingMethod,
+    enabled: bool,
+    should_track: bool,
 }
 
 impl InputState {
@@ -44,6 +46,14 @@ impl InputState {
             enabled: true,
             should_track: true,
         }
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn is_tracking(&self) -> bool {
+        self.should_track
     }
 
     pub fn new_word(&mut self) {
@@ -66,6 +76,10 @@ impl InputState {
         self.new_word();
     }
 
+    pub fn get_method(&self) -> TypingMethod {
+        self.method
+    }
+
     pub fn should_process(&self, c: &char) -> bool {
         self.enabled
             && match self.method {
@@ -74,6 +88,10 @@ impl InputState {
                     ['a', 'e', 'o', 'd', 's', 't', 'j', 'f', 'x', 'r', 'w'].contains(c)
                 }
             }
+    }
+
+    pub fn should_send_keyboard_event(&self, word: &str) -> bool {
+        !self.buffer.eq(word)
     }
 
     pub fn process_key(&self) -> String {
@@ -98,8 +116,13 @@ impl InputState {
         if self.buffer.len() <= MAX_POSSIBLE_WORD_LENGTH {
             self.buffer.push(c);
             self.display_buffer.push(c);
+            debug!(
+                "Input buffer: {:?} - Display buffer: {:?}",
+                self.buffer, self.display_buffer
+            );
             if self.should_stop_tracking() {
                 self.stop_tracking();
+                debug!("! Stop tracking");
             }
         }
     }
@@ -124,29 +147,10 @@ impl InputState {
     pub fn should_stop_tracking(&mut self) -> bool {
         let len = self.buffer.len();
         if len >= MAX_DUPLICATE_LENGTH {
-            let buf = &self.buffer[len-MAX_DUPLICATE_LENGTH..];
+            let buf = &self.buffer[len - MAX_DUPLICATE_LENGTH..];
             let first = buf.chars().nth(0).unwrap();
             return buf.chars().all(|c| c == first);
         }
         return false;
     }
-}
-
-pub static INPUT_STATE: Lazy<Mutex<InputState>> = Lazy::new(|| Mutex::new(InputState::new()));
-
-// Detect whenever the user is attempting to restore the English word or not by
-// checking for any toned vowels in the input, and see if the output has any vowels.
-// This should be a temporary fix until the engine (vi-rs) implemented a proper one.
-pub fn user_attempted_to_restore_a_word(input: &str, output: &str) -> bool {
-    let input_has_toned_vowels = input
-        .chars()
-        .filter(|c| TONABLE_VOWELS.contains(c) && c > &'z')
-        .count()
-        > 0;
-    let output_has_no_toned_vowels = output
-        .chars()
-        .filter(|c| TONABLE_VOWELS.contains(c) && c > &'z')
-        .count()
-        == 0;
-    return input_has_toned_vowels && output_has_no_toned_vowels;
 }
