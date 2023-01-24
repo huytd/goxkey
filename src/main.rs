@@ -64,7 +64,15 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                             INPUT_STATE.pop();
                         }
                         c => {
-                            return process_character(handle, c, modifiers);
+                            if "()[]{}<>/\\!@#$%^&*-_=+|~`'\"".contains(c)
+                                || (c.is_numeric() && modifiers.is_shift())
+                            {
+                                // If special characters detected, dismiss the current tracking word
+                                INPUT_STATE.new_word();
+                            } else {
+                                // Otherwise, process the character
+                                return process_character(handle, c, modifiers);
+                            }
                         }
                     }
                 }

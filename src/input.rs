@@ -57,7 +57,9 @@ impl InputState {
     }
 
     pub fn new_word(&mut self) {
-        self.clear();
+        if !self.buffer.is_empty() {
+            self.clear();
+        }
         self.should_track = true;
     }
 
