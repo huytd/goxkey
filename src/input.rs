@@ -80,7 +80,7 @@ impl InputState {
         self.method
     }
 
-    pub fn should_process(&self, c: &char) -> bool {
+    pub fn should_transform_keys(&self, c: &char) -> bool {
         self.enabled
             && match self.method {
                 TypingMethod::VNI => c.is_numeric(),
@@ -90,11 +90,7 @@ impl InputState {
             }
     }
 
-    pub fn should_send_keyboard_event(&self, word: &str) -> bool {
-        !self.buffer.eq(word)
-    }
-
-    pub fn process_key(&self) -> String {
+    pub fn transform_keys(&self) -> String {
         let mut output = String::new();
         let transform_method = match self.method {
             TypingMethod::VNI => vi::vni::transform_buffer,
@@ -102,6 +98,10 @@ impl InputState {
         };
         transform_method(self.buffer.chars(), &mut output);
         return output;
+    }
+
+    pub fn should_send_keyboard_event(&self, word: &str) -> bool {
+        !self.buffer.eq(word)
     }
 
     pub fn get_backspace_count(&self) -> usize {

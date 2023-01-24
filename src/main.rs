@@ -25,8 +25,8 @@ fn process_character(handle: Handle, c: char, modifiers: KeyModifier) -> bool {
             } else {
                 c
             });
-            if INPUT_STATE.should_process(&c) {
-                let output = INPUT_STATE.process_key();
+            if INPUT_STATE.should_transform_keys(&c) {
+                let output = INPUT_STATE.transform_keys();
                 debug!("Transformed: {:?}", output);
                 if INPUT_STATE.should_send_keyboard_event(&output) {
                     let backspace_count = INPUT_STATE.get_backspace_count();
