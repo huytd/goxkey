@@ -15,30 +15,20 @@ use ui::{UIDataAdapter, UPDATE_UI};
 
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
 
-fn process_character(handle: Handle, c: char, modifiers: KeyModifier) -> bool {
+fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
     unsafe {
-        if modifiers.is_super() || modifiers.is_control() || modifiers.is_alt() {
-            INPUT_STATE.new_word();
-        } else if INPUT_STATE.is_tracking() {
-            INPUT_STATE.push(if modifiers.is_shift() {
-                c.to_ascii_uppercase()
-            } else {
-                c
-            });
-            if INPUT_STATE.should_transform_keys(&c) {
-                let output = INPUT_STATE.transform_keys();
-                debug!("Transformed: {:?}", output);
-                if INPUT_STATE.should_send_keyboard_event(&output) {
-                    let backspace_count = INPUT_STATE.get_backspace_count();
-                    debug!("Backspace count: {}", backspace_count);
-                    _ = send_backspace(handle, backspace_count);
-                    _ = send_string(handle, &output);
-                    INPUT_STATE.replace(output);
-                    return true;
-                }
-            }
+        let output = INPUT_STATE.transform_keys();
+        debug!("Transformed: {:?}", output);
+        if INPUT_STATE.should_send_keyboard_event(&output) || is_delete {
+            let backspace_count = INPUT_STATE.get_backspace_count(is_delete);
+            debug!("Backspace count: {}", backspace_count);
+            _ = send_backspace(handle, backspace_count);
+            _ = send_string(handle, &output);
+            INPUT_STATE.replace(output);
+            return true;
         }
     }
+
     return false;
 }
 
@@ -62,6 +52,11 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                         }
                         KEY_DELETE => {
                             INPUT_STATE.pop();
+                            if !INPUT_STATE.is_buffer_empty() {
+                                return do_transform_keys(handle, true);
+                            } else {
+                                INPUT_STATE.clear();
+                            }
                         }
                         c => {
                             if "()[]{}<>/\\!@#$%^&*-_=+|~`'\"".contains(c)
@@ -71,7 +66,21 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                                 INPUT_STATE.new_word();
                             } else {
                                 // Otherwise, process the character
-                                return process_character(handle, c, modifiers);
+                                if modifiers.is_super()
+                                    || modifiers.is_control()
+                                    || modifiers.is_alt()
+                                {
+                                    INPUT_STATE.new_word();
+                                } else if INPUT_STATE.is_tracking() {
+                                    INPUT_STATE.push(if modifiers.is_shift() {
+                                        c.to_ascii_uppercase()
+                                    } else {
+                                        c
+                                    });
+                                    if INPUT_STATE.should_transform_keys(&c) {
+                                        return do_transform_keys(handle, false);
+                                    }
+                                }
                             }
                         }
                     }

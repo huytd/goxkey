@@ -56,6 +56,10 @@ impl InputState {
         self.should_track
     }
 
+    pub fn is_buffer_empty(&self) -> bool {
+        self.buffer.is_empty()
+    }
+
     pub fn new_word(&mut self) {
         if !self.buffer.is_empty() {
             self.clear();
@@ -106,8 +110,13 @@ impl InputState {
         !self.buffer.eq(word)
     }
 
-    pub fn get_backspace_count(&self) -> usize {
-        self.display_buffer.chars().count() - 1
+    pub fn get_backspace_count(&self, is_delete: bool) -> usize {
+        let dp_len = self.display_buffer.chars().count();
+        if is_delete && dp_len >= 1 {
+            dp_len
+        } else {
+            dp_len - 1
+        }
     }
 
     pub fn replace(&mut self, buf: String) {
@@ -131,7 +140,6 @@ impl InputState {
 
     pub fn pop(&mut self) {
         self.buffer.pop();
-        self.display_buffer.pop();
         if self.buffer.is_empty() {
             self.new_word();
         }
