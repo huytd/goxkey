@@ -10,11 +10,11 @@
 
 **Goxkey** - A Vietnamese input method editor.
 
-- Excellent performance (Gen Z translation: Blazing fast!)
-- Written completely in Rust.
-- Supported both Telex and VNI input method.
-- Focused on typing experience and features that you will use.
-- Developed by some of the best Vietnamese engineers.
+- :zap: Excellent performance (Gen Z translation: Blazing fast!)
+- :crab: Written completely in Rust.
+- :keyboard: Supported both Telex and VNI input method.
+- :sparkles: Focused on typing experience and features that you will use.
+- :vietnam: Developed by some of the best Vietnamese engineers.
 
 <p style="clear: both"></p>
 
