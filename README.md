@@ -5,16 +5,28 @@
    </picture>
 </p>
 
+---
+<img width="320" alt="image" align="right" src="https://user-images.githubusercontent.com/613943/213217673-e58c873a-9219-4a33-8487-620a07210206.png">
+
+**Gõkey** - A Vietnamese input method editor.
+
+- :zap: Excellent performance (Gen Z translation: Blazing fast!)
+- :crab: Written completely in Rust.
+- :keyboard: Supported both Telex and VNI input method.
+- :sparkles: Focused on typing experience and features that you will use.
+
+## About
+
 This is my attempt to build an input method editor using only Rust. It's not the first, and definitely not the last.
 
-The goal is to create an input method editor that allows the user to type Vietnamese text on the computer. Using
-either VNI or TELEX method. Other than that, no other feature are planned.
+The goal is to create an input method editor that enable users to type Vietnamese text on the computer using
+either VNI or TELEX method. Other than that, no other features are planned.
 
 ## How to install
 
-Currently, we're still in a very early stage, hence, no pre-built binaries are provided.
+Currently, since we are still at an early development stage, no pre-built binaries are provided.
 
-But you can get the source code and compile it yourself, it's very easy:
+But the source code can be compiled easily:
 
 1. Get the latest stable version of the Rust compiler ([see here](https://rustup.rs/))
 2. Install the [cargo-bundle](https://github.com/burtonageo/cargo-bundle) extension, this is necessary for bundling macOS apps
@@ -23,15 +35,12 @@ But you can get the source code and compile it yourself, it's very easy:
    git clone https://github.com/huytd/goxkey && cd goxkey
    ```
 4. Run the bundle command:
+
    ```
    cargo bundle
    ```
 
-After this, you'll find the `Gõ Key.app` file in the `target/debug/bundle` folder.
-
-<p align="center">
-   <img width="320" alt="image" src="https://user-images.githubusercontent.com/613943/213217673-e58c873a-9219-4a33-8487-620a07210206.png">
-</p>
+After that, you'll find the `Gõ Key.app` file in the `target/debug/bundle` folder.
 
 ## Dependencies
 
@@ -40,8 +49,7 @@ After this, you'll find the `Gõ Key.app` file in the `target/debug/bundle` fold
 
 ## Development
 
-Currently, only macOS is supported. Windows and Linux can be supported later but it's not
-in the roadmap. If you're on these OSes, any help would be greatly appreciated!
+Currently, only macOS is supported. Windows and Linux could also be supported as well but it's not our primary goal. If you're on these OSes, consider contributing! Any help would be greatly appreciated!
 
 This project will only focus on the input handling logic, and provide a frontend for the
 input engine ([`vi-rs`](https://github.com/zerox-dg/vi-rs)).
@@ -71,11 +79,11 @@ This buffer will be reset whenever the user hit the `SPACE` or `ENTER` key.
 The input engine (`vi-rs`) will receive this buffer and convert it to a correct word, for example: `vieetj` will be
 transformed into `việt`.
 
-The result string will be sent back to `goxkey`, and from here, we will perform an edit on the target application. The edit
+The result string will be sent back to `goxkey`, and from there, it will perform an edit on the target application. The edit
 is done using [the BACKSPACE technique](https://notes.huy.rocks/posts/go-tieng-viet-linux.html#k%C4%A9-thu%E1%BA%ADt-backspace). It's
-unreliable but it has the benefit of not having the pre-edit line, worth it.
+unreliable but it has the benefit of not having the pre-edit line so it's worth it.
 
-To get yourself familiar with IME, there are some good article on the topic:
+To get yourself familiar with IME, here are some good article on the topic:
 
 - [Vietnamese Keyboard Engine with Prolog](https://followthe.trailing.space/To-the-Root-of-the-Tree-dc170bf0e8de44a6b812ca3e01025236?p=0dd31fe76ebd45dca5b4466c9441fa1c&pm=s), lewtds
 - [Ước mơ bộ gõ kiểu Unikey trên Linux](https://followthe.trailing.space/To-the-Root-of-the-Tree-dc170bf0e8de44a6b812ca3e01025236?p=9b12cc2fcdbe43149b10eefc7db6b161&pm=s), lewtds
@@ -83,21 +91,3 @@ To get yourself familiar with IME, there are some good article on the topic:
 - [Bỏ dấu trong tiếng Việt](https://viethung.space/blog/2020/07/14/Bo-dau-trong-tieng-Viet/), zerox-dg
 - [Chuyện gõ tiếng Việt trên Linux](https://notes.huy.rocks/posts/go-tieng-viet-linux.html), huytd
 
-## Local development setup
-
-To setup the project locally, first, checkout the code and run the install script to have all the Git hooks configured:
-
-```sh
-$ git clone https://github.com/huytd/goxkey && cd goxkey
-$ make setup
-```
-
-After this step, you can use the `make` commands to run or bundle the code as needed:
-
-```sh
-$ make run
-
-# or
-
-$ make bundle
-```
