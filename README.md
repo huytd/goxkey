@@ -8,18 +8,12 @@
 ---
 <img width="320" alt="image" align="right" src="https://user-images.githubusercontent.com/613943/213217673-e58c873a-9219-4a33-8487-620a07210206.png">
 
-**Goxkey** - A Vietnamese input method editor.
+**Gõkey** - A Vietnamese input method editor.
 
 - :zap: Excellent performance (Gen Z translation: Blazing fast!)
 - :crab: Written completely in Rust.
 - :keyboard: Supported both Telex and VNI input method.
 - :sparkles: Focused on typing experience and features that you will use.
-- :vietnam: Developed by some of the best Vietnamese engineers.
-
-<p style="clear: both"></p>
-
----
-
 
 ## About
 
