@@ -91,7 +91,7 @@ impl InputState {
             && match self.method {
                 TypingMethod::VNI => c.is_numeric(),
                 TypingMethod::Telex => {
-                    ['a', 'e', 'o', 'd', 's', 't', 'j', 'f', 'x', 'r', 'w'].contains(c)
+                    ['a', 'e', 'o', 'd', 's', 't', 'j', 'f', 'x', 'r', 'w', 'z'].contains(c)
                 }
             }
     }
