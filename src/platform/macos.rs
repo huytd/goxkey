@@ -12,6 +12,11 @@ use core_graphics::{
 
 pub type Handle = CGEventTapProxy;
 
+pub const SYMBOL_SHIFT: &str = "⇧";
+pub const SYMBOL_CTRL: &str = "⌃";
+pub const SYMBOL_SUPER: &str = "⌘";
+pub const SYMBOL_ALT: &str = "⌥";
+
 // Modified from http://ritter.ist.psu.edu/projects/RUI/macosx/rui.c
 fn get_char(keycode: CGKeyCode) -> Option<char> {
     match keycode {

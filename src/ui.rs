@@ -1,4 +1,7 @@
-use crate::input::{TypingMethod, INPUT_STATE};
+use crate::{
+    config::HOTKEY_CONFIG,
+    input::{TypingMethod, INPUT_STATE},
+};
 use druid::{
     theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR},
     widget::{Button, Container, Controller, Flex, Label, RadioGroup, Switch},
@@ -105,7 +108,7 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                         Flex::row()
                             .with_child(Label::new("Bật tắt gõ tiếng Việt"))
                             .with_child(
-                                Label::new("⌃ ⌘ Space")
+                                Label::new(HOTKEY_CONFIG.to_string())
                                     .border(PLACEHOLDER_COLOR, 1.0)
                                     .rounded(4.0),
                             )
