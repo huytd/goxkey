@@ -40,32 +40,30 @@ impl Hotkey {
 
 impl Display for Hotkey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut keys = String::new();
         if self.modifiers.is_control() {
-            keys.push_str(SYMBOL_CTRL);
-            keys.push_str(" ");
+            _ = write!(f, "{} ", SYMBOL_CTRL);
         }
         if self.modifiers.is_shift() {
-            keys.push_str(SYMBOL_SHIFT);
-            keys.push_str(" ");
+            _ = write!(f, "{} ", SYMBOL_SHIFT);
         }
         if self.modifiers.is_alt() {
-            keys.push_str(SYMBOL_ALT);
-            keys.push_str(" ");
+            _ = write!(f, "{} ", SYMBOL_ALT);
         }
         if self.modifiers.is_super() {
-            keys.push_str(SYMBOL_SUPER);
-            keys.push_str(" ");
+            _ = write!(f, "{} ", SYMBOL_SUPER);
         }
-        match self.keycode {
-            KEY_ENTER => keys.push_str("Enter"),
-            KEY_SPACE => keys.push_str("Space"),
-            KEY_TAB => keys.push_str("Tab"),
-            KEY_DELETE => keys.push_str("Del"),
-            KEY_ESCAPE => keys.push_str("Esc"),
-            c => keys.push_str(format!("{}", c.to_uppercase()).as_str()),
-        }
-        write!(f, "{}", keys)
+        write!(
+            f,
+            "{}",
+            match self.keycode {
+                KEY_ENTER => "Enter".to_owned(),
+                KEY_SPACE => "Space".to_owned(),
+                KEY_TAB => "Tab".to_owned(),
+                KEY_DELETE => "Del".to_owned(),
+                KEY_ESCAPE => "Esc".to_owned(),
+                c => format!("{}", c.to_uppercase()),
+            }
+        )
     }
 }
 

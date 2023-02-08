@@ -8,7 +8,7 @@ use config::HOTKEY_CONFIG;
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
 use input::INPUT_STATE;
 use log::debug;
-use once_cell::sync::{Lazy, OnceCell};
+use once_cell::sync::OnceCell;
 use platform::{
     run_event_listener, send_backspace, send_string, Handle, KeyModifier, KEY_DELETE, KEY_ENTER,
     KEY_ESCAPE, KEY_SPACE, KEY_TAB,
