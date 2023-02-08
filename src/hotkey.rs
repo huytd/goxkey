@@ -41,16 +41,16 @@ impl Hotkey {
 impl Display for Hotkey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.modifiers.is_control() {
-            _ = write!(f, "{} ", SYMBOL_CTRL);
+            write!(f, "{} ", SYMBOL_CTRL)?;
         }
         if self.modifiers.is_shift() {
-            _ = write!(f, "{} ", SYMBOL_SHIFT);
+            write!(f, "{} ", SYMBOL_SHIFT)?;
         }
         if self.modifiers.is_alt() {
-            _ = write!(f, "{} ", SYMBOL_ALT);
+            write!(f, "{} ", SYMBOL_ALT)?;
         }
         if self.modifiers.is_super() {
-            _ = write!(f, "{} ", SYMBOL_SUPER);
+            write!(f, "{} ", SYMBOL_SUPER)?;
         }
         write!(
             f,
