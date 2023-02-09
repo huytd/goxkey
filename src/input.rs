@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use druid::Data;
 use log::debug;
 use once_cell::sync::Lazy;
@@ -27,6 +29,19 @@ pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(|| InputState::new());
 pub enum TypingMethod {
     VNI,
     Telex,
+}
+
+impl Display for TypingMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::VNI => "vni",
+                Self::Telex => "telex",
+            }
+        )
+    }
 }
 
 pub struct InputState {

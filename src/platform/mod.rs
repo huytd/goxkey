@@ -5,8 +5,8 @@ mod os;
 
 use bitflags::bitflags;
 pub use os::{
-    run_event_listener, send_backspace, send_string, Handle, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT,
-    SYMBOL_SUPER,
+    get_home_dir, run_event_listener, send_backspace, send_string, Handle, SYMBOL_ALT, SYMBOL_CTRL,
+    SYMBOL_SHIFT, SYMBOL_SUPER,
 };
 
 pub const KEY_ENTER: char = '\x13';
