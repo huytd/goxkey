@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{ascii::AsciiExt, fmt::Display};
 
 use crate::platform::{
     KeyModifier, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, SYMBOL_ALT, SYMBOL_CTRL,
@@ -52,18 +52,14 @@ impl Display for Hotkey {
         if self.modifiers.is_super() {
             write!(f, "{} ", SYMBOL_SUPER)?;
         }
-        write!(
-            f,
-            "{}",
-            match self.keycode {
-                KEY_ENTER => "Enter".to_owned(),
-                KEY_SPACE => "Space".to_owned(),
-                KEY_TAB => "Tab".to_owned(),
-                KEY_DELETE => "Del".to_owned(),
-                KEY_ESCAPE => "Esc".to_owned(),
-                c => format!("{}", c.to_uppercase()),
-            }
-        )
+        match self.keycode {
+            KEY_ENTER => write!(f, "Enter"),
+            KEY_SPACE => write!(f, "Space"),
+            KEY_TAB => write!(f, "Tab"),
+            KEY_DELETE => write!(f, "Del"),
+            KEY_ESCAPE => write!(f, "Esc"),
+            c => write!(f, "{}", c.to_ascii_uppercase()),
+        }
     }
 }
 
