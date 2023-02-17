@@ -11,7 +11,7 @@ pub struct Hotkey {
 }
 
 impl Hotkey {
-    pub fn from(input: &str) -> Self {
+    pub fn from_str(input: &str) -> Self {
         let mut modifiers = KeyModifier::new();
         let mut keycode: char = '\0';
         input
@@ -33,8 +33,16 @@ impl Hotkey {
         Self { modifiers, keycode }
     }
 
+    pub fn from(modifiers: KeyModifier, keycode: char) -> Self {
+        Self { modifiers, keycode }
+    }
+
     pub fn is_match(&self, modifiers: KeyModifier, keycode: &char) -> bool {
         return self.modifiers == modifiers && self.keycode.eq_ignore_ascii_case(keycode);
+    }
+
+    pub fn inner(&self) -> (KeyModifier, char) {
+        (self.modifiers, self.keycode)
     }
 }
 
@@ -65,7 +73,7 @@ impl Display for Hotkey {
 
 #[test]
 fn test_parse() {
-    let hotkey = Hotkey::from("super+shift+z");
+    let hotkey = Hotkey::from_str("super+shift+z");
     let mut actual_modifier = KeyModifier::new();
     actual_modifier.add_shift();
     actual_modifier.add_super();
@@ -76,7 +84,7 @@ fn test_parse() {
 
 #[test]
 fn test_parse_long_input() {
-    let hotkey = Hotkey::from("super+shift+ctrl+alt+w");
+    let hotkey = Hotkey::from_str("super+shift+ctrl+alt+w");
     let mut actual_modifier = KeyModifier::new();
     actual_modifier.add_shift();
     actual_modifier.add_super();
@@ -89,7 +97,7 @@ fn test_parse_long_input() {
 
 #[test]
 fn test_parse_with_named_keycode() {
-    let hotkey = Hotkey::from("super+ctrl+space");
+    let hotkey = Hotkey::from_str("super+ctrl+space");
     let mut actual_modifier = KeyModifier::new();
     actual_modifier.add_super();
     actual_modifier.add_control();
@@ -101,17 +109,17 @@ fn test_parse_with_named_keycode() {
 #[test]
 fn test_display() {
     assert_eq!(
-        format!("{}", Hotkey::from("super+ctrl+space")),
+        format!("{}", Hotkey::from_str("super+ctrl+space")),
         format!("{} {} Space", SYMBOL_CTRL, SYMBOL_SUPER)
     );
 
     assert_eq!(
-        format!("{}", Hotkey::from("super+alt+z")),
+        format!("{}", Hotkey::from_str("super+alt+z")),
         format!("{} {} Z", SYMBOL_ALT, SYMBOL_SUPER)
     );
 
     assert_eq!(
-        format!("{}", Hotkey::from("ctrl+shift+o")),
+        format!("{}", Hotkey::from_str("ctrl+shift+o")),
         format!("{} {} O", SYMBOL_CTRL, SYMBOL_SHIFT)
     );
 }
