@@ -3,11 +3,16 @@
 #[cfg_attr(target_os = "window", path = "window.rs")]
 mod os;
 
+use std::fmt::Display;
+
 use bitflags::bitflags;
-pub use os::{run_event_listener, send_backspace, send_string, Handle};
+pub use os::{
+    get_home_dir, run_event_listener, send_backspace, send_string, Handle, SYMBOL_ALT, SYMBOL_CTRL,
+    SYMBOL_SHIFT, SYMBOL_SUPER,
+};
 
 pub const KEY_ENTER: char = '\x13';
-pub const KEY_SPACE: char = '\x32';
+pub const KEY_SPACE: char = '\u{0020}';
 pub const KEY_TAB: char = '\x09';
 pub const KEY_DELETE: char = '\x08';
 pub const KEY_ESCAPE: char = '\x26';
@@ -22,9 +27,34 @@ bitflags! {
     }
 }
 
+impl Display for KeyModifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_super() {
+            write!(f, "super+")?;
+        }
+        if self.is_control() {
+            write!(f, "ctrl+")?;
+        }
+        if self.is_alt() {
+            write!(f, "alt+")?;
+        }
+        if self.is_shift() {
+            write!(f, "shift+")?;
+        }
+        write!(f, "")
+    }
+}
+
 impl KeyModifier {
     pub fn new() -> Self {
         Self { bits: 0 }
+    }
+
+    pub fn apply(&mut self, is_super: bool, is_ctrl: bool, is_alt: bool, is_shift: bool) {
+        self.set(Self::MODIFIER_SUPER, is_super);
+        self.set(Self::MODIFIER_CONTROL, is_ctrl);
+        self.set(Self::MODIFIER_ALT, is_alt);
+        self.set(Self::MODIFIER_SHIFT, is_shift);
     }
 
     pub fn add_shift(&mut self) {

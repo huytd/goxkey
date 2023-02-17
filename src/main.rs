@@ -1,3 +1,5 @@
+mod config;
+mod hotkey;
 mod input;
 mod platform;
 mod ui;
@@ -37,7 +39,7 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
         match keycode {
             Some(keycode) => {
                 // Toggle Vietnamese input mod with Ctrl + Cmd + Space key
-                if modifiers.is_control() && modifiers.is_super() && keycode == KEY_SPACE {
+                if INPUT_STATE.get_hotkey().is_match(modifiers, &keycode) {
                     INPUT_STATE.toggle_vietnamese();
                     if let Some(event_sink) = UI_EVENT_SINK.get() {
                         _ = event_sink.submit_command(UPDATE_UI, (), Target::Auto);
@@ -99,7 +101,7 @@ fn main() {
 
     let win = WindowDesc::new(ui::main_ui_builder)
         .title("gõkey")
-        .window_size((320.0, 200.0))
+        .window_size((320.0, 234.0))
         .resizable(false);
     let app = AppLauncher::with_window(win);
     let event_sink = app.get_external_handle();

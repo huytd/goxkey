@@ -1,4 +1,4 @@
-use std::ptr;
+use std::{env, os, path::PathBuf, ptr};
 
 use super::{CallbackFn, KeyModifier, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB};
 use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
@@ -11,6 +11,15 @@ use core_graphics::{
 };
 
 pub type Handle = CGEventTapProxy;
+
+pub const SYMBOL_SHIFT: &str = "⇧";
+pub const SYMBOL_CTRL: &str = "⌃";
+pub const SYMBOL_SUPER: &str = "⌘";
+pub const SYMBOL_ALT: &str = "⌥";
+
+pub fn get_home_dir() -> Option<PathBuf> {
+    env::var("HOME").ok().map(PathBuf::from)
+}
 
 // Modified from http://ritter.ist.psu.edu/projects/RUI/macosx/rui.c
 fn get_char(keycode: CGKeyCode) -> Option<char> {
