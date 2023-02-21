@@ -46,3 +46,11 @@ After that, you'll find the `Gõ Key.app` file in the `target/debug/bundle` fold
 
 - [core-foundation](https://crates.io/crates/core-foundation), [core-graphics](https://crates.io/crates/core-graphics): for event handling on macOS
 - [vi-rs](https://github.com/zerox-dg/vi-rs): the Vietnamese Input Engine
+
+## Want to support the project?
+
+It would be much appreciated if you want to make a small donation to support my work!
+
+Your name will be put on a special place in the application as a thank you gesture from the development team!
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/B0B6NHSJ)
