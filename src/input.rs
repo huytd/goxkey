@@ -1,8 +1,8 @@
-use std::{fmt::Display, str::FromStr};
+use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 use druid::{Data, Target};
 use log::debug;
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 
 use crate::{
     config::{CONFIG_MANAGER, HOTKEY_CONFIG_KEY, TYPING_METHOD_CONFIG_KEY},
@@ -31,6 +31,68 @@ const TONABLE_VOWELS: [char; 144] = [
 ];
 
 pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(|| InputState::new());
+
+pub const PREDEFINED_CHARS: [char; 47] = [
+    'a', '`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't',
+    'y', 'u', 'i', 'o', 'p', '[', ']', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '\\',
+    'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/',
+];
+
+pub fn get_key_from_char(c: char) -> rdev::Key {
+    use rdev::Key::*;
+    match &c {
+        'a' => KeyA,
+        '`' => BackQuote,
+        '1' => Num1,
+        '2' => Num2,
+        '3' => Num3,
+        '4' => Num4,
+        '5' => Num5,
+        '6' => Num6,
+        '7' => Num7,
+        '8' => Num8,
+        '9' => Num9,
+        '0' => Num0,
+        '-' => Minus,
+        '=' => Equal,
+        'q' => KeyQ,
+        'w' => KeyW,
+        'e' => KeyE,
+        'r' => KeyR,
+        't' => KeyT,
+        'y' => KeyY,
+        'u' => KeyU,
+        'i' => KeyI,
+        'o' => KeyO,
+        'p' => KeyP,
+        '[' => LeftBracket,
+        ']' => RightBracket,
+        's' => KeyS,
+        'd' => KeyD,
+        'f' => KeyF,
+        'g' => KeyG,
+        'h' => KeyH,
+        'j' => KeyJ,
+        'k' => KeyK,
+        'l' => KeyL,
+        ';' => SemiColon,
+        '\'' => Quote,
+        '\\' => BackSlash,
+        'z' => KeyZ,
+        'x' => KeyX,
+        'c' => KeyC,
+        'v' => KeyV,
+        'b' => KeyB,
+        'n' => KeyN,
+        'm' => KeyM,
+        ',' => Comma,
+        '.' => Dot,
+        '/' => Slash,
+        _ => Unknown(0),
+    }
+}
+
+pub static KEYBOARD_LAYOUT_CHARACTER_MAP: OnceCell<HashMap<char, char>> = OnceCell::new();
 
 #[derive(PartialEq, Eq, Data, Clone, Copy)]
 pub enum TypingMethod {

@@ -5,14 +5,15 @@ mod platform;
 mod ui;
 
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
-use input::INPUT_STATE;
+use input::{get_key_from_char, INPUT_STATE, KEYBOARD_LAYOUT_CHARACTER_MAP, PREDEFINED_CHARS};
 use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
     run_event_listener, send_backspace, send_string, Handle, KeyModifier, KEY_DELETE, KEY_ENTER,
     KEY_ESCAPE, KEY_SPACE, KEY_TAB,
 };
-use std::thread;
+use rdev::{EventType, Keyboard, KeyboardState};
+use std::{collections::HashMap, thread};
 use ui::{UIDataAdapter, UPDATE_UI};
 
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
@@ -38,6 +39,7 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
     unsafe {
         match keycode {
             Some(keycode) => {
+                println!("KEYCODE: {}", keycode);
                 // Toggle Vietnamese input mod with Ctrl + Cmd + Space key
                 if INPUT_STATE.get_hotkey().is_match(modifiers, &keycode) {
                     INPUT_STATE.toggle_vietnamese();
@@ -98,6 +100,17 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
 
 fn main() {
     env_logger::init();
+
+    let mut map = HashMap::new();
+    let mut kb = Keyboard::new().unwrap();
+    for c in PREDEFINED_CHARS {
+        let key = rdev::EventType::KeyPress(get_key_from_char(c));
+        if let Some(s) = kb.add(&key) {
+            let ch = s.chars().last().unwrap();
+            map.insert(c, ch);
+        }
+    }
+    _ = KEYBOARD_LAYOUT_CHARACTER_MAP.set(map);
 
     let win = WindowDesc::new(ui::main_ui_builder)
         .title("gõkey")

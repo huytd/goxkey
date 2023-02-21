@@ -1,4 +1,6 @@
-use std::{env, os, path::PathBuf, ptr};
+use std::{env, path::PathBuf, ptr};
+
+use crate::input::KEYBOARD_LAYOUT_CHARACTER_MAP;
 
 use super::{CallbackFn, KeyModifier, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB};
 use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
@@ -21,52 +23,61 @@ pub fn get_home_dir() -> Option<PathBuf> {
     env::var("HOME").ok().map(PathBuf::from)
 }
 
-// Modified from http://ritter.ist.psu.edu/projects/RUI/macosx/rui.c
+// List of keycode: https://eastmanreference.com/complete-list-of-applescript-key-codes
 fn get_char(keycode: CGKeyCode) -> Option<char> {
-    match keycode {
-        0 => Some('a'),
-        1 => Some('s'),
-        2 => Some('d'),
-        3 => Some('f'),
-        4 => Some('h'),
-        5 => Some('g'),
-        6 => Some('z'),
-        7 => Some('x'),
-        8 => Some('c'),
-        9 => Some('v'),
-        11 => Some('b'),
-        12 => Some('q'),
-        13 => Some('w'),
-        14 => Some('e'),
-        15 => Some('r'),
-        16 => Some('y'),
-        17 => Some('t'),
-        31 => Some('o'),
-        32 => Some('u'),
-        34 => Some('i'),
-        35 => Some('p'),
-        37 => Some('l'),
-        38 => Some('j'),
-        40 => Some('k'),
-        45 => Some('n'),
-        46 => Some('m'),
-        18 => Some('1'),
-        19 => Some('2'),
-        20 => Some('3'),
-        21 => Some('4'),
-        22 => Some('6'),
-        23 => Some('5'),
-        25 => Some('9'),
-        26 => Some('7'),
-        28 => Some('8'),
-        29 => Some('0'),
-        36 | 52 => Some(KEY_ENTER), // ENTER
-        49 => Some(KEY_SPACE),      // SPACE
-        48 => Some(KEY_TAB),        // TAB
-        51 => Some(KEY_DELETE),     // DELETE
-        53 => Some(KEY_ESCAPE),     // ESC
-        _ => None,
+    if let Some(key_map) = KEYBOARD_LAYOUT_CHARACTER_MAP.get() {
+        println!("GOT KEYCODE {:?}", keycode);
+        return match keycode {
+            0 => Some(key_map[&'a']),
+            1 => Some(key_map[&'s']),
+            2 => Some(key_map[&'d']),
+            3 => Some(key_map[&'f']),
+            4 => Some(key_map[&'h']),
+            5 => Some(key_map[&'g']),
+            6 => Some(key_map[&'z']),
+            7 => Some(key_map[&'x']),
+            8 => Some(key_map[&'c']),
+            9 => Some(key_map[&'v']),
+            11 => Some(key_map[&'b']),
+            12 => Some(key_map[&'q']),
+            13 => Some(key_map[&'w']),
+            14 => Some(key_map[&'e']),
+            15 => Some(key_map[&'r']),
+            16 => Some(key_map[&'y']),
+            17 => Some(key_map[&'t']),
+            31 => Some(key_map[&'o']),
+            32 => Some(key_map[&'u']),
+            34 => Some(key_map[&'i']),
+            35 => Some(key_map[&'p']),
+            37 => Some(key_map[&'l']),
+            38 => Some(key_map[&'j']),
+            40 => Some(key_map[&'k']),
+            45 => Some(key_map[&'n']),
+            46 => Some(key_map[&'m']),
+            18 => Some(key_map[&'1']),
+            19 => Some(key_map[&'2']),
+            20 => Some(key_map[&'3']),
+            21 => Some(key_map[&'4']),
+            22 => Some(key_map[&'6']),
+            23 => Some(key_map[&'5']),
+            25 => Some(key_map[&'9']),
+            26 => Some(key_map[&'7']),
+            28 => Some(key_map[&'8']),
+            29 => Some(key_map[&'0']),
+            27 => Some(key_map[&'-']),
+            33 => Some(key_map[&'[']),
+            30 => Some(key_map[&']']),
+            41 => Some(key_map[&';']),
+            43 => Some(key_map[&',']),
+            36 | 52 => Some(KEY_ENTER), // ENTER
+            49 => Some(KEY_SPACE),      // SPACE
+            48 => Some(KEY_TAB),        // TAB
+            51 => Some(KEY_DELETE),     // DELETE
+            53 => Some(KEY_ESCAPE),     // ESC
+            _ => None,
+        };
     }
+    None
 }
 
 #[link(name = "CoreGraphics", kind = "framework")]
@@ -265,6 +276,7 @@ pub fn run_event_listener(callback: &CallbackFn) {
                         if flags.contains(CGEventFlags::CGEventFlagAlternate) {
                             modifiers.add_alt();
                         }
+
                         if callback(proxy, get_char(key_code), modifiers) {
                             // block the key if already processed
                             return None;
