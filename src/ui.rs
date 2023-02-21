@@ -1,5 +1,5 @@
 use crate::{
-    input::{TypingMethod, INPUT_STATE},
+    input::{rebuild_keyboard_layout_map, TypingMethod, INPUT_STATE},
     platform::{KeyModifier, KEY_SPACE, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER},
 };
 use druid::{
@@ -124,6 +124,7 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
             Event::Command(cmd) => match cmd.get(UPDATE_UI) {
                 Some(_) => {
                     data.update();
+                    rebuild_keyboard_layout_map();
                 }
                 None => {}
             },

@@ -3,6 +3,7 @@ use std::{collections::HashMap, fmt::Display, str::FromStr};
 use druid::{Data, Target};
 use log::debug;
 use once_cell::sync::{Lazy, OnceCell};
+use rdev::{Keyboard, KeyboardState};
 
 use crate::{
     config::{CONFIG_MANAGER, HOTKEY_CONFIG_KEY, TYPING_METHOD_CONFIG_KEY},
@@ -92,7 +93,35 @@ pub fn get_key_from_char(c: char) -> rdev::Key {
     }
 }
 
-pub static KEYBOARD_LAYOUT_CHARACTER_MAP: OnceCell<HashMap<char, char>> = OnceCell::new();
+pub static mut KEYBOARD_LAYOUT_CHARACTER_MAP: OnceCell<HashMap<char, char>> = OnceCell::new();
+
+fn build_keyboard_layout_map(map: &mut HashMap<char, char>) {
+    map.clear();
+    let mut kb = Keyboard::new().unwrap();
+    for c in PREDEFINED_CHARS {
+        let key = rdev::EventType::KeyPress(get_key_from_char(c));
+        if let Some(s) = kb.add(&key) {
+            let ch = s.chars().last().unwrap();
+            map.insert(c, ch);
+        }
+    }
+}
+
+pub fn rebuild_keyboard_layout_map() {
+    unsafe {
+        if let Some(map) = KEYBOARD_LAYOUT_CHARACTER_MAP.get_mut() {
+            debug!("Rebuild keyboard layout map...");
+            build_keyboard_layout_map(map);
+            debug!("Done");
+        } else {
+            debug!("Creating keyboard layout map...");
+            let mut map = HashMap::new();
+            build_keyboard_layout_map(&mut map);
+            _ = KEYBOARD_LAYOUT_CHARACTER_MAP.set(map);
+            debug!("Done");
+        }
+    }
+}
 
 #[derive(PartialEq, Eq, Data, Clone, Copy)]
 pub enum TypingMethod {

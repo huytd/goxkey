@@ -25,7 +25,7 @@ pub fn get_home_dir() -> Option<PathBuf> {
 
 // List of keycode: https://eastmanreference.com/complete-list-of-applescript-key-codes
 fn get_char(keycode: CGKeyCode) -> Option<char> {
-    if let Some(key_map) = KEYBOARD_LAYOUT_CHARACTER_MAP.get() {
+    if let Some(key_map) = unsafe { KEYBOARD_LAYOUT_CHARACTER_MAP.get() } {
         return match keycode {
             0 => Some(key_map[&'a']),
             1 => Some(key_map[&'s']),
