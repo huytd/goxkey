@@ -39,8 +39,6 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
     unsafe {
         match keycode {
             Some(keycode) => {
-                println!("KEYCODE: {}", keycode);
-                // Toggle Vietnamese input mod with Ctrl + Cmd + Space key
                 if INPUT_STATE.get_hotkey().is_match(modifiers, &keycode) {
                     INPUT_STATE.toggle_vietnamese();
                     if let Some(event_sink) = UI_EVENT_SINK.get() {
