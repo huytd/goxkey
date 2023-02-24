@@ -1,8 +1,5 @@
 <p align="center">
-   <picture>
-     <source media="(prefers-color-scheme: dark)" srcset="https://user-images.githubusercontent.com/613943/213103585-33c79982-617d-4f81-a949-3335b465129a.png">
-     <img src="https://user-images.githubusercontent.com/613943/213103583-4399e224-841f-462a-887d-6427f7af7376.png" width="90px">
-   </picture>
+	<img src="./icons/icon.png" width="90px">
 </p>
 
 ---
