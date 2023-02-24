@@ -21,7 +21,7 @@ rdev = "0.5.2"
 
 [package.metadata.bundle]
 copyright = "Copyright (c) Huy Tran 2023. All rights reserved."
-icon = ["icons/icons.icns"]
+icon = ["icons/icon.icns", "icons/icon.png"]
 identifier = "com.goxkey.ui"
 name = "Gõ Key"
 version = "0.0.1"
