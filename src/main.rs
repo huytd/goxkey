@@ -102,7 +102,7 @@ fn main() {
 
     rebuild_keyboard_layout_map();
 
-    let win = WindowDesc::new(ui::main_ui_builder)
+    let win = WindowDesc::new(ui::main_ui_builder())
         .title("gõkey")
         .window_size((320.0, 234.0))
         .resizable(false);
