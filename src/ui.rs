@@ -1,9 +1,10 @@
 use crate::{
     input::{rebuild_keyboard_layout_map, TypingMethod, INPUT_STATE},
-    platform::{KeyModifier, SystemTray, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER},
+    platform::{
+        self, KeyModifier, SystemTray, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
+    },
 };
 use druid::{
-    commands::{CLOSE_WINDOW, HIDE_APPLICATION},
     theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR},
     widget::{Button, Checkbox, Container, Controller, Flex, Label, RadioGroup, Switch, TextBox},
     Data, Env, Event, EventCtx, Lens, Selector, Widget, WidgetExt,
@@ -24,17 +25,6 @@ pub fn letter_key_to_char(input: &str) -> char {
         "Space" => ' ',
         s => s.chars().last().unwrap(),
     }
-}
-
-macro_rules! get_hide_window_command {
-    () => {{
-        if cfg!(target_os = "macos")  {
-            HIDE_APPLICATION
-        } else {
-            // TODO: support HIDE_WINDOW when druid release it on next versions
-            CLOSE_WINDOW
-        }
-    } as Selector};
 }
 
 struct LetterKeyController;
@@ -264,7 +254,7 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                     Button::new("Đóng")
                         .fix_width(100.0)
                         .fix_height(28.0)
-                        .on_click(|event, _, _| event.submit_command(get_hide_window_command!())),
+                        .on_click(|event, _, _| event.submit_command(platform::HIDE_COMMAND)),
                 )
                 .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
                 .main_axis_alignment(druid::widget::MainAxisAlignment::End)
