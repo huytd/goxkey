@@ -12,7 +12,7 @@ libc = "0.2.139"
 log = "0.4.17"
 vi = "0.3.6"
 bitflags = "1.3.2"
-druid = "0.7.0"
+druid = "0.8.2"
 once_cell = "1.17.0"
 
 [target.'cfg(target_os="macos")'.dependencies]

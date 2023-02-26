@@ -193,7 +193,7 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                         Flex::row()
                             .with_child(Label::new("Kiểu gõ"))
                             .with_child(
-                                RadioGroup::new(vec![
+                                RadioGroup::column(vec![
                                     ("Telex", TypingMethod::Telex),
                                     ("VNI", TypingMethod::VNI),
                                 ])
