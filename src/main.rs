@@ -32,8 +32,7 @@ fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
             return true;
         }
     }
-
-    return false;
+    false
 }
 
 fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) -> bool {
