@@ -7,17 +7,23 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-core-foundation = "0.9.3"
-core-graphics = "0.22.3"
 env_logger = "0.10.0"
-foreign-types = "0.3.2"
 libc = "0.2.139"
 log = "0.4.17"
 vi = "0.3.6"
 bitflags = "1.3.2"
 druid = "0.7.0"
 once_cell = "1.17.0"
+
+[target.'cfg(target_os="macos")'.dependencies]
+core-foundation = "0.9.3"
+core-graphics = "0.22.3"
+foreign-types = "0.3.2"
 rdev = "0.5.2"
+cocoa = "0.24"
+objc = "0.2"
+objc-foundation = "0.1"
+objc_id = "0.1"
 
 [package.metadata.bundle]
 copyright = "Copyright (c) Huy Tran 2023. All rights reserved."
