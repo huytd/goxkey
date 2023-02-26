@@ -1,11 +1,11 @@
 use std::{env, path::PathBuf, ptr};
 
 mod macos_ext;
+use cocoa::base::id;
 use cocoa::{
     base::{nil, YES},
     foundation::NSDictionary,
 };
-use cocoa::base::id;
 use core_graphics::{
     event::{
         CGEventFlags, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement, CGEventType,
@@ -20,7 +20,12 @@ pub use macos_ext::SystemTray;
 pub use macos_ext::SystemTrayMenuItemKey;
 
 use crate::input::KEYBOARD_LAYOUT_CHARACTER_MAP;
-use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
+use accessibility::{AXAttribute, AXUIElement};
+use accessibility_sys::{kAXFocusedUIElementAttribute, kAXSelectedTextAttribute};
+use core_foundation::{
+    runloop::{kCFRunLoopCommonModes, CFRunLoop},
+    string::CFString,
+};
 
 pub use self::macos_ext::Handle;
 use self::macos_ext::{
@@ -28,7 +33,9 @@ use self::macos_ext::{
     CGEventCreateKeyboardEvent, CGEventKeyboardSetUnicodeString, CGEventTapPostEvent,
 };
 
-use super::{CallbackFn, KeyModifier, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, PressedKey};
+use super::{
+    CallbackFn, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB,
+};
 
 pub const SYMBOL_SHIFT: &str = "⇧";
 pub const SYMBOL_CTRL: &str = "⌃";
@@ -113,6 +120,31 @@ fn get_char(keycode: CGKeyCode) -> Option<PressedKey> {
         };
     }
     None
+}
+
+pub fn is_in_text_selection() -> bool {
+    let system_element = AXUIElement::system_wide();
+    let Some(selected_element) = system_element
+        .attribute(&AXAttribute::new(&CFString::from_static_string(
+            kAXFocusedUIElementAttribute,
+        )))
+        .map(|elemenet| elemenet.downcast_into::<AXUIElement>())
+        .ok()
+        .flatten()
+    else {
+        return false;
+    };
+    let Some(selected_text) = selected_element
+        .attribute(&AXAttribute::new(&CFString::from_static_string(
+            kAXSelectedTextAttribute,
+        )))
+        .map(|text| text.downcast_into::<CFString>())
+        .ok()
+        .flatten()
+    else {
+        return false;
+    };
+    !selected_text.to_string().is_empty()
 }
 
 pub fn send_backspace(handle: Handle, count: usize) -> Result<(), ()> {
