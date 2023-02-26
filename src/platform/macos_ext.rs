@@ -133,10 +133,10 @@ pub mod new_tap {
         };
     }
 
+    type CallbackType<'tap_life> = Box<dyn Fn(CGEventTapProxy, CGEventType, &CGEvent) -> Option<CGEvent> + 'tap_life>;
     pub struct CGEventTap<'tap_life> {
         pub mach_port: CFMachPort,
-        pub callback_ref:
-            Box<dyn Fn(CGEventTapProxy, CGEventType, &CGEvent) -> Option<CGEvent> + 'tap_life>,
+        pub callback_ref: CallbackType<'tap_life>,
     }
 
     impl<'tap_life> CGEventTap<'tap_life> {

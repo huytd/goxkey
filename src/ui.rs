@@ -123,13 +123,12 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
         env: &Env,
     ) {
         match event {
-            Event::Command(cmd) => match cmd.get(UPDATE_UI) {
-                Some(_) => {
+            Event::Command(cmd) => {
+                if cmd.get(UPDATE_UI).is_some() {
                     data.update();
                     rebuild_keyboard_layout_map();
                 }
-                None => {}
-            },
+            }
             Event::WindowCloseRequested => {
                 ctx.set_handled();
                 ctx.submit_command(platform::HIDE_COMMAND);

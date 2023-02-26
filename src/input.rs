@@ -20,7 +20,7 @@ const MAX_POSSIBLE_WORD_LENGTH: usize = 10;
 
 const MAX_DUPLICATE_LENGTH: usize = 4;
 
-pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(|| InputState::new());
+pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(InputState::new);
 
 pub const PREDEFINED_CHARS: [char; 47] = [
     'a', '`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't',
@@ -112,6 +112,7 @@ pub fn rebuild_keyboard_layout_map() {
     }
 }
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(PartialEq, Eq, Data, Clone, Copy)]
 pub enum TypingMethod {
     VNI,
@@ -221,7 +222,7 @@ impl InputState {
     }
 
     pub fn get_hotkey(&self) -> &Hotkey {
-        return &self.hotkey;
+        &self.hotkey
     }
 
     pub fn should_transform_keys(&self, c: &char) -> bool {
@@ -241,7 +242,7 @@ impl InputState {
             TypingMethod::Telex => vi::telex::transform_buffer,
         };
         transform_method(self.buffer.chars(), &mut output);
-        return output;
+        output
     }
 
     pub fn should_send_keyboard_event(&self, word: &str) -> bool {
@@ -296,9 +297,9 @@ impl InputState {
         let len = self.buffer.len();
         if len >= MAX_DUPLICATE_LENGTH {
             let buf = &self.buffer[len - MAX_DUPLICATE_LENGTH..];
-            let first = buf.chars().nth(0).unwrap();
+            let first = buf.chars().next().unwrap();
             return buf.chars().all(|c| c == first);
         }
-        return false;
+        false
     }
 }

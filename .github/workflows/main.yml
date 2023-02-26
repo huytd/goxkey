@@ -3,7 +3,7 @@ on:
     branches:
       - 'main'
 
-name: CI
+name: Stable
 
 jobs:
   test:

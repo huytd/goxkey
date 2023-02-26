@@ -3,7 +3,7 @@ on:
     branches-ignore:
       - 'main'
 
-name: CI
+name: Pull request
 
 jobs:
   test:

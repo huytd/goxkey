@@ -34,7 +34,7 @@ impl Hotkey {
     }
 
     pub fn is_match(&self, modifiers: KeyModifier, keycode: &char) -> bool {
-        return self.modifiers == modifiers && self.keycode.eq_ignore_ascii_case(keycode);
+        self.modifiers == modifiers && self.keycode.eq_ignore_ascii_case(keycode)
     }
 
     pub fn inner(&self) -> (KeyModifier, char) {
@@ -75,7 +75,7 @@ fn test_parse() {
     actual_modifier.add_super();
     assert_eq!(hotkey.modifiers, actual_modifier);
     assert_eq!(hotkey.keycode, 'Z');
-    assert_eq!(hotkey.is_match(actual_modifier, &'z'), true);
+    assert!(hotkey.is_match(actual_modifier, &'z'));
 }
 
 #[test]
@@ -88,7 +88,7 @@ fn test_parse_long_input() {
     actual_modifier.add_alt();
     assert_eq!(hotkey.modifiers, actual_modifier);
     assert_eq!(hotkey.keycode, 'W');
-    assert_eq!(hotkey.is_match(actual_modifier, &'W'), true);
+    assert!(hotkey.is_match(actual_modifier, &'W'));
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn test_parse_with_named_keycode() {
     actual_modifier.add_control();
     assert_eq!(hotkey.modifiers, actual_modifier);
     assert_eq!(hotkey.keycode, KEY_SPACE);
-    assert_eq!(hotkey.is_match(actual_modifier, &KEY_SPACE), true);
+    assert!(hotkey.is_match(actual_modifier, &KEY_SPACE));
 }
 
 #[test]
