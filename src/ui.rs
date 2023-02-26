@@ -130,6 +130,10 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
                 }
                 None => {}
             },
+            Event::WindowCloseRequested => {
+                ctx.set_handled();
+                ctx.submit_command(platform::HIDE_COMMAND);
+            }
             _ => {}
         }
         child.event(ctx, event, data, env)
