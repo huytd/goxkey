@@ -27,3 +27,7 @@ pub fn send_string(string: &str) -> Result<(), ()> {
 pub fn run_event_listener(callback: &CallbackFn) {
     todo!()
 }
+
+pub fn is_in_text_selection() -> bool {
+    todo!()
+}

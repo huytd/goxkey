@@ -8,6 +8,7 @@ use rdev::{Keyboard, KeyboardState};
 use crate::{
     config::{CONFIG_MANAGER, HOTKEY_CONFIG_KEY, TYPING_METHOD_CONFIG_KEY},
     hotkey::Hotkey,
+    platform::is_in_text_selection,
     ui::UPDATE_UI,
     UI_EVENT_SINK,
 };
@@ -250,10 +251,20 @@ impl InputState {
 
     pub fn get_backspace_count(&self, is_delete: bool) -> usize {
         let dp_len = self.display_buffer.chars().count();
-        if is_delete && dp_len >= 1 {
+        let backspace_count = if is_delete && dp_len >= 1 {
             dp_len
         } else {
             dp_len - 1
+        };
+
+        // Add an extra backspace to compensate the initial text selection deletion.
+        // This is useful in applications like chrome, where the URL bar uses text selection
+        // for autocompletion, causing the first backspace to delete the selection instead of
+        // the character behind the cursor.
+        if is_in_text_selection() {
+            backspace_count + 1
+        } else {
+            backspace_count
         }
     }
 
