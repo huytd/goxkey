@@ -8,6 +8,7 @@ use core_graphics::{
     },
     sys,
 };
+use druid::{commands::HIDE_APPLICATION, Selector};
 pub use macos_ext::SystemTray;
 
 use crate::input::KEYBOARD_LAYOUT_CHARACTER_MAP;
@@ -24,6 +25,8 @@ pub const SYMBOL_SHIFT: &str = "⇧";
 pub const SYMBOL_CTRL: &str = "⌃";
 pub const SYMBOL_SUPER: &str = "⌘";
 pub const SYMBOL_ALT: &str = "⌥";
+
+pub const HIDE_COMMAND: Selector = HIDE_APPLICATION;
 
 pub fn get_home_dir() -> Option<PathBuf> {
     env::var("HOME").ok().map(PathBuf::from)

@@ -1,6 +1,8 @@
 use crate::{
     input::{rebuild_keyboard_layout_map, TypingMethod, INPUT_STATE},
-    platform::{KeyModifier, SystemTray, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER},
+    platform::{
+        self, KeyModifier, SystemTray, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
+    },
 };
 use druid::{
     theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR},
@@ -248,7 +250,12 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
             Flex::row()
                 .with_child(Button::new("Cài đặt mặc định").fix_height(28.0))
                 .with_spacer(8.0)
-                .with_child(Button::new("Đóng").fix_width(100.0).fix_height(28.0))
+                .with_child(
+                    Button::new("Đóng")
+                        .fix_width(100.0)
+                        .fix_height(28.0)
+                        .on_click(|event, _, _| event.submit_command(platform::HIDE_COMMAND)),
+                )
                 .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
                 .main_axis_alignment(druid::widget::MainAxisAlignment::End)
                 .must_fill_main_axis(true)
