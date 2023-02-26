@@ -1,21 +1,14 @@
 use crate::{
     input::{rebuild_keyboard_layout_map, TypingMethod, INPUT_STATE},
-    platform::{KeyModifier, KEY_SPACE, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER},
+    platform::{KeyModifier, SystemTray, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER},
 };
 use druid::{
-    text::{
-        format::{Formatter, Validation},
-        TextInput,
-    },
     theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR},
     widget::{Button, Checkbox, Container, Controller, Flex, Label, RadioGroup, Switch, TextBox},
-    Data, Env, Event, EventCtx, KeyModifiers, Lens, Selector, Widget, WidgetExt,
+    Data, Env, Event, EventCtx, Lens, Selector, Widget, WidgetExt,
 };
 
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
-
-// TODO:
-// 2. Implement update for Controller to submit change to INPUT_STATE
 
 pub fn format_letter_key(c: char) -> String {
     if c.is_ascii_whitespace() {
@@ -67,6 +60,8 @@ pub struct UIDataAdapter {
     alt_key: bool,
     shift_key: bool,
     letter_key: String,
+    // system tray
+    systray: SystemTray,
 }
 
 impl UIDataAdapter {
@@ -75,12 +70,12 @@ impl UIDataAdapter {
             is_enabled: true,
             typing_method: TypingMethod::Telex,
             hotkey_display: String::new(),
-            // TODO: These values should be read from hotkey object
             super_key: true,
             ctrl_key: true,
             alt_key: false,
             shift_key: false,
             letter_key: String::from("Space"),
+            systray: SystemTray::new(),
         };
         ret.update();
         ret
@@ -98,6 +93,11 @@ impl UIDataAdapter {
             self.alt_key = modifiers.is_alt();
             self.shift_key = modifiers.is_shift();
             self.letter_key = format_letter_key(keycode);
+
+            self.systray.set_title(match self.is_enabled {
+                true => "VN",
+                false => "EN",
+            });
         }
     }
 

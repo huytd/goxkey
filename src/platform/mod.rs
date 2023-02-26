@@ -11,6 +11,9 @@ pub use os::{
     SYMBOL_SHIFT, SYMBOL_SUPER,
 };
 
+#[cfg(target_os = "macos")]
+pub use os::SystemTray;
+
 pub const KEY_ENTER: char = '\x13';
 pub const KEY_SPACE: char = '\u{0020}';
 pub const KEY_TAB: char = '\x09';
