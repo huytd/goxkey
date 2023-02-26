@@ -26,10 +26,10 @@ impl ConfigStore {
     fn load_config_data() -> Result<HashMap<String, String>> {
         let mut data = HashMap::new();
         let config_path = ConfigStore::get_config_path();
-        let mut file = File::open(config_path.as_path());
+        let file = File::open(config_path.as_path());
         let mut buf = String::new();
         if let Ok(mut file) = file {
-            file.read_to_string(&mut buf);
+            file.read_to_string(&mut buf)?;
         } else {
             buf = format!(
                 "{} = {}\n{} = {}",

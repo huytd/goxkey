@@ -2,10 +2,7 @@ use cocoa::appkit::{NSApp, NSApplication, NSButton, NSMenu, NSStatusBar, NSStatu
 use cocoa::base::{nil, YES};
 use cocoa::foundation::{NSAutoreleasePool, NSString};
 use core_graphics::{
-    event::{
-        CGEventFlags, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement, CGEventTapProxy,
-        CGEventType, CGKeyCode, EventField, KeyCode,
-    },
+    event::{CGEventTapProxy, CGKeyCode},
     sys,
 };
 use druid::{Data, Lens};

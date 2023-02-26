@@ -1,4 +1,4 @@
-use std::{ascii::AsciiExt, fmt::Display};
+use std::fmt::Display;
 
 use crate::platform::{
     KeyModifier, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, SYMBOL_ALT, SYMBOL_CTRL,
@@ -30,10 +30,6 @@ impl Hotkey {
                     keycode = c.chars().last().unwrap();
                 }
             });
-        Self { modifiers, keycode }
-    }
-
-    pub fn from(modifiers: KeyModifier, keycode: char) -> Self {
         Self { modifiers, keycode }
     }
 
