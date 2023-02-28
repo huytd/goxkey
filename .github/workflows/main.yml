@@ -20,6 +20,7 @@ jobs:
           args: cargo-bundle
   build:
     name: Build project
+    permissions: write-all
     runs-on: macos-11 # add other OS later
     steps:
       - uses: actions/checkout@v2
