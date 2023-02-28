@@ -39,7 +39,7 @@ jobs:
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run:
+        run: |
           gh release delete goxkey-nightly -y || true
           gh release create goxkey-nightly -p -t "GõKey Nightly"
           gh release upload "./target/release/bundle/osx/Gõ Key.app"
