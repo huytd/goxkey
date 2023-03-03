@@ -45,4 +45,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run:
-          gh release upload nightly-build target/release/bundle/osx/Gõ Key.app
+          gh release upload nightly-build "target/release/bundle/osx/Gõ Key.app"
