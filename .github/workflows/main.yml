@@ -40,10 +40,10 @@ jobs:
         with:
           name: goxkey-nightly
           path: target/release/bundle/osx/Gõ Key.app
-      - name: Attach artifact to release
-        uses: actions/upload-release-asset@v1.0.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Update nightly release
+        uses: eine/tip@master
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_name: goxkey-nightl
+          tag: nightly-build
+          rm: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: target/release/bundle/osx/*.*
