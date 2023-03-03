@@ -45,6 +45,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          path: target/release/bundle/osx/Gõ Key.app
-          asset_name: nightly
-          tag_name: nightly
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_name: goxkey-nightl
