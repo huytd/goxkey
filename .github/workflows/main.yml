@@ -47,4 +47,4 @@ jobs:
         run: |
           cd target/release/bundle/osx
           zip -r GõKey.zip "Gõ Key.app"
-          gh release upload nightly-build ./GõKey.zip --clobber
+          gh release upload --clobber nightly-build "./GõKey.zip"
