@@ -47,5 +47,4 @@ jobs:
         run: |
           cd target/release/bundle/osx
           zip -r GõKey.zip "Gõ Key.app"
-          gh release delete-asset nightly-build GõKey.zip
-          gh release upload nightly-build ./GõKey.zip
+          gh release upload nightly-build ./GõKey.zip --clobber
