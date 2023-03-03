@@ -38,12 +38,5 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: goxkey-nightly
+          name: Gõ Key.app
           path: target/release/bundle/osx/Gõ Key.app
-      - name: Update nightly release
-        uses: eine/tip@master
-        with:
-          tag: nightly-build
-          rm: true
-          token: ${{ secrets.GITHUB_TOKEN }}
-          files: target/release/bundle/osx/*.*
