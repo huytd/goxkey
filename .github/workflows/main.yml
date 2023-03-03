@@ -44,5 +44,7 @@ jobs:
       - name: Release nightly
         env:
           GH_TOKEN: ${{ github.token }}
-        run:
-          gh release upload nightly-build "target/release/bundle/osx/Gõ Key.app"
+        run: |
+          cd target/release/bundle/osx
+          zip -r GõKey.zip "Gõ Key.app"
+          gh release upload nightly-build ./GõKey.zip
