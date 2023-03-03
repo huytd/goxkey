@@ -35,3 +35,16 @@ jobs:
         with:
           command: bundle
           args: --release
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: goxkey-nightly
+          path: target/release/bundle/osx/Gõ Key.app
+      - name: Attach artifact to release
+        uses: actions/upload-release-asset@v1.0.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          path: target/release/bundle/osx/Gõ Key.app
+          asset_name: nightly
+          tag_name: nightly
