@@ -46,6 +46,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd target/release/bundle/osx
-          zip -r GõKey.zip "Gõ Key.app"
-          gh release delete-asset nightly-build GõKey.zip
-          gh release upload nightly-build GõKey.zip
+          zip -r GoKey.zip "Gõ Key.app"
+          gh release delete-asset nightly-build GoKey.zip
+          gh release upload nightly-build GoKey.zip
