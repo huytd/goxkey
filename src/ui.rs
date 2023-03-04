@@ -6,8 +6,11 @@ use crate::{
 };
 use druid::{
     theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR},
-    widget::{Button, Checkbox, Container, Controller, Flex, Label, RadioGroup, Switch, TextBox},
-    Data, Env, Event, EventCtx, Lens, Selector, Widget, WidgetExt,
+    widget::{
+        Button, Checkbox, Container, Controller, FillStrat, Flex, Image, Label, LineBreaking,
+        RadioGroup, Switch, TextBox,
+    },
+    Application, Data, Env, Event, EventCtx, ImageBuf, Lens, Selector, Widget, WidgetExt,
 };
 
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
@@ -266,4 +269,43 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
         )
         .padding(8.0)
         .controller(UIController)
+}
+
+pub fn permission_request_ui_builder() -> impl Widget<()> {
+    let image_data = ImageBuf::from_data(include_bytes!("../assets/accessibility.png")).unwrap();
+    Flex::column()
+        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+        .main_axis_alignment(druid::widget::MainAxisAlignment::Start)
+        .with_child(
+            Label::new("Chờ đã! Bạn cần phải cấp quyền Accessibility cho ứng dụng GõKey trước khi sử dụng.")
+                .with_line_break_mode(LineBreaking::WordWrap)
+                .padding(6.0)
+        )
+        .with_child(
+            Container::new(Image::new(image_data).fill_mode(FillStrat::Cover))
+                .rounded(4.0)
+                .padding(6.0)
+        )
+        .with_child(
+            Label::new("Bạn vui lòng thoát khỏi ứng dụng và mở lại sau khi đã cấp quyền.")
+                .with_line_break_mode(LineBreaking::WordWrap)
+                .padding(6.0)
+        )
+        .with_child(
+            Flex::row()
+                .cross_axis_alignment(druid::widget::CrossAxisAlignment::End)
+                .main_axis_alignment(druid::widget::MainAxisAlignment::End)
+                .with_child(
+                    Button::new("Thoát")
+                        .fix_width(100.0)
+                        .fix_height(28.0)
+                        .on_click(|_, _, _| {
+                            Application::global().quit();
+                        })
+                        .padding(6.0)
+                )
+                .must_fill_main_axis(true)
+        )
+        .must_fill_main_axis(true)
+        .padding(6.0)
 }

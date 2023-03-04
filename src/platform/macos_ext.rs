@@ -1,6 +1,8 @@
 use cocoa::appkit::{NSApp, NSApplication, NSButton, NSMenu, NSStatusBar, NSStatusItem};
 use cocoa::base::{nil, YES};
 use cocoa::foundation::{NSAutoreleasePool, NSString};
+use core_foundation::dictionary::CFDictionaryRef;
+use core_foundation::string::CFStringRef;
 use core_graphics::{
     event::{CGEventTapProxy, CGKeyCode},
     sys,
@@ -133,7 +135,8 @@ pub mod new_tap {
         };
     }
 
-    type CallbackType<'tap_life> = Box<dyn Fn(CGEventTapProxy, CGEventType, &CGEvent) -> Option<CGEvent> + 'tap_life>;
+    type CallbackType<'tap_life> =
+        Box<dyn Fn(CGEventTapProxy, CGEventType, &CGEvent) -> Option<CGEvent> + 'tap_life>;
     pub struct CGEventTap<'tap_life> {
         pub mach_port: CFMachPort,
         pub callback_ref: CallbackType<'tap_life>,
@@ -180,4 +183,10 @@ pub mod new_tap {
             unsafe { CGEventTapEnable(self.mach_port.as_concrete_TypeRef(), true) }
         }
     }
+}
+
+#[link(name = "ApplicationServices", kind = "framework")]
+extern "C" {
+    pub fn AXIsProcessTrustedWithOptions(options: CFDictionaryRef) -> bool;
+    pub static kAXTrustedCheckOptionPrompt: CFStringRef;
 }

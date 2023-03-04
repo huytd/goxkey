@@ -11,8 +11,8 @@ use input::{rebuild_keyboard_layout_map, INPUT_STATE};
 use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
-    run_event_listener, send_backspace, send_string, Handle, KeyModifier, KEY_DELETE, KEY_ENTER,
-    KEY_ESCAPE, KEY_SPACE, KEY_TAB,
+    ensure_accessibility_permission, run_event_listener, send_backspace, send_string, Handle,
+    KeyModifier, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB,
 };
 
 use ui::{UIDataAdapter, UPDATE_UI};
@@ -98,20 +98,27 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
 
 fn main() {
     env_logger::init();
-
-    rebuild_keyboard_layout_map();
-
-    let win = WindowDesc::new(ui::main_ui_builder())
-        .title("gõkey")
-        .window_size((320.0, 234.0))
-        .resizable(false);
-    let app = AppLauncher::with_window(win);
-    let event_sink = app.get_external_handle();
-    _ = UI_EVENT_SINK.set(event_sink);
-
-    thread::spawn(|| {
-        run_event_listener(&event_handler);
-    });
-
-    _ = app.launch(UIDataAdapter::new());
+    if !ensure_accessibility_permission() {
+        // Show the Accessibility Permission Request screen
+        let win = WindowDesc::new(ui::permission_request_ui_builder())
+            .title("gõkey")
+            .window_size((500.0, 360.0))
+            .resizable(false);
+        let app = AppLauncher::with_window(win);
+        _ = app.launch(());
+    } else {
+        // Start the GõKey application
+        rebuild_keyboard_layout_map();
+        let win = WindowDesc::new(ui::main_ui_builder())
+            .title("gõkey")
+            .window_size((320.0, 234.0))
+            .resizable(false);
+        let app = AppLauncher::with_window(win);
+        let event_sink = app.get_external_handle();
+        _ = UI_EVENT_SINK.set(event_sink);
+        thread::spawn(|| {
+            run_event_listener(&event_handler);
+        });
+        _ = app.launch(UIDataAdapter::new());
+    }
 }

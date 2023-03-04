@@ -32,3 +32,7 @@ pub fn send_string(string: &str) -> Result<(), ()> {
 pub fn run_event_listener(callback: &CallbackFn) {
     todo!()
 }
+
+pub fn ensure_accessibility_permission() -> bool {
+    true
+}
