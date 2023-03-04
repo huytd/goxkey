@@ -7,8 +7,8 @@ use std::fmt::Display;
 
 use bitflags::bitflags;
 pub use os::{
-    get_home_dir, run_event_listener, send_backspace, send_string, Handle, HIDE_COMMAND,
-    SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
+    ensure_accessibility_permission, get_home_dir, run_event_listener, send_backspace, send_string,
+    Handle, HIDE_COMMAND, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
 };
 
 #[cfg(target_os = "macos")]

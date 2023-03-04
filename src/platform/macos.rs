@@ -1,6 +1,10 @@
 use std::{env, path::PathBuf, ptr};
 
 mod macos_ext;
+use cocoa::{
+    base::{nil, YES},
+    foundation::NSDictionary,
+};
 use core_graphics::{
     event::{
         CGEventFlags, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement, CGEventType,
@@ -10,13 +14,15 @@ use core_graphics::{
 };
 use druid::{commands::HIDE_APPLICATION, Selector};
 pub use macos_ext::SystemTray;
+use objc::{class, msg_send, sel, sel_impl};
 
 use crate::input::KEYBOARD_LAYOUT_CHARACTER_MAP;
 use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
 
 pub use self::macos_ext::Handle;
 use self::macos_ext::{
-    new_tap, CGEventCreateKeyboardEvent, CGEventKeyboardSetUnicodeString, CGEventTapPostEvent,
+    kAXTrustedCheckOptionPrompt, new_tap, AXIsProcessTrustedWithOptions,
+    CGEventCreateKeyboardEvent, CGEventKeyboardSetUnicodeString, CGEventTapPostEvent,
 };
 
 use super::{CallbackFn, KeyModifier, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB};
@@ -176,5 +182,16 @@ pub fn run_event_listener(callback: &CallbackFn) {
             event_tap.enable();
             CFRunLoop::run_current();
         }
+    }
+}
+
+pub fn ensure_accessibility_permission() -> bool {
+    unsafe {
+        let options = NSDictionary::dictionaryWithObject_forKey_(
+            nil,
+            msg_send![class!(NSNumber), numberWithBool: YES],
+            kAXTrustedCheckOptionPrompt as _,
+        );
+        return AXIsProcessTrustedWithOptions(options as _);
     }
 }
