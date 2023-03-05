@@ -13,6 +13,7 @@ pub use os::{
 
 #[cfg(target_os = "macos")]
 pub use os::SystemTray;
+pub use os::SystemTrayMenuItemKey;
 
 pub const KEY_ENTER: char = '\x13';
 pub const KEY_SPACE: char = '\u{0020}';

@@ -1,4 +1,6 @@
-use cocoa::appkit::{NSApp, NSApplication, NSButton, NSMenu, NSStatusBar, NSStatusItem};
+use cocoa::appkit::{
+    NSApp, NSApplication, NSButton, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem,
+};
 use cocoa::base::{nil, YES};
 use cocoa::foundation::{NSAutoreleasePool, NSString};
 use core_foundation::dictionary::CFDictionaryRef;
@@ -8,6 +10,17 @@ use core_graphics::{
     sys,
 };
 use druid::{Data, Lens};
+use libc::c_void;
+use objc::{
+    declare::ClassDecl,
+    msg_send,
+    runtime::Class,
+    runtime::{Object, Sel},
+    sel, sel_impl, Message,
+};
+use objc_foundation::{INSObject, NSObject};
+use objc_id::Id;
+use std::mem;
 
 #[derive(Clone, PartialEq, Eq)]
 struct Wrapper(*mut objc::runtime::Object);
@@ -15,6 +28,13 @@ impl Data for Wrapper {
     fn same(&self, _other: &Self) -> bool {
         true
     }
+}
+
+pub enum SystemTrayMenuItemKey {
+    Enable,
+    TypingMethodTelex,
+    TypingMethodVNI,
+    Exit,
 }
 
 #[derive(Clone, Data, Lens, PartialEq, Eq)]
@@ -29,25 +49,89 @@ impl SystemTray {
         unsafe {
             let pool = NSAutoreleasePool::new(nil);
             let menu = NSMenu::new(nil).autorelease();
+
             let app = NSApp();
             app.activateIgnoringOtherApps_(YES);
             let item = NSStatusBar::systemStatusBar(nil).statusItemWithLength_(-1.0);
             let title = NSString::alloc(nil).init_str("VN");
-            item.setTitle_(title);
+            NSButton::setTitle_(item, title);
             item.setMenu_(menu);
 
-            Self {
+            let s = Self {
                 _pool: Wrapper(pool),
                 menu: Wrapper(menu),
                 item: Wrapper(item),
-            }
+            };
+            s.init_menu_items();
+            s
         }
     }
 
     pub fn set_title(&mut self, title: &str) {
         unsafe {
             let title = NSString::alloc(nil).init_str(title);
-            self.item.0.setTitle_(title);
+            NSButton::setTitle_(self.item.0, title);
+        }
+    }
+
+    pub fn init_menu_items(&self) {
+        self.add_menu_item("Tắt gõ tiếng việt", || ());
+        self.add_menu_separator();
+        self.add_menu_item("Telex ✓", || ());
+        self.add_menu_item("VNI", || ());
+        self.add_menu_separator();
+        self.add_menu_item("Thoát ứng dụng", || ());
+    }
+
+    pub fn add_menu_separator(&self) {
+        unsafe {
+            NSMenu::addItem_(self.menu.0, NSMenuItem::separatorItem(nil));
+        }
+    }
+
+    pub fn add_menu_item<F>(&self, label: &str, cb: F)
+    where
+        F: Fn() + Send + 'static,
+    {
+        let cb_obj = Callback::from(Box::new(cb));
+
+        unsafe {
+            let no_key = NSString::alloc(nil).init_str("");
+            let itemtitle = NSString::alloc(nil).init_str(label);
+            let action = sel!(call);
+            let item = NSMenuItem::alloc(nil)
+                .initWithTitle_action_keyEquivalent_(itemtitle, action, no_key);
+            let _: () = msg_send![item, setTarget: cb_obj];
+
+            NSMenu::addItem_(self.menu.0, item);
+        }
+    }
+
+    pub fn get_menu_item_index_by_key(&self, key: SystemTrayMenuItemKey) -> i64 {
+        match key {
+            SystemTrayMenuItemKey::Enable => 0,
+            SystemTrayMenuItemKey::TypingMethodTelex => 2,
+            SystemTrayMenuItemKey::TypingMethodVNI => 3,
+            SystemTrayMenuItemKey::Exit => 5,
+        }
+    }
+
+    pub fn set_menu_item_title(&self, key: SystemTrayMenuItemKey, label: &str) {
+        unsafe {
+            let item_title = NSString::alloc(nil).init_str(label);
+            let index = self.get_menu_item_index_by_key(key);
+            NSButton::setTitle_(self.menu.0.itemAtIndex_(index), item_title);
+        }
+    }
+
+    pub fn set_menu_item_callback<F>(&self, key: SystemTrayMenuItemKey, cb: F)
+    where
+        F: Fn() + Send + 'static,
+    {
+        let cb_obj = Callback::from(Box::new(cb));
+        unsafe {
+            let index = self.get_menu_item_index_by_key(key);
+            let _: () = msg_send![self.menu.0.itemAtIndex_(index), setTarget: cb_obj];
         }
     }
 }
@@ -182,6 +266,70 @@ pub mod new_tap {
         pub fn enable(&self) {
             unsafe { CGEventTapEnable(self.mach_port.as_concrete_TypeRef(), true) }
         }
+    }
+}
+
+pub(crate) enum Callback {}
+unsafe impl Message for Callback {}
+
+pub(crate) struct CallbackState {
+    cb: Box<dyn Fn()>,
+}
+
+impl Callback {
+    pub(crate) fn from(cb: Box<dyn Fn()>) -> Id<Self> {
+        let cbs = CallbackState { cb };
+        let bcbs = Box::new(cbs);
+
+        let ptr = Box::into_raw(bcbs);
+        let ptr = ptr as *mut c_void as usize;
+        let mut oid = <Callback as INSObject>::new();
+        (*oid).setptr(ptr);
+        oid
+    }
+
+    pub(crate) fn setptr(&mut self, uptr: usize) {
+        unsafe {
+            let obj = &mut *(self as *mut _ as *mut ::objc::runtime::Object);
+            obj.set_ivar("_cbptr", uptr);
+        }
+    }
+}
+
+impl INSObject for Callback {
+    fn class() -> &'static Class {
+        let cname = "Callback";
+
+        let mut klass = Class::get(cname);
+        if klass.is_none() {
+            let superclass = NSObject::class();
+            let mut decl = ClassDecl::new(cname, superclass).unwrap();
+            decl.add_ivar::<usize>("_cbptr");
+
+            extern "C" fn sysbar_callback_call(this: &Object, _cmd: Sel) {
+                unsafe {
+                    let pval: usize = *this.get_ivar("_cbptr");
+                    let ptr = pval as *mut c_void;
+                    let ptr = ptr as *mut CallbackState;
+                    let bcbs: Box<CallbackState> = Box::from_raw(ptr);
+                    {
+                        (*bcbs.cb)();
+                    }
+                    mem::forget(bcbs);
+                }
+            }
+
+            unsafe {
+                decl.add_method(
+                    sel!(call),
+                    sysbar_callback_call as extern "C" fn(&Object, Sel),
+                );
+            }
+
+            decl.register();
+            klass = Class::get(cname);
+        }
+        klass.unwrap()
     }
 }
 

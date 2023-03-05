@@ -13,8 +13,10 @@ use core_graphics::{
     sys,
 };
 use druid::{commands::HIDE_APPLICATION, Selector};
-pub use macos_ext::SystemTray;
 use objc::{class, msg_send, sel, sel_impl};
+
+pub use macos_ext::SystemTray;
+pub use macos_ext::SystemTrayMenuItemKey;
 
 use crate::input::KEYBOARD_LAYOUT_CHARACTER_MAP;
 use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
