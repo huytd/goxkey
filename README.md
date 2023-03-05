@@ -23,9 +23,17 @@ either VNI or TELEX method. Other than that, no other features are planned.
 
 ## How to install
 
-Currently, since we are still at an early development stage, no pre-built binaries are provided.
+There are 2 options to download GõKey at this moment: Build from source or Download the Nightly build.
 
-But the source code can be compiled easily:
+### Option 1: Download the Nightly Build
+
+Nightly build is the prebuilt binary that automatically bundled everytime we merged the code to the `main` branch.
+
+You can download it at the Release page here: https://github.com/huytd/goxkey/releases/tag/nightly-build
+
+### Option 2: Build from source
+
+The source code can be compiled easily:
 
 1. Get the latest stable version of the Rust compiler ([see here](https://rustup.rs/))
 2. Install the [cargo-bundle](https://github.com/burtonageo/cargo-bundle) extension, this is necessary for bundling macOS apps
