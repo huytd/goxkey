@@ -148,7 +148,9 @@ pub fn run_event_listener(callback: &CallbackFn) {
                             as CGKeyCode;
                         let mut modifiers = KeyModifier::new();
                         let flags = event.get_flags();
-                        if flags.contains(CGEventFlags::CGEventFlagShift) {
+                        if flags.contains(CGEventFlags::CGEventFlagShift)
+                            || flags.contains(CGEventFlags::CGEventFlagAlphaShift)
+                        {
                             modifiers.add_shift();
                         }
                         if flags.contains(CGEventFlags::CGEventFlagControl) {
