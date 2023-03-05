@@ -1,13 +1,16 @@
 use crate::{
     input::{rebuild_keyboard_layout_map, TypingMethod, INPUT_STATE},
     platform::{
-        self, KeyModifier, SystemTray, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
+        self, KeyModifier, SystemTray, SystemTrayMenuItemKey, SYMBOL_ALT, SYMBOL_CTRL,
+        SYMBOL_SHIFT, SYMBOL_SUPER,
     },
+    UI_EVENT_SINK,
 };
 use druid::{
+    commands::QUIT_APP,
     theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR},
     widget::{Button, Checkbox, Container, Controller, Flex, Label, RadioGroup, Switch, TextBox},
-    Data, Env, Event, EventCtx, Lens, Selector, Widget, WidgetExt,
+    Data, Env, Event, EventCtx, Lens, Selector, Target, Widget, WidgetExt,
 };
 
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
@@ -79,6 +82,7 @@ impl UIDataAdapter {
             letter_key: String::from("Space"),
             systray: SystemTray::new(),
         };
+        ret.setup_system_tray_actions();
         ret.update();
         ret
     }
@@ -96,11 +100,69 @@ impl UIDataAdapter {
             self.shift_key = modifiers.is_shift();
             self.letter_key = format_letter_key(keycode);
 
-            self.systray.set_title(match self.is_enabled {
-                true => "VN",
-                false => "EN",
-            });
+            match self.is_enabled {
+                true => {
+                    self.systray.set_title("VN");
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::Enable, "Tắt gõ tiếng việt");
+                }
+                false => {
+                    self.systray.set_title("EN");
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::Enable, "Bật gõ tiếng việt");
+                }
+            }
+            match self.typing_method {
+                TypingMethod::VNI => {
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelex, "Telex");
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodVNI, "VNI ✓");
+                }
+                TypingMethod::Telex => {
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelex, "Telex ✓");
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodVNI, "VNI");
+                }
+            }
         }
+    }
+
+    fn setup_system_tray_actions(&mut self) {
+        self.systray
+            .set_menu_item_callback(SystemTrayMenuItemKey::Enable, || {
+                unsafe {
+                    INPUT_STATE.toggle_vietnamese();
+                }
+                UI_EVENT_SINK
+                    .get()
+                    .map(|event| Some(event.submit_command(UPDATE_UI, (), Target::Auto)));
+            });
+        self.systray
+            .set_menu_item_callback(SystemTrayMenuItemKey::TypingMethodTelex, || {
+                unsafe {
+                    INPUT_STATE.set_method(TypingMethod::Telex);
+                }
+                UI_EVENT_SINK
+                    .get()
+                    .map(|event| Some(event.submit_command(UPDATE_UI, (), Target::Auto)));
+            });
+        self.systray
+            .set_menu_item_callback(SystemTrayMenuItemKey::TypingMethodVNI, || {
+                unsafe {
+                    INPUT_STATE.set_method(TypingMethod::VNI);
+                }
+                UI_EVENT_SINK
+                    .get()
+                    .map(|event| Some(event.submit_command(UPDATE_UI, (), Target::Auto)));
+            });
+        self.systray
+            .set_menu_item_callback(SystemTrayMenuItemKey::Exit, || {
+                UI_EVENT_SINK
+                    .get()
+                    .map(|event| Some(event.submit_command(QUIT_APP, (), Target::Auto)));
+            });
     }
 
     pub fn toggle_vietnamese(&mut self) {
