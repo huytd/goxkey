@@ -8,7 +8,8 @@
 4. Click phải chuột vào **Gõ Key.app** và chọn Open 
 <img width="299" alt="image" src="https://user-images.githubusercontent.com/613943/222664339-1913b636-80da-4775-ad86-b964ea332c1b.png">
 
-🔬 Vì đây là bản build chưa chính thức, và chưa được notarized, app sẽ không tự động hỏi quyền Accessibility nên các bạn vui lòng 
- thực hiện bước 3 sau mỗi lần cài đặt hoặc update phiên bản mới. 
+🔬 Vì đây là bản build chưa chính thức, và chưa được notarized, macOS sẽ hỏi lại vài lần để chắc là bạn có muốn mở app không, khi xuất hiện các hộp thoại này, xin đừng nhấn nút _"Move to Trash"_ 😂 
+
+<img width="640" src="https://user-images.githubusercontent.com/613943/222976671-10ebb015-0ccb-43ff-a52b-a0579f9be1ce.png">
 
 🐞 Trong quá trình sử dụng, nếu có lỗi xảy ra, xin đừng chửi tác giả, mà vui lòng [Tạo issue mới tại đây](https://github.com/huytd/goxkey/issues) và mô tả vấn đề bạn gặp phải. Nhóm phát triển chân thành cảm ơn sự ủng hộ của các bạn :D 
