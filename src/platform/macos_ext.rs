@@ -3,6 +3,8 @@ use cocoa::appkit::{
 };
 use cocoa::base::{nil, YES};
 use cocoa::foundation::{NSAutoreleasePool, NSString};
+use core_foundation::dictionary::CFDictionaryRef;
+use core_foundation::string::CFStringRef;
 use core_graphics::{
     event::{CGEventTapProxy, CGKeyCode},
     sys,
@@ -329,4 +331,10 @@ impl INSObject for Callback {
         }
         klass.unwrap()
     }
+}
+
+#[link(name = "ApplicationServices", kind = "framework")]
+extern "C" {
+    pub fn AXIsProcessTrustedWithOptions(options: CFDictionaryRef) -> bool;
+    pub static kAXTrustedCheckOptionPrompt: CFStringRef;
 }

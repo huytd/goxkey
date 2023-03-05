@@ -1,6 +1,10 @@
 use std::{env, path::PathBuf, ptr};
 
 mod macos_ext;
+use cocoa::{
+    base::{nil, YES},
+    foundation::NSDictionary,
+};
 use core_graphics::{
     event::{
         CGEventFlags, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement, CGEventType,
@@ -9,6 +13,8 @@ use core_graphics::{
     sys,
 };
 use druid::{commands::HIDE_APPLICATION, Selector};
+use objc::{class, msg_send, sel, sel_impl};
+
 pub use macos_ext::SystemTray;
 pub use macos_ext::SystemTrayMenuItemKey;
 
@@ -17,7 +23,8 @@ use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
 
 pub use self::macos_ext::Handle;
 use self::macos_ext::{
-    new_tap, CGEventCreateKeyboardEvent, CGEventKeyboardSetUnicodeString, CGEventTapPostEvent,
+    kAXTrustedCheckOptionPrompt, new_tap, AXIsProcessTrustedWithOptions,
+    CGEventCreateKeyboardEvent, CGEventKeyboardSetUnicodeString, CGEventTapPostEvent,
 };
 
 use super::{CallbackFn, KeyModifier, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB};
@@ -143,7 +150,9 @@ pub fn run_event_listener(callback: &CallbackFn) {
                             as CGKeyCode;
                         let mut modifiers = KeyModifier::new();
                         let flags = event.get_flags();
-                        if flags.contains(CGEventFlags::CGEventFlagShift) {
+                        if flags.contains(CGEventFlags::CGEventFlagShift)
+                            || flags.contains(CGEventFlags::CGEventFlagAlphaShift)
+                        {
                             modifiers.add_shift();
                         }
                         if flags.contains(CGEventFlags::CGEventFlagControl) {
@@ -177,5 +186,16 @@ pub fn run_event_listener(callback: &CallbackFn) {
             event_tap.enable();
             CFRunLoop::run_current();
         }
+    }
+}
+
+pub fn ensure_accessibility_permission() -> bool {
+    unsafe {
+        let options = NSDictionary::dictionaryWithObject_forKey_(
+            nil,
+            msg_send![class!(NSNumber), numberWithBool: YES],
+            kAXTrustedCheckOptionPrompt as _,
+        );
+        return AXIsProcessTrustedWithOptions(options as _);
     }
 }
