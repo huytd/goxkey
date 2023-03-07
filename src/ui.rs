@@ -9,7 +9,10 @@ use crate::{
 use druid::{
     commands::QUIT_APP,
     theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR},
-    widget::{Button, Checkbox, Container, Controller, FillStrat, Flex, Image, Label, RadioGroup, Switch, TextBox, LineBreaking},
+    widget::{
+        Button, Checkbox, Container, Controller, FillStrat, Flex, Image, Label, LineBreaking,
+        RadioGroup, Switch, TextBox,
+    },
     Application, Data, Env, Event, EventCtx, ImageBuf, Lens, Selector, Target, Widget, WidgetExt,
 };
 

@@ -1833,8 +1833,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "vi"
 version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4f4a1f9136285860bb8d50257ad6cdc28d65c3c7b38a444199890ed57d0f4bb"
+source = "git+https://github.com/zerox-dg/vi-rs?branch=master#cd413873cfa2bfbbf434a341e4f58fd28d02c9d7"
 dependencies = [
  "nom",
  "phf",
