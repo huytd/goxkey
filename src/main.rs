@@ -6,6 +6,7 @@ mod ui;
 
 use std::thread;
 
+use config::ConfigWatcher;
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
 use input::{rebuild_keyboard_layout_map, INPUT_STATE};
 use log::debug;
@@ -115,10 +116,15 @@ fn main() {
             .resizable(false);
         let app = AppLauncher::with_window(win);
         let event_sink = app.get_external_handle();
-        _ = UI_EVENT_SINK.set(event_sink);
+        _ = UI_EVENT_SINK.set(event_sink.clone());
+
+        let mut config_watcher = ConfigWatcher::new(event_sink.clone());
+        config_watcher.start();
+
         thread::spawn(|| {
             run_event_listener(&event_handler);
         });
+
         _ = app.launch(UIDataAdapter::new());
     }
 }

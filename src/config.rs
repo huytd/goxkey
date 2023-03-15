@@ -4,11 +4,13 @@ use std::{
     io::{Read, Result, Write},
     path::PathBuf,
     sync::Mutex,
+    time::Duration,
 };
 
-use once_cell::sync::Lazy;
-
 use crate::platform::get_home_dir;
+use druid::ExtEventSink;
+use notify::{Event, EventKind, FsEventWatcher, Watcher};
+use once_cell::sync::Lazy;
 
 pub static CONFIG_MANAGER: Lazy<Mutex<ConfigStore>> = Lazy::new(|| Mutex::new(ConfigStore::new()));
 
@@ -17,7 +19,7 @@ pub struct ConfigStore {
 }
 
 impl ConfigStore {
-    fn get_config_path() -> PathBuf {
+    pub fn get_config_path() -> PathBuf {
         get_home_dir()
             .expect("Cannot read home directory!")
             .join(".goxkey")
@@ -72,3 +74,31 @@ impl ConfigStore {
 
 pub const HOTKEY_CONFIG_KEY: &str = "hotkey";
 pub const TYPING_METHOD_CONFIG_KEY: &str = "method";
+
+pub struct ConfigWatcher {
+    watcher: FsEventWatcher,
+}
+
+impl ConfigWatcher {
+    pub fn new(event_sink: ExtEventSink) -> Self {
+        let watcher = notify::recommended_watcher(|res| match res {
+            Ok(event) => {
+                let event: Event = event;
+                if let notify::EventKind::Modify(notify::event::ModifyKind::Data(_)) = event.kind {
+                    println!("Config file modified!");
+                    std::thread::sleep(Duration::from_millis(200));
+                }
+            }
+            Err(_) => {}
+        })
+        .unwrap();
+        Self { watcher }
+    }
+
+    pub fn start(&mut self) {
+        let file_path = ConfigStore::get_config_path();
+        _ = self
+            .watcher
+            .watch(&file_path.as_path(), notify::RecursiveMode::Recursive);
+    }
+}
