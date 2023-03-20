@@ -235,14 +235,20 @@ impl InputState {
             }
     }
 
-    pub fn transform_keys(&self) -> String {
-        let mut output = String::new();
+    pub fn transform_keys(&self) -> Result<String, ()> {
         let transform_method = match self.method {
             TypingMethod::VNI => vi::vni::transform_buffer,
             TypingMethod::Telex => vi::telex::transform_buffer,
         };
-        transform_method(self.buffer.chars(), &mut output);
-        output
+        let result = std::panic::catch_unwind(|| {
+            let mut output = String::new();
+            transform_method(self.buffer.chars(), &mut output);
+            output
+        });
+        if let Ok(output) = result {
+            return Ok(output);
+        }
+        Err(())
     }
 
     pub fn should_send_keyboard_event(&self, word: &str) -> bool {

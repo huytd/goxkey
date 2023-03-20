@@ -21,15 +21,16 @@ static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
 
 fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
     unsafe {
-        let output = INPUT_STATE.transform_keys();
-        debug!("Transformed: {:?}", output);
-        if INPUT_STATE.should_send_keyboard_event(&output) || is_delete {
-            let backspace_count = INPUT_STATE.get_backspace_count(is_delete);
-            debug!("Backspace count: {}", backspace_count);
-            _ = send_backspace(handle, backspace_count);
-            _ = send_string(handle, &output);
-            INPUT_STATE.replace(output);
-            return true;
+        if let Ok(output) = INPUT_STATE.transform_keys() {
+            debug!("Transformed: {:?}", output);
+            if INPUT_STATE.should_send_keyboard_event(&output) || is_delete {
+                let backspace_count = INPUT_STATE.get_backspace_count(is_delete);
+                debug!("Backspace count: {}", backspace_count);
+                _ = send_backspace(handle, backspace_count);
+                _ = send_string(handle, &output);
+                INPUT_STATE.replace(output);
+                return true;
+            }
         }
     }
     false
