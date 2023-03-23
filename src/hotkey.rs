@@ -33,7 +33,10 @@ impl Hotkey {
         Self { modifiers, keycode }
     }
 
-    pub fn is_match(&self, modifiers: KeyModifier, keycode: &char) -> bool {
+    pub fn is_match(&self, mut modifiers: KeyModifier, keycode: &char) -> bool {
+        // Caps Lock should not interfere with any hotkey
+        modifiers.remove(KeyModifier::MODIFIER_CAPSLOCK);
+
         self.modifiers == modifiers && self.keycode.eq_ignore_ascii_case(keycode)
     }
 
@@ -100,6 +103,18 @@ fn test_parse_with_named_keycode() {
     assert_eq!(hotkey.modifiers, actual_modifier);
     assert_eq!(hotkey.keycode, KEY_SPACE);
     assert!(hotkey.is_match(actual_modifier, &KEY_SPACE));
+}
+
+#[test]
+fn test_can_match_with_or_without_capslock() {
+    let hotkey = Hotkey::from_str("super+ctrl+space");
+    let mut actual_modifier = KeyModifier::new();
+    actual_modifier.add_super();
+    actual_modifier.add_control();
+    assert_eq!(hotkey.is_match(actual_modifier, &' '), true);
+
+    actual_modifier.add_capslock();
+    assert!(hotkey.is_match(actual_modifier, &' '));
 }
 
 #[test]
