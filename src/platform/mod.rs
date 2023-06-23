@@ -28,6 +28,7 @@ bitflags! {
         const MODIFIER_SUPER    = 0b00000010;
         const MODIFIER_CONTROL  = 0b00000100;
         const MODIFIER_ALT      = 0b00001000;
+        const MODIFIER_CAPSLOCK = 0b00010000;
     }
 }
 
@@ -45,6 +46,9 @@ impl Display for KeyModifier {
         if self.is_shift() {
             write!(f, "shift+")?;
         }
+        if self.is_capslock() {
+            write!(f, "capslock+")?;
+        }
         write!(f, "")
     }
 }
@@ -54,11 +58,19 @@ impl KeyModifier {
         Self { bits: 0 }
     }
 
-    pub fn apply(&mut self, is_super: bool, is_ctrl: bool, is_alt: bool, is_shift: bool) {
+    pub fn apply(
+        &mut self,
+        is_super: bool,
+        is_ctrl: bool,
+        is_alt: bool,
+        is_shift: bool,
+        is_capslock: bool,
+    ) {
         self.set(Self::MODIFIER_SUPER, is_super);
         self.set(Self::MODIFIER_CONTROL, is_ctrl);
         self.set(Self::MODIFIER_ALT, is_alt);
         self.set(Self::MODIFIER_SHIFT, is_shift);
+        self.set(Self::MODIFIER_CAPSLOCK, is_capslock);
     }
 
     pub fn add_shift(&mut self) {
@@ -77,6 +89,10 @@ impl KeyModifier {
         self.set(Self::MODIFIER_ALT, true);
     }
 
+    pub fn add_capslock(&mut self) {
+        self.set(Self::MODIFIER_CAPSLOCK, true);
+    }
+
     pub fn is_shift(&self) -> bool {
         self.contains(Self::MODIFIER_SHIFT)
     }
@@ -91,6 +107,10 @@ impl KeyModifier {
 
     pub fn is_alt(&self) -> bool {
         self.contains(Self::MODIFIER_ALT)
+    }
+
+    pub fn is_capslock(&self) -> bool {
+        self.contains(Self::MODIFIER_CAPSLOCK)
     }
 }
 

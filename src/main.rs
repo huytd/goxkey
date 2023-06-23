@@ -40,7 +40,9 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
     unsafe {
         match keycode {
             Some(keycode) => {
-                if INPUT_STATE.get_hotkey().is_match(modifiers, &keycode) {
+                let is_hotkey_pressed = INPUT_STATE.get_hotkey().is_match(modifiers, &keycode);
+
+                if is_hotkey_pressed {
                     INPUT_STATE.toggle_vietnamese();
                     if let Some(event_sink) = UI_EVENT_SINK.get() {
                         _ = event_sink.submit_command(UPDATE_UI, (), Target::Auto);
@@ -75,11 +77,13 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                                 {
                                     INPUT_STATE.new_word();
                                 } else if INPUT_STATE.is_tracking() {
-                                    INPUT_STATE.push(if modifiers.is_shift() {
-                                        c.to_ascii_uppercase()
-                                    } else {
-                                        c
-                                    });
+                                    INPUT_STATE.push(
+                                        if modifiers.is_shift() || modifiers.is_capslock() {
+                                            c.to_ascii_uppercase()
+                                        } else {
+                                            c
+                                        },
+                                    );
                                     if INPUT_STATE.should_transform_keys(&c) {
                                         return do_transform_keys(handle, false);
                                     }

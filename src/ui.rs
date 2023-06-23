@@ -67,6 +67,7 @@ pub struct UIDataAdapter {
     ctrl_key: bool,
     alt_key: bool,
     shift_key: bool,
+    capslock_key: bool,
     letter_key: String,
     // system tray
     systray: SystemTray,
@@ -82,6 +83,7 @@ impl UIDataAdapter {
             ctrl_key: true,
             alt_key: false,
             shift_key: false,
+            capslock_key: false,
             letter_key: String::from("Space"),
             systray: SystemTray::new(),
         };
@@ -218,7 +220,13 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
 
             if !data.letter_key.is_empty() {
                 let mut new_mod = KeyModifier::new();
-                new_mod.apply(data.super_key, data.ctrl_key, data.alt_key, data.shift_key);
+                new_mod.apply(
+                    data.super_key,
+                    data.ctrl_key,
+                    data.alt_key,
+                    data.shift_key,
+                    data.capslock_key,
+                );
                 let key_code = letter_key_to_char(&data.letter_key);
                 if !INPUT_STATE.get_hotkey().is_match(new_mod, &key_code) {
                     INPUT_STATE.set_hotkey(&format!(
