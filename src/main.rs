@@ -56,12 +56,7 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                             INPUT_STATE.new_word();
                         }
                         KEY_DELETE => {
-                            INPUT_STATE.pop();
-                            if !INPUT_STATE.is_buffer_empty() {
-                                return do_transform_keys(handle, true);
-                            } else {
-                                INPUT_STATE.clear();
-                            }
+                            INPUT_STATE.clear();
                         }
                         c => {
                             if "()[]{}<>/\\!@#$%^&*-_=+|~`'\"".contains(c)
