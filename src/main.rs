@@ -37,6 +37,18 @@ fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
     false
 }
 
+fn do_restore_word(handle: Handle) {
+    unsafe {
+        let backspace_count = INPUT_STATE.get_backspace_count(true);
+        debug!("Backspace count: {}", backspace_count);
+        _ = send_backspace(handle, backspace_count);
+        let typing_buffer = INPUT_STATE.get_typing_buffer();
+        _ = send_string(handle, typing_buffer);
+        debug!("Sent: {:?}", typing_buffer);
+        INPUT_STATE.replace(typing_buffer.to_owned());
+    }
+}
+
 fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) -> bool {
     unsafe {
         match keycode {
@@ -54,6 +66,9 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                 if INPUT_STATE.is_enabled() {
                     match keycode {
                         KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
+                            if !vi::validation::is_valid_word(INPUT_STATE.get_displaying_word()) {
+                                do_restore_word(handle);
+                            }
                             INPUT_STATE.new_word();
                         }
                         KEY_DELETE => {

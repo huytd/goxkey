@@ -18,7 +18,7 @@ use crate::{
 // be around 10 to 12.
 const MAX_POSSIBLE_WORD_LENGTH: usize = 10;
 const MAX_DUPLICATE_LENGTH: usize = 4;
-const TONE_DUPLICATE_PATTERNS: [&str; 5] = ["ss", "ff", "jj", "rr", "xx"];
+const TONE_DUPLICATE_PATTERNS: [&str; 6] = ["ss", "ff", "jj", "rr", "xx", "ww"];
 
 pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(InputState::new);
 
@@ -182,6 +182,14 @@ impl InputState {
             self.clear();
         }
         self.should_track = true;
+    }
+
+    pub fn get_typing_buffer(&self) -> &str {
+        &self.buffer
+    }
+
+    pub fn get_displaying_word(&self) -> &str {
+        &self.display_buffer
     }
 
     pub fn stop_tracking(&mut self) {
