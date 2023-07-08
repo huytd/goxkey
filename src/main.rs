@@ -77,7 +77,7 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                             INPUT_STATE.clear();
                         }
                         c => {
-                            if "()[]{}<>/\\!@#$%^&*-_=+|~`,.?'\"".contains(c)
+                            if "()[]{}<>/\\!@#$%^&*-_=+|~`,.?:'\"".contains(c)
                                 || (c.is_numeric() && modifiers.is_shift())
                             {
                                 // If special characters detected, dismiss the current tracking word
