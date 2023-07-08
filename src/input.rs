@@ -17,8 +17,8 @@ use crate::{
 // tone and marks, I guess the longest possible buffer length would
 // be around 10 to 12.
 const MAX_POSSIBLE_WORD_LENGTH: usize = 10;
-
 const MAX_DUPLICATE_LENGTH: usize = 4;
+const TONE_DUPLICATE_PATTERNS: [&str; 5] = ["ss", "ff", "jj", "rr", "xx"];
 
 pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(InputState::new);
 
@@ -276,10 +276,6 @@ impl InputState {
                 "Input buffer: {:?} - Display buffer: {:?}",
                 self.buffer, self.display_buffer
             );
-            if self.should_stop_tracking() {
-                self.stop_tracking();
-                debug!("! Stop tracking");
-            }
         }
     }
 
@@ -301,11 +297,25 @@ impl InputState {
     // later on.
     pub fn should_stop_tracking(&mut self) -> bool {
         let len = self.buffer.len();
+        // detect attempts to restore a word
+        // by doubling tone marks like ss, rr, ff, jj, xx
+        let buf = &self.buffer;
+        if TONE_DUPLICATE_PATTERNS.iter().find(|p| buf.contains(*p)).is_some() {
+            return true;
+        }
+        // detect things like vim key movements
         if len >= MAX_DUPLICATE_LENGTH {
             let buf = &self.buffer[len - MAX_DUPLICATE_LENGTH..];
             let first = buf.chars().next().unwrap();
             return buf.chars().all(|c| c == first);
         }
         false
+    }
+
+    pub fn stop_tracking_if_needed(&mut self) {
+        if self.should_stop_tracking() {
+            self.stop_tracking();
+            debug!("! Stop tracking");
+        }
     }
 }

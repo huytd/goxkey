@@ -28,6 +28,7 @@ fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
                 debug!("Backspace count: {}", backspace_count);
                 _ = send_backspace(handle, backspace_count);
                 _ = send_string(handle, &output);
+                debug!("Sent: {:?}", output);
                 INPUT_STATE.replace(output);
                 return true;
             }
@@ -72,6 +73,7 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                                 {
                                     INPUT_STATE.new_word();
                                 } else if INPUT_STATE.is_tracking() {
+                                    INPUT_STATE.stop_tracking_if_needed();
                                     INPUT_STATE.push(
                                         if modifiers.is_shift() || modifiers.is_capslock() {
                                             c.to_ascii_uppercase()
