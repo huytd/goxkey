@@ -18,7 +18,7 @@ use crate::{
 // be around 10 to 12.
 const MAX_POSSIBLE_WORD_LENGTH: usize = 10;
 const MAX_DUPLICATE_LENGTH: usize = 4;
-const TONE_DUPLICATE_PATTERNS: [&str; 6] = ["ss", "ff", "jj", "rr", "xx", "ww"];
+const TONE_DUPLICATE_PATTERNS: [&str; 16] = ["ss", "ff", "jj", "rr", "xx", "ww", "kk", "tt", "nn", "mm", "yy", "hh", "ii", "aaa", "eee", "ooo"];
 
 pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(InputState::new);
 
@@ -305,17 +305,14 @@ impl InputState {
     // later on.
     pub fn should_stop_tracking(&mut self) -> bool {
         let len = self.buffer.len();
+        if len > MAX_POSSIBLE_WORD_LENGTH {
+            return true;
+        }
         // detect attempts to restore a word
         // by doubling tone marks like ss, rr, ff, jj, xx
         let buf = &self.buffer;
         if TONE_DUPLICATE_PATTERNS.iter().find(|p| buf.contains(*p)).is_some() {
             return true;
-        }
-        // detect things like vim key movements
-        if len >= MAX_DUPLICATE_LENGTH {
-            let buf = &self.buffer[len - MAX_DUPLICATE_LENGTH..];
-            let first = buf.chars().next().unwrap();
-            return buf.chars().all(|c| c == first);
         }
         false
     }

@@ -66,7 +66,9 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                 if INPUT_STATE.is_enabled() {
                     match keycode {
                         KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
-                            if !vi::validation::is_valid_word(INPUT_STATE.get_displaying_word()) {
+                            let is_valid_word = vi::validation::is_valid_word(INPUT_STATE.get_displaying_word());
+                            let is_transformed_word = !INPUT_STATE.get_typing_buffer().eq(INPUT_STATE.get_displaying_word());
+                            if is_transformed_word && !is_valid_word {
                                 do_restore_word(handle);
                             }
                             INPUT_STATE.new_word();
@@ -75,7 +77,7 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                             INPUT_STATE.clear();
                         }
                         c => {
-                            if "()[]{}<>/\\!@#$%^&*-_=+|~`'\"".contains(c)
+                            if "()[]{}<>/\\!@#$%^&*-_=+|~`,.?'\"".contains(c)
                                 || (c.is_numeric() && modifiers.is_shift())
                             {
                                 // If special characters detected, dismiss the current tracking word
@@ -88,7 +90,6 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                                 {
                                     INPUT_STATE.new_word();
                                 } else if INPUT_STATE.is_tracking() {
-                                    INPUT_STATE.stop_tracking_if_needed();
                                     INPUT_STATE.push(
                                         if modifiers.is_shift() || modifiers.is_capslock() {
                                             c.to_ascii_uppercase()
@@ -97,7 +98,9 @@ fn event_handler(handle: Handle, keycode: Option<char>, modifiers: KeyModifier) 
                                         },
                                     );
                                     if INPUT_STATE.should_transform_keys(&c) {
-                                        return do_transform_keys(handle, false);
+                                        let ret = do_transform_keys(handle, false);
+                                        INPUT_STATE.stop_tracking_if_needed();
+                                        return ret;
                                     }
                                 }
                             }
