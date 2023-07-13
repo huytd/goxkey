@@ -21,12 +21,13 @@ jobs:
   build:
     name: Build project
     permissions: write-all
-    runs-on: macos-11 # add other OS later
+    runs-on: macos-latest # add other OS later
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: aarch64-apple-darwin
       - uses: actions-rs/cargo@v1
         with:
           command: install
