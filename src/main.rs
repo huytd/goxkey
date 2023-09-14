@@ -50,7 +50,6 @@ fn do_restore_word(handle: Handle) {
 }
 
 unsafe fn toggle_vietnamese() {
-    println!("UNSAFE TOGGLE VIETNAMESE");
     INPUT_STATE.toggle_vietnamese();
     if let Some(event_sink) = UI_EVENT_SINK.get() {
         _ = event_sink.submit_command(UPDATE_UI, (), Target::Auto);
@@ -63,16 +62,13 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
             Some(pressed_key) => {
                 match pressed_key {
                     PressedKey::Raw(raw_keycode) => {
-                        println!("RAW {:02x}", raw_keycode);
                         if raw_keycode == RAW_KEY_GLOBE {
-                            println!("GLOBE PRESSED");
                             toggle_vietnamese();
                             return true;
                         }
                     },
                     PressedKey::Char(keycode) => {
                         let is_hotkey_pressed = INPUT_STATE.get_hotkey().is_match(modifiers, &keycode);
-                        println!("IS HOT KEY PRESSED? {is_hotkey_pressed}");
                         if is_hotkey_pressed {
                             toggle_vietnamese();
                             return true;
@@ -89,6 +85,10 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                                     if is_transformed_word && !is_valid_word {
                                         do_restore_word(handle);
                                     }
+
+                                    if INPUT_STATE.previous_word_is_stop_tracking_words() {
+                                        INPUT_STATE.clear_previous_word();
+                                    }
                                     INPUT_STATE.new_word();
                                 }
                                 KEY_DELETE => {
@@ -99,6 +99,7 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                                         || (c.is_numeric() && modifiers.is_shift())
                                     {
                                         // If special characters detected, dismiss the current tracking word
+                                        INPUT_STATE.push(c);
                                         INPUT_STATE.new_word();
                                     } else {
                                         // Otherwise, process the character

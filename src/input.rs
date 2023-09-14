@@ -28,6 +28,8 @@ pub const PREDEFINED_CHARS: [char; 47] = [
     'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/',
 ];
 
+pub const STOP_TRACKING_WORDS: [&str; 4] = [";", "'", "?", "/"];
+
 pub fn get_key_from_char(c: char) -> rdev::Key {
     use rdev::Key::*;
     match &c {
@@ -150,6 +152,7 @@ pub struct InputState {
     hotkey: Hotkey,
     enabled: bool,
     should_track: bool,
+    previous_word: String
 }
 
 impl InputState {
@@ -162,6 +165,7 @@ impl InputState {
             hotkey: Hotkey::from_str(&config.read(HOTKEY_CONFIG_KEY)),
             enabled: true,
             should_track: true,
+            previous_word: String::new()
         }
     }
 
@@ -295,8 +299,21 @@ impl InputState {
     }
 
     pub fn clear(&mut self) {
+        self.previous_word = self.buffer.to_owned();
         self.buffer.clear();
         self.display_buffer.clear();
+    }
+
+    pub fn get_previous_word(&self) -> &str {
+        &self.previous_word
+    }
+
+    pub fn clear_previous_word(&mut self) {
+        self.previous_word.clear();
+    }
+
+    pub fn previous_word_is_stop_tracking_words(&self) -> bool {
+        STOP_TRACKING_WORDS.contains(&self.previous_word.as_str())
     }
 
     // a set of rules that will trigger a hard stop for tracking
@@ -314,6 +331,11 @@ impl InputState {
         if TONE_DUPLICATE_PATTERNS.iter().find(|p| buf.contains(*p)).is_some() {
             return true;
         }
+
+        if self.previous_word_is_stop_tracking_words() {
+            return true;
+        }
+
         false
     }
 
