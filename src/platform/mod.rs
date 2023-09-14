@@ -15,6 +15,7 @@ pub use os::{
 pub use os::SystemTray;
 pub use os::SystemTrayMenuItemKey;
 
+pub const RAW_KEY_GLOBE: u16 = 0xb3;
 pub const KEY_ENTER: char = '\x13';
 pub const KEY_SPACE: char = '\u{0020}';
 pub const KEY_TAB: char = '\x09';
@@ -114,4 +115,8 @@ impl KeyModifier {
     }
 }
 
-pub type CallbackFn = dyn Fn(os::Handle, Option<char>, KeyModifier) -> bool;
+pub enum PressedKey {
+    Char(char),
+    Raw(u16),
+}
+pub type CallbackFn = dyn Fn(os::Handle, Option<PressedKey>, KeyModifier) -> bool;
