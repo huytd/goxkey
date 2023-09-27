@@ -56,8 +56,16 @@ unsafe fn toggle_vietnamese() {
     }
 }
 
+unsafe fn auto_toggle_vietnamese() {
+    INPUT_STATE.update_active_app();
+    if let Some(event_sink) = UI_EVENT_SINK.get() {
+        _ = event_sink.submit_command(UPDATE_UI, (), Target::Auto);
+    }
+}
+
 fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: KeyModifier) -> bool {
     unsafe {
+        auto_toggle_vietnamese();
         match pressed_key {
             Some(pressed_key) => {
                 match pressed_key {

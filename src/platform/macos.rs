@@ -5,6 +5,7 @@ use cocoa::{
     base::{nil, YES},
     foundation::NSDictionary,
 };
+use cocoa::base::id;
 use core_graphics::{
     event::{
         CGEventFlags, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement, CGEventType,
@@ -35,6 +36,24 @@ pub const SYMBOL_SUPER: &str = "⌘";
 pub const SYMBOL_ALT: &str = "⌥";
 
 pub const HIDE_COMMAND: Selector = HIDE_APPLICATION;
+
+#[macro_export]
+macro_rules! nsstring_to_string {
+    ($ns_string:expr) => {{
+        use objc::{sel, sel_impl};
+        let utf8: id = objc::msg_send![$ns_string, UTF8String];
+        let string = if !utf8.is_null() {
+            Some({
+                std::ffi::CStr::from_ptr(utf8 as *const std::ffi::c_char)
+                    .to_string_lossy()
+                    .into_owned()
+            })
+        } else {
+            None
+        };
+        string
+    }};
+}
 
 pub fn get_home_dir() -> Option<PathBuf> {
     env::var("HOME").ok().map(PathBuf::from)
@@ -198,5 +217,15 @@ pub fn ensure_accessibility_permission() -> bool {
             kAXTrustedCheckOptionPrompt as _,
         );
         return AXIsProcessTrustedWithOptions(options as _);
+    }
+}
+
+pub fn get_active_app_name() -> String {
+    unsafe {
+        let shared_workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
+        let front_most_app: id = msg_send![shared_workspace, frontmostApplication];
+        let bundle_url: id = msg_send![front_most_app, bundleURL];
+        let path: id = msg_send![bundle_url, path];
+        nsstring_to_string!(path).unwrap_or("/Unknown.app".to_string())
     }
 }

@@ -6,11 +6,12 @@ use once_cell::sync::{Lazy, OnceCell};
 use rdev::{Keyboard, KeyboardState};
 
 use crate::{
-    config::{CONFIG_MANAGER, HOTKEY_CONFIG_KEY, TYPING_METHOD_CONFIG_KEY},
+    config::CONFIG_MANAGER,
     hotkey::Hotkey,
     ui::UPDATE_UI,
     UI_EVENT_SINK,
 };
+use crate::platform::get_active_app_name;
 
 // According to Google search, the longest possible Vietnamese word
 // is "nghiêng", which is 7 letters long. Add a little buffer for
@@ -152,7 +153,8 @@ pub struct InputState {
     hotkey: Hotkey,
     enabled: bool,
     should_track: bool,
-    previous_word: String
+    previous_word: String,
+    active_app: String
 }
 
 impl InputState {
@@ -161,11 +163,24 @@ impl InputState {
         Self {
             buffer: String::new(),
             display_buffer: String::new(),
-            method: TypingMethod::from_str(&config.read(TYPING_METHOD_CONFIG_KEY)).unwrap(),
-            hotkey: Hotkey::from_str(&config.read(HOTKEY_CONFIG_KEY)),
+            method: TypingMethod::from_str(config.get_method()).unwrap(),
+            hotkey: Hotkey::from_str(config.get_hotkey()),
             enabled: true,
             should_track: true,
-            previous_word: String::new()
+            previous_word: String::new(),
+            active_app: String::new()
+        }
+    }
+
+    pub fn update_active_app(&mut self) {
+        self.active_app = get_active_app_name();
+        let config = CONFIG_MANAGER.lock().unwrap();
+        // Only switch the input mode if we found the app in the config
+        if config.is_vietnamese_app(&self.active_app) {
+            self.enabled = true;
+        }
+        if config.is_english_app(&self.active_app) {
+            self.enabled = false;
         }
     }
 
@@ -203,6 +218,12 @@ impl InputState {
 
     pub fn toggle_vietnamese(&mut self) {
         self.enabled = !self.enabled;
+        let mut config = CONFIG_MANAGER.lock().unwrap();
+        if self.enabled {
+            config.add_vietnamese_app(&self.active_app);
+        } else {
+            config.add_english_app(&self.active_app);
+        }
         self.new_word();
     }
 
@@ -212,7 +233,7 @@ impl InputState {
         CONFIG_MANAGER
             .lock()
             .unwrap()
-            .write(TYPING_METHOD_CONFIG_KEY, &method.to_string());
+            .set_method(&method.to_string());
         if let Some(event_sink) = UI_EVENT_SINK.get() {
             _ = event_sink.submit_command(UPDATE_UI, (), Target::Auto);
         }
@@ -227,7 +248,7 @@ impl InputState {
         CONFIG_MANAGER
             .lock()
             .unwrap()
-            .write(HOTKEY_CONFIG_KEY, key_sequence);
+            .set_hotkey(key_sequence);
         if let Some(event_sink) = UI_EVENT_SINK.get() {
             _ = event_sink.submit_command(UPDATE_UI, (), Target::Auto);
         }
