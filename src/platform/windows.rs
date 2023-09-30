@@ -36,3 +36,7 @@ pub fn run_event_listener(callback: &CallbackFn) {
 pub fn ensure_accessibility_permission() -> bool {
     true
 }
+
+pub fn is_in_text_selection() -> bool {
+    todo!()
+}
