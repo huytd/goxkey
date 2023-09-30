@@ -289,6 +289,10 @@ impl InputState {
         !self.buffer.eq(word)
     }
 
+    pub fn should_dismiss_selection_if_needed(&self) -> bool {
+        return self.active_app.contains("Firefox");
+    }
+
     pub fn get_backspace_count(&self, is_delete: bool) -> usize {
         let dp_len = self.display_buffer.chars().count();
         let backspace_count = if is_delete && dp_len >= 1 {
