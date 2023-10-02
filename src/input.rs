@@ -364,7 +364,7 @@ impl InputState {
         // detect attempts to restore a word
         // by doubling tone marks like ss, rr, ff, jj, xx
         let buf = &self.buffer;
-        if TONE_DUPLICATE_PATTERNS.iter().find(|p| buf.contains(*p)).is_some() {
+        if TONE_DUPLICATE_PATTERNS.iter().find(|p| buf.to_ascii_lowercase().contains(*p)).is_some() {
             return true;
         }
 
