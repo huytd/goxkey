@@ -39,14 +39,14 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
-          name: Gõ Key.app
-          path: target/release/bundle/osx/Gõ Key.app
+          name: GoKey.app
+          path: target/release/bundle/osx/GoKey.app
           retention-days: 2
       - name: Release nightly
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd target/release/bundle/osx
-          zip -r GoKey.zip "Gõ Key.app"
+          zip -r GoKey.zip GoKey.app
           gh release delete-asset nightly-build GoKey.zip
           gh release upload nightly-build GoKey.zip
