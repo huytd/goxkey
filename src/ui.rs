@@ -1,8 +1,8 @@
 use crate::{
     input::{rebuild_keyboard_layout_map, TypingMethod, INPUT_STATE},
     platform::{
-        self, KeyModifier, SystemTray, SystemTrayMenuItemKey, SYMBOL_ALT, SYMBOL_CTRL,
-        SYMBOL_SHIFT, SYMBOL_SUPER,
+        self, is_launch_on_login, update_launch_on_login, KeyModifier, SystemTray,
+        SystemTrayMenuItemKey, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
     },
     UI_EVENT_SINK,
 };
@@ -62,6 +62,7 @@ pub struct UIDataAdapter {
     is_enabled: bool,
     typing_method: TypingMethod,
     hotkey_display: String,
+    launch_on_login: bool,
     // Hotkey config
     super_key: bool,
     ctrl_key: bool,
@@ -79,6 +80,7 @@ impl UIDataAdapter {
             is_enabled: true,
             typing_method: TypingMethod::Telex,
             hotkey_display: String::new(),
+            launch_on_login: false,
             super_key: true,
             ctrl_key: true,
             alt_key: false,
@@ -97,6 +99,7 @@ impl UIDataAdapter {
             self.is_enabled = INPUT_STATE.is_enabled();
             self.typing_method = INPUT_STATE.get_method();
             self.hotkey_display = INPUT_STATE.get_hotkey().to_string();
+            self.launch_on_login = is_launch_on_login();
 
             let (modifiers, keycode) = INPUT_STATE.get_hotkey().inner();
             self.super_key = modifiers.is_super();
@@ -218,6 +221,10 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
                 INPUT_STATE.set_method(data.typing_method);
             }
 
+            if old_data.launch_on_login != data.launch_on_login {
+                _ = update_launch_on_login(data.launch_on_login);
+            }
+
             if !data.letter_key.is_empty() {
                 let mut new_mod = KeyModifier::new();
                 new_mod.apply(
@@ -277,6 +284,16 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                                 ])
                                 .lens(UIDataAdapter::typing_method),
                             )
+                            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                            .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+                            .must_fill_main_axis(true)
+                            .expand_width()
+                            .padding(8.0),
+                    )
+                    .with_child(
+                        Flex::row()
+                            .with_child(Label::new("Khởi động cùng OS"))
+                            .with_child(Checkbox::new("").lens(UIDataAdapter::launch_on_login))
                             .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
                             .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
                             .must_fill_main_axis(true)
