@@ -1861,8 +1861,8 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "vi"
-version = "0.4.0"
-source = "git+https://github.com/zerox-dg/vi-rs?branch=master#3920b03644c97fb55b85620350120bffb209a0fd"
+version = "0.5.0"
+source = "git+https://github.com/zerox-dg/vi-rs?branch=master#6a7667f3d57149244c24038af208a72b561d62ae"
 dependencies = [
  "nom",
  "phf",
