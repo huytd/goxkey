@@ -189,8 +189,27 @@ pub fn run_event_listener(callback: &CallbackFn) {
             CGEventType::RightMouseDown,
             CGEventType::LeftMouseDown,
             CGEventType::OtherMouseDown,
+            CGEventType::FlagsChanged,
         ],
         |proxy, _, event| {
+            let mut modifiers = KeyModifier::new();
+            let flags = event.get_flags();
+            if flags.contains(CGEventFlags::CGEventFlagShift) {
+                modifiers.add_shift();
+            }
+            if flags.contains(CGEventFlags::CGEventFlagAlphaShift) {
+                modifiers.add_capslock();
+            }
+            if flags.contains(CGEventFlags::CGEventFlagControl) {
+                modifiers.add_control();
+            }
+            if flags.contains(CGEventFlags::CGEventFlagCommand) {
+                modifiers.add_super();
+            }
+            if flags.contains(CGEventFlags::CGEventFlagAlternate) {
+                modifiers.add_alt();
+            }
+
             match event.get_type() {
                 CGEventType::KeyDown => {
                     let source_state_id =
@@ -199,23 +218,6 @@ pub fn run_event_listener(callback: &CallbackFn) {
                         let key_code = event
                             .get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE)
                             as CGKeyCode;
-                        let mut modifiers = KeyModifier::new();
-                        let flags = event.get_flags();
-                        if flags.contains(CGEventFlags::CGEventFlagShift) {
-                            modifiers.add_shift();
-                        }
-                        if flags.contains(CGEventFlags::CGEventFlagAlphaShift) {
-                            modifiers.add_capslock();
-                        }
-                        if flags.contains(CGEventFlags::CGEventFlagControl) {
-                            modifiers.add_control();
-                        }
-                        if flags.contains(CGEventFlags::CGEventFlagCommand) {
-                            modifiers.add_super();
-                        }
-                        if flags.contains(CGEventFlags::CGEventFlagAlternate) {
-                            modifiers.add_alt();
-                        }
 
                         if callback(proxy, get_char(key_code), modifiers) {
                             // block the key if already processed
@@ -226,7 +228,9 @@ pub fn run_event_listener(callback: &CallbackFn) {
                 _ => {
                     // A callback with None char for dismissing the tracking buffer
                     // but it's up to the implementor on the behavior
-                    callback(proxy, None, KeyModifier::new());
+                    if !modifiers.is_empty() {
+                        callback(proxy, None, modifiers);
+                    }
                 }
             }
             Some(event.to_owned())

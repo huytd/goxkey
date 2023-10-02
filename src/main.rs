@@ -147,7 +147,9 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                 };
             }
             None => {
-                INPUT_STATE.new_word();
+                if !modifiers.is_shift() {
+                    INPUT_STATE.new_word();
+                }
             }
         }
     }
