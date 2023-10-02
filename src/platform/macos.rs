@@ -225,12 +225,13 @@ pub fn run_event_listener(callback: &CallbackFn) {
                         }
                     }
                 }
-                _ => {
-                    // A callback with None char for dismissing the tracking buffer
-                    // but it's up to the implementor on the behavior
+                CGEventType::FlagsChanged => {
                     if !modifiers.is_empty() {
                         callback(proxy, None, modifiers);
                     }
+                }
+                _ => {
+                    callback(proxy, None, KeyModifier::new());
                 }
             }
             Some(event.to_owned())
