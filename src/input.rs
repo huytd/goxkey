@@ -328,7 +328,8 @@ impl InputState {
     }
 
     pub fn pop(&mut self) {
-        self.buffer.pop();
+        self.display_buffer.pop();
+        self.buffer = self.display_buffer.clone();
         if self.buffer.is_empty() {
             self.new_word();
         }
