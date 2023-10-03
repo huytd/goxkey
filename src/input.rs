@@ -5,14 +5,11 @@ use log::debug;
 use once_cell::sync::{Lazy, OnceCell};
 use rdev::{Keyboard, KeyboardState};
 
+use crate::platform::get_active_app_name;
 use crate::{
-    config::CONFIG_MANAGER,
-    hotkey::Hotkey,
-    platform::is_in_text_selection,
-    ui::UPDATE_UI,
+    config::CONFIG_MANAGER, hotkey::Hotkey, platform::is_in_text_selection, ui::UPDATE_UI,
     UI_EVENT_SINK,
 };
-use crate::platform::get_active_app_name;
 
 // According to Google search, the longest possible Vietnamese word
 // is "nghiêng", which is 7 letters long. Add a little buffer for
@@ -20,7 +17,10 @@ use crate::platform::get_active_app_name;
 // be around 10 to 12.
 const MAX_POSSIBLE_WORD_LENGTH: usize = 10;
 const MAX_DUPLICATE_LENGTH: usize = 4;
-const TONE_DUPLICATE_PATTERNS: [&str; 16] = ["ss", "ff", "jj", "rr", "xx", "ww", "kk", "tt", "nn", "mm", "yy", "hh", "ii", "aaa", "eee", "ooo"];
+const TONE_DUPLICATE_PATTERNS: [&str; 16] = [
+    "ss", "ff", "jj", "rr", "xx", "ww", "kk", "tt", "nn", "mm", "yy", "hh", "ii", "aaa", "eee",
+    "ooo",
+];
 
 pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(InputState::new);
 
@@ -103,9 +103,9 @@ fn build_keyboard_layout_map(map: &mut HashMap<char, char>) {
 pub fn rebuild_keyboard_layout_map() {
     unsafe {
         if let Some(map) = KEYBOARD_LAYOUT_CHARACTER_MAP.get_mut() {
-            debug!("Rebuild keyboard layout map...");
+            // debug!("Rebuild keyboard layout map...");
             build_keyboard_layout_map(map);
-            debug!("Done");
+            // debug!("Done");
         } else {
             debug!("Creating keyboard layout map...");
             let mut map = HashMap::new();
@@ -155,7 +155,9 @@ pub struct InputState {
     enabled: bool,
     should_track: bool,
     previous_word: String,
-    active_app: String
+    active_app: String,
+    is_macro_enabled: bool,
+    macro_table: HashMap<String, String>,
 }
 
 impl InputState {
@@ -169,7 +171,9 @@ impl InputState {
             enabled: true,
             should_track: true,
             previous_word: String::new(),
-            active_app: String::new()
+            active_app: String::new(),
+            is_macro_enabled: true,
+            macro_table: config.get_macro_table().clone(),
         }
     }
 
@@ -199,9 +203,21 @@ impl InputState {
 
     pub fn new_word(&mut self) {
         if !self.buffer.is_empty() {
+            if self.macro_table.contains_key(&self.buffer) {
+                let target = self.macro_table.get(&self.buffer).unwrap();
+
+                self.replace(target.to_owned())
+            }
             self.clear();
         }
         self.should_track = true;
+    }
+
+    pub fn get_macro_target(&self) -> Option<&String> {
+        if !self.is_macro_enabled {
+            return None;
+        }
+        self.macro_table.get(&self.display_buffer)
     }
 
     pub fn get_typing_buffer(&self) -> &str {
@@ -246,10 +262,7 @@ impl InputState {
 
     pub fn set_hotkey(&mut self, key_sequence: &str) {
         self.hotkey = Hotkey::from_str(key_sequence);
-        CONFIG_MANAGER
-            .lock()
-            .unwrap()
-            .set_hotkey(key_sequence);
+        CONFIG_MANAGER.lock().unwrap().set_hotkey(key_sequence);
         if let Some(event_sink) = UI_EVENT_SINK.get() {
             _ = event_sink.submit_command(UPDATE_UI, (), Target::Auto);
         }
@@ -257,6 +270,18 @@ impl InputState {
 
     pub fn get_hotkey(&self) -> &Hotkey {
         &self.hotkey
+    }
+
+    pub fn is_macro_enabled(&self) -> bool {
+        self.is_macro_enabled
+    }
+
+    pub fn toggle_macro_enabled(&mut self) {
+        self.is_macro_enabled = !self.is_macro_enabled
+    }
+
+    pub fn get_macro_table(&self) -> &HashMap<String, String> {
+        &self.macro_table
     }
 
     pub fn should_transform_keys(&self, c: &char) -> bool {
@@ -365,7 +390,11 @@ impl InputState {
         // detect attempts to restore a word
         // by doubling tone marks like ss, rr, ff, jj, xx
         let buf = &self.buffer;
-        if TONE_DUPLICATE_PATTERNS.iter().find(|p| buf.to_ascii_lowercase().contains(*p)).is_some() {
+        if TONE_DUPLICATE_PATTERNS
+            .iter()
+            .find(|p| buf.to_ascii_lowercase().contains(*p))
+            .is_some()
+        {
             return true;
         }
 

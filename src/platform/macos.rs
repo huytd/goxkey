@@ -13,7 +13,10 @@ use core_graphics::{
     },
     sys,
 };
-use druid::{commands::HIDE_APPLICATION, Selector};
+use druid::{
+    commands::{CLOSE_WINDOW, HIDE_APPLICATION},
+    Selector,
+};
 use objc::{class, msg_send, sel, sel_impl};
 
 pub use macos_ext::SystemTray;
@@ -43,6 +46,7 @@ pub const SYMBOL_SUPER: &str = "⌘";
 pub const SYMBOL_ALT: &str = "⌥";
 
 pub const HIDE_COMMAND: Selector = HIDE_APPLICATION;
+pub const CLOSE_COMMAND: Selector = CLOSE_WINDOW;
 
 #[macro_export]
 macro_rules! nsstring_to_string {

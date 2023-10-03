@@ -1,5 +1,13 @@
-use std::{fs::File, io::{Result, Write}, io, path::PathBuf, sync::Mutex};
 use std::io::BufRead;
+use std::{
+    collections::HashMap,
+    fs::File,
+    io,
+    io::{Result, Write},
+    path::PathBuf,
+    sync::Mutex,
+};
+
 
 use once_cell::sync::Lazy;
 
@@ -11,7 +19,8 @@ pub struct ConfigStore {
     hotkey: String,
     method: String,
     vn_apps: Vec<String>,
-    en_apps: Vec<String>
+    en_apps: Vec<String>,
+    macro_table: HashMap<String, String>,
 }
 
 fn parse_vec_string(line: String) -> Vec<String> {
@@ -19,6 +28,19 @@ fn parse_vec_string(line: String) -> Vec<String> {
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect()
+}
+
+fn parse_kv_string(line: &str) -> Option<(String, String)> {
+    if let Some((left, right)) = line.split_once("\"=\"") {
+        let left= left.strip_prefix("\"").map(|s| s.replace("\\\"","\""));
+        let right= right.strip_suffix("\"").map(|s| s.replace("\\\"","\""));
+        return left.zip(right);
+    }
+    return None
+}
+
+fn build_kv_string(k: &str, v: &str) -> String {
+    format!("\"{}\"=\"{}\"", k.replace("\"", "\\\""), v.replace("\"", "\\\""))
 }
 
 impl ConfigStore {
@@ -35,6 +57,9 @@ impl ConfigStore {
         writeln!(file, "{} = {}", TYPING_METHOD_CONFIG_KEY, self.method)?;
         writeln!(file, "{} = {}", VN_APPS_CONFIG_KEY, self.vn_apps.join(","))?;
         writeln!(file, "{} = {}", EN_APPS_CONFIG_KEY, self.en_apps.join(","))?;
+        for (k, v) in self.macro_table.iter() {
+            writeln!(file, "{} = {}", MACROS_CONFIG_KEY, build_kv_string(k, &v))?;
+        }
 
         Ok(())
     }
@@ -44,7 +69,8 @@ impl ConfigStore {
             hotkey: "ctrl+space".to_string(),
             method: "telex".to_string(),
             vn_apps: Vec::new(),
-            en_apps: Vec::new()
+            en_apps: Vec::new(),
+            macro_table: HashMap::new(),
         };
 
         let config_path = ConfigStore::get_config_path();
@@ -58,9 +84,21 @@ impl ConfigStore {
                         TYPING_METHOD_CONFIG_KEY => config.method = right.to_string(),
                         VN_APPS_CONFIG_KEY => config.vn_apps = parse_vec_string(right.to_string()),
                         EN_APPS_CONFIG_KEY => config.en_apps = parse_vec_string(right.to_string()),
-                        _ => { }
+                        MACROS_CONFIG_KEY => if let Some((k, v)) = parse_kv_string(right) {
+                            config.macro_table.insert(k, v);
+                        }
+                        _ => {}
                     }
                 }
+            }
+            config.macro_table.insert("cccd".to_string(), "căn cước công dân".to_string());
+            config.macro_table.insert("tldr".to_string(), "dài quá hỏng đọc".to_string());
+            config.macro_table.insert("fá ".to_string(), "phá".to_string());
+            config.macro_table.insert("fasdasdsdasdasasdasdasadwwdwadwawaá ".to_string(), "phá".to_string());
+            config.macro_table.insert("fasdasdsdasdasasdasdasadwwdwadwawaá ".to_string(), "phasdsadasasdasdasdasddasdaasdwafsafesá".to_string());
+            config.macro_table.insert("fasd ".to_string(), "phasdsadasasdasdasdasddasdaasdwafsafesá".to_string());
+            for x in (1..20).step_by(1) {
+                config.macro_table.insert(format!("{}", x), format!("{}!", x));
             }
         }
 
@@ -113,10 +151,13 @@ impl ConfigStore {
         self.save();
     }
 
+    pub fn get_macro_table(&self) -> &HashMap<String, String> {
+        &self.macro_table
+    }
+
     // Save config to file
     fn save(&mut self) {
-        self.write_config_data()
-            .expect("Failed to write config");
+        self.write_config_data().expect("Failed to write config");
     }
 }
 
@@ -124,3 +165,4 @@ const HOTKEY_CONFIG_KEY: &str = "hotkey";
 const TYPING_METHOD_CONFIG_KEY: &str = "method";
 const VN_APPS_CONFIG_KEY: &str = "vn-apps";
 const EN_APPS_CONFIG_KEY: &str = "en-apps";
+const MACROS_CONFIG_KEY: &str = "macros";
