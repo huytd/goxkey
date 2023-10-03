@@ -2,7 +2,7 @@ use std::path::Path;
 use std::{env, path::PathBuf, ptr};
 
 mod macos_ext;
-use auto_launch::AutoLaunch;
+use auto_launch::{AutoLaunch, AutoLaunchBuilder};
 use cocoa::base::id;
 use cocoa::{
     base::{nil, YES},
@@ -48,11 +48,17 @@ pub const SYMBOL_ALT: &str = "⌥";
 pub const HIDE_COMMAND: Selector = HIDE_APPLICATION;
 static AUTO_LAUNCH: Lazy<AutoLaunch> = Lazy::new(|| {
     let app_path = get_active_app_name();
-    let app_name = Path::new(&app_path)
+    let app_path = app_path.as_str();
+    let app_name = Path::new(app_path)
         .file_stem()
         .and_then(|f| f.to_str())
         .unwrap();
-    AutoLaunch::new(app_name, app_path.as_str(), false, &[] as &[&str])
+    AutoLaunchBuilder::new()
+        .set_app_name(app_name)
+        .set_app_path(app_path)
+        .set_use_launch_agent(true)
+        .build()
+        .unwrap()
 });
 
 #[macro_export]

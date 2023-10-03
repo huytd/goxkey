@@ -15,6 +15,7 @@ use druid::{
     },
     Application, Data, Env, Event, EventCtx, ImageBuf, Lens, Selector, Target, Widget, WidgetExt,
 };
+use log::error;
 
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
 
@@ -222,7 +223,9 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
             }
 
             if old_data.launch_on_login != data.launch_on_login {
-                _ = update_launch_on_login(data.launch_on_login);
+                if let Err(err) = update_launch_on_login(data.launch_on_login) {
+                    error!("{}", err);
+                }
             }
 
             if !data.letter_key.is_empty() {
