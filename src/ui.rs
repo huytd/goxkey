@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     input::{rebuild_keyboard_layout_map, TypingMethod, INPUT_STATE},
@@ -20,6 +20,8 @@ use druid::{
 };
 
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
+const DELETE_MACRO: Selector<String> = Selector::new("gox-ui.delete-macro");
+const ADD_MACRO: Selector = Selector::new("gox-ui.add-macro");
 
 pub fn format_letter_key(c: char) -> String {
     if c.is_ascii_whitespace() {
@@ -62,8 +64,8 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for LetterKeyControl
 
 #[derive(Clone, Data, PartialEq, Eq)]
 struct MacroEntry {
-    source: String,
-    target: String,
+    from: String,
+    to: String,
 }
 
 #[derive(Clone, Data, Lens, PartialEq, Eq)]
@@ -74,6 +76,8 @@ pub struct UIDataAdapter {
     // Macro config
     is_macro_enabled: bool,
     macro_table: Arc<Vec<MacroEntry>>,
+    new_macro_from: String,
+    new_macro_to: String,
     // Hotkey config
     super_key: bool,
     ctrl_key: bool,
@@ -93,6 +97,8 @@ impl UIDataAdapter {
             hotkey_display: String::new(),
             is_macro_enabled: false,
             macro_table: Arc::new(Vec::new()),
+            new_macro_from: String::new(),
+            new_macro_to: String::new(),
             super_key: true,
             ctrl_key: true,
             alt_key: false,
@@ -117,8 +123,8 @@ impl UIDataAdapter {
                     .get_macro_table()
                     .iter()
                     .map(|(source, target)| MacroEntry {
-                        source: source.to_string(),
-                        target: target.to_string(),
+                        from: source.to_string(),
+                        to: target.to_string(),
                     })
                     .collect::<Vec<MacroEntry>>(),
             );
@@ -219,6 +225,22 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
                 if cmd.get(UPDATE_UI).is_some() {
                     data.update();
                     rebuild_keyboard_layout_map();
+                }
+                if let Some(source) = cmd.get(DELETE_MACRO) {
+                    unsafe { INPUT_STATE.delete_macro(source) };
+                    data.update();
+                }
+                if cmd.get(ADD_MACRO).is_some()
+                    && !data.new_macro_from.is_empty()
+                    && !data.new_macro_to.is_empty()
+                {
+                    unsafe {
+                        INPUT_STATE
+                            .add_macro(data.new_macro_from.clone(), data.new_macro_to.clone())
+                    };
+                    data.new_macro_from = String::new();
+                    data.new_macro_to = String::new();
+                    data.update();
                 }
             }
             Event::WindowCloseRequested => {
@@ -460,16 +482,40 @@ pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
         )
         .with_child(
             Flex::row()
+                .with_flex_child(
+                    TextBox::new()
+                        .with_placeholder("Gõ tắt mới")
+                        .with_text_alignment(druid::text::TextAlignment::Start)
+                        .lens(UIDataAdapter::new_macro_from),
+                    2.0,
+                )
+                .with_flex_child(
+                    TextBox::new()
+                        .with_placeholder("thay thế")
+                        .with_text_alignment(druid::text::TextAlignment::Start)
+                        .lens(UIDataAdapter::new_macro_to),
+                    2.0,
+                )
+                .with_flex_child(
+                    Button::new("Thêm")
+                        .on_click(|ctx, _, _| ctx.submit_command(ADD_MACRO.to(Target::Global))),
+                    1.0,
+                )
+                .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+                .cross_axis_alignment(druid::widget::CrossAxisAlignment::Baseline)
+                .expand_width()
+                .border(Color::GRAY, 0.5),
+        )
+        .with_child(
+            Flex::row()
                 .with_child(
-                    Button::new("Hủy")
+                    Button::new("Đóng")
                         .on_click(|ctx, _, _| {
                             ctx.submit_command(platform::CLOSE_COMMAND.to(Target::Auto))
                         })
                         .fix_width(100.0)
                         .fix_height(28.0),
                 )
-                .with_default_spacer()
-                .with_child(Button::new("Lưu").fix_width(100.0).fix_height(28.0))
                 .main_axis_alignment(druid::widget::MainAxisAlignment::End)
                 .expand_width()
                 .padding(6.0),
@@ -482,21 +528,20 @@ pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
 fn macro_row_item() -> impl Widget<MacroEntry> {
     Flex::row()
         .with_flex_child(
-            Label::dynamic(|e: &MacroEntry, _| e.source.clone())
+            Label::dynamic(|e: &MacroEntry, _| e.from.clone())
                 .with_line_break_mode(LineBreaking::WordWrap)
                 .align_left(),
             2.0,
         )
         .with_flex_child(
-            Label::dynamic(|e: &MacroEntry, _| e.target.clone())
+            Label::dynamic(|e: &MacroEntry, _| e.to.clone())
                 .with_line_break_mode(LineBreaking::WordWrap)
                 .align_left(),
             2.0,
         )
         .with_flex_child(
-            Button::new("❌").on_click(|_, data: &mut MacroEntry, _| {
-                data.source = String::new();
-                data.target = String::new();
+            Button::new("❌").on_click(|ctx, data: &mut MacroEntry, _| {
+                ctx.submit_command(DELETE_MACRO.with(data.from.clone()).to(Target::Global))
             }),
             1.0,
         )

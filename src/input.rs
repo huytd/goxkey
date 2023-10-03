@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 use druid::{Data, Target};
@@ -157,7 +158,7 @@ pub struct InputState {
     previous_word: String,
     active_app: String,
     is_macro_enabled: bool,
-    macro_table: HashMap<String, String>,
+    macro_table: BTreeMap<String, String>,
 }
 
 impl InputState {
@@ -203,11 +204,6 @@ impl InputState {
 
     pub fn new_word(&mut self) {
         if !self.buffer.is_empty() {
-            if self.macro_table.contains_key(&self.buffer) {
-                let target = self.macro_table.get(&self.buffer).unwrap();
-
-                self.replace(target.to_owned())
-            }
             self.clear();
         }
         self.should_track = true;
@@ -280,8 +276,21 @@ impl InputState {
         self.is_macro_enabled = !self.is_macro_enabled
     }
 
-    pub fn get_macro_table(&self) -> &HashMap<String, String> {
+    pub fn get_macro_table(&self) -> &BTreeMap<String, String> {
         &self.macro_table
+    }
+
+    pub fn delete_macro(&mut self, from: &String) {
+        self.macro_table.remove(from);
+        CONFIG_MANAGER.lock().unwrap().delete_macro(from);
+    }
+
+    pub fn add_macro(&mut self, from: String, to: String) {
+        CONFIG_MANAGER
+            .lock()
+            .unwrap()
+            .add_macro(from.clone(), to.clone());
+        self.macro_table.insert(from, to);
     }
 
     pub fn should_transform_keys(&self, c: &char) -> bool {
