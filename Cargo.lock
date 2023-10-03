@@ -1655,9 +1655,9 @@ checksum = "ef927ca75afb808a4d64dd374f00a2adf8d0fcff8e7b184af886c3c87ec4a3f3"
 
 [[package]]
 name = "tinystr"
-version = "0.7.3"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b07bb54ef1f8ff27564b08b861144d3b8d40263efe07684f64987f4c0d044e3e"
+checksum = "d5d0e245e80bdc9b4e5356fc45a72184abbc3861992603f515270e9340f5a219"
 dependencies = [
  "displaydoc",
 ]
@@ -1873,7 +1873,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "vi"
 version = "0.5.1"
-source = "git+https://github.com/zerox-dg/vi-rs?branch=master#b0ef9cf0597fb62aca4497be6df2834b58ab057e"
+source = "git+https://github.com/zerox-dg/vi-rs?branch=master#9ee101885592e68a87366f9b65dab94ba26100e3"
 dependencies = [
  "nom",
  "phf",
