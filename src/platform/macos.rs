@@ -48,19 +48,7 @@ pub const SYMBOL_ALT: &str = "⌥";
 
 pub const HIDE_COMMAND: Selector = HIDE_APPLICATION;
 static AUTO_LAUNCH: Lazy<AutoLaunch> = Lazy::new(|| {
-    // on macOS, current_exe gives path to /Applications/Example.app/MacOS/Example
-    // but this results in seeing a Unix Executable in macOS login items
-    // It must be: /Applications/Example.app
-    // If it didn't find exactly a single occurrence of .app, it will default to
-    // exe path to not break it.
-    let current_exe = current_exe().unwrap();
-    let exe_path = current_exe.canonicalize().unwrap().display().to_string();
-    let parts: Vec<&str> = exe_path.split(".app/").collect();
-    let app_path = if parts.len() == 2 {
-        format!("{}.app", parts.get(0).unwrap().to_string())
-    } else {
-        exe_path
-    };
+    let app_path = get_current_app_path();
     let app_name = Path::new(&app_path)
         .file_stem()
         .and_then(|f| f.to_str())
@@ -71,6 +59,19 @@ static AUTO_LAUNCH: Lazy<AutoLaunch> = Lazy::new(|| {
         .build()
         .unwrap()
 });
+
+/// On macOS, current_exe gives path to /Applications/Example.app/MacOS/Example but this results in seeing a Unix Executable in macOS login items. It must be: /Applications/Example.app
+/// If it didn't find exactly a single occurrence of .app, it will default to exe path to not break it.
+fn get_current_app_path() -> String {
+    let current_exe = current_exe().unwrap();
+    let exe_path = current_exe.canonicalize().unwrap().display().to_string();
+    let parts: Vec<&str> = exe_path.split(".app/").collect();
+    return if parts.len() == 2 {
+        format!("{}.app", parts.get(0).unwrap().to_string())
+    } else {
+        exe_path
+    };
+}
 
 #[macro_export]
 macro_rules! nsstring_to_string {
