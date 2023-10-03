@@ -1,3 +1,4 @@
+use std::env::current_exe;
 use std::path::Path;
 use std::{env, path::PathBuf, ptr};
 
@@ -47,16 +48,26 @@ pub const SYMBOL_ALT: &str = "⌥";
 
 pub const HIDE_COMMAND: Selector = HIDE_APPLICATION;
 static AUTO_LAUNCH: Lazy<AutoLaunch> = Lazy::new(|| {
-    let app_path = get_active_app_name();
-    let app_path = app_path.as_str();
-    let app_name = Path::new(app_path)
+    // on macOS, current_exe gives path to /Applications/Example.app/MacOS/Example
+    // but this results in seeing a Unix Executable in macOS login items
+    // It must be: /Applications/Example.app
+    // If it didn't find exactly a single occurrence of .app, it will default to
+    // exe path to not break it.
+    let current_exe = current_exe().unwrap();
+    let exe_path = current_exe.canonicalize().unwrap().display().to_string();
+    let parts: Vec<&str> = exe_path.split(".app/").collect();
+    let app_path = if parts.len() == 2 {
+        format!("{}.app", parts.get(0).unwrap().to_string())
+    } else {
+        exe_path
+    };
+    let app_name = Path::new(&app_path)
         .file_stem()
         .and_then(|f| f.to_str())
         .unwrap();
     AutoLaunchBuilder::new()
         .set_app_name(app_name)
-        .set_app_path(app_path)
-        .set_use_launch_agent(true)
+        .set_app_path(&app_path)
         .build()
         .unwrap()
 });
