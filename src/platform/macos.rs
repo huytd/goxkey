@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::{env, path::PathBuf, ptr};
 
 mod macos_ext;
@@ -46,13 +47,12 @@ pub const SYMBOL_ALT: &str = "⌥";
 
 pub const HIDE_COMMAND: Selector = HIDE_APPLICATION;
 static AUTO_LAUNCH: Lazy<AutoLaunch> = Lazy::new(|| {
-    let app_path = std::env::current_exe().unwrap();
-    let app_name = app_path
-        .as_path()
+    let app_path = get_active_app_name();
+    let app_name = Path::new(&app_path)
         .file_stem()
         .and_then(|f| f.to_str())
         .unwrap();
-    AutoLaunch::new(app_name, app_path.to_str().unwrap(), true, &[] as &[&str])
+    AutoLaunch::new(app_name, app_path.as_str(), false, &[] as &[&str])
 });
 
 #[macro_export]
