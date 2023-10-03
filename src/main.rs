@@ -109,7 +109,7 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                                     INPUT_STATE.new_word();
                                 }
                                 KEY_DELETE => {
-                                    INPUT_STATE.clear();
+                                    INPUT_STATE.pop();
                                 }
                                 c => {
                                     if "()[]{}<>/\\!@#$%^&*-_=+|~`,.;'\"".contains(c)

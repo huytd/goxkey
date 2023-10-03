@@ -32,5 +32,5 @@ accessibility-sys = "0.1.3"
 copyright = "Copyright (c) Huy Tran 2023. All rights reserved."
 icon = ["icons/icon.icns", "icons/icon.png"]
 identifier = "com.goxkey.app"
-name = "Gõ Key"
+name = "GoKey"
 version = "0.1.2"
