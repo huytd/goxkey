@@ -347,12 +347,13 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                     .with_child(
                         Flex::row()
                             .with_child(Button::new("Bảng gõ tắt").on_click(|ctx, _, _| {
-                                let new_win = WindowDesc::new(macro_editor_ui_builder())
+                                let new_win_position = ctx.window().get_position() - (50.0, 50.0); // offset a bit
+                                let new_window = WindowDesc::new(macro_editor_ui_builder())
                                     .title("Bảng gõ tắt")
                                     .window_size((320.0, 320.0))
-                                    .resizable(false)
-                                    .show_titlebar(false);
-                                ctx.new_window(new_win);
+                                    .with_min_size((320.0, 320.0))
+                                    .set_position(new_win_position);
+                                ctx.new_window(new_window);
                             }))
                             .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
                             .main_axis_alignment(druid::widget::MainAxisAlignment::End)
@@ -467,25 +468,28 @@ pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
                 .main_axis_alignment(druid::widget::MainAxisAlignment::Center)
                 .expand_width(),
         )
-        .with_child(
+        .with_flex_child(
             {
                 let mut scroll = Scroll::new(
                     List::new(macro_row_item)
                         .lens(UIDataAdapter::macro_table)
-                        .fix_width(300.0),
+                        .expand_width(),
                 );
                 scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
+                scroll.set_horizontal_scroll_enabled(false);
                 scroll
             }
-            .fix_height(200.0)
             .expand_width(),
+            1.0,
         )
+        .with_default_spacer()
         .with_child(
             Flex::row()
                 .with_flex_child(
                     TextBox::new()
                         .with_placeholder("Gõ tắt mới")
                         .with_text_alignment(druid::text::TextAlignment::Start)
+                        .expand_width()
                         .lens(UIDataAdapter::new_macro_from),
                     2.0,
                 )
@@ -493,6 +497,7 @@ pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
                     TextBox::new()
                         .with_placeholder("thay thế")
                         .with_text_alignment(druid::text::TextAlignment::Start)
+                        .expand_width()
                         .lens(UIDataAdapter::new_macro_to),
                     2.0,
                 )
