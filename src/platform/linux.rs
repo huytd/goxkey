@@ -35,3 +35,11 @@ pub fn ensure_accessibility_permission() -> bool {
 pub fn is_in_text_selection() -> bool {
     todo!()
 }
+
+pub fn update_launch_on_login(is_enable: bool) {
+    todo!()
+}
+
+pub fn is_launch_on_login() {
+    todo!()
+}
