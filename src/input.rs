@@ -104,9 +104,9 @@ fn build_keyboard_layout_map(map: &mut HashMap<char, char>) {
 pub fn rebuild_keyboard_layout_map() {
     unsafe {
         if let Some(map) = KEYBOARD_LAYOUT_CHARACTER_MAP.get_mut() {
-            // debug!("Rebuild keyboard layout map...");
+            debug!("Rebuild keyboard layout map...");
             build_keyboard_layout_map(map);
-            // debug!("Done");
+            debug!("Done");
         } else {
             debug!("Creating keyboard layout map...");
             let mut map = HashMap::new();
