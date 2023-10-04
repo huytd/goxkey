@@ -1,6 +1,9 @@
+use std::env::current_exe;
+use std::path::Path;
 use std::{env, path::PathBuf, ptr};
 
 mod macos_ext;
+use auto_launch::{AutoLaunch, AutoLaunchBuilder};
 use cocoa::base::id;
 use cocoa::{
     base::{nil, YES},
@@ -18,6 +21,7 @@ use objc::{class, msg_send, sel, sel_impl};
 
 pub use macos_ext::SystemTray;
 pub use macos_ext::SystemTrayMenuItemKey;
+use once_cell::sync::Lazy;
 
 use crate::input::KEYBOARD_LAYOUT_CHARACTER_MAP;
 use accessibility::{AXAttribute, AXUIElement};
@@ -43,6 +47,31 @@ pub const SYMBOL_SUPER: &str = "⌘";
 pub const SYMBOL_ALT: &str = "⌥";
 
 pub const HIDE_COMMAND: Selector = HIDE_APPLICATION;
+static AUTO_LAUNCH: Lazy<AutoLaunch> = Lazy::new(|| {
+    let app_path = get_current_app_path();
+    let app_name = Path::new(&app_path)
+        .file_stem()
+        .and_then(|f| f.to_str())
+        .unwrap();
+    AutoLaunchBuilder::new()
+        .set_app_name(app_name)
+        .set_app_path(&app_path)
+        .build()
+        .unwrap()
+});
+
+/// On macOS, current_exe gives path to /Applications/Example.app/MacOS/Example but this results in seeing a Unix Executable in macOS login items. It must be: /Applications/Example.app
+/// If it didn't find exactly a single occurrence of .app, it will default to exe path to not break it.
+fn get_current_app_path() -> String {
+    let current_exe = current_exe().unwrap();
+    let exe_path = current_exe.canonicalize().unwrap().display().to_string();
+    let parts: Vec<&str> = exe_path.split(".app/").collect();
+    return if parts.len() == 2 {
+        format!("{}.app", parts.get(0).unwrap().to_string())
+    } else {
+        exe_path
+    };
+}
 
 #[macro_export]
 macro_rules! nsstring_to_string {
@@ -265,4 +294,15 @@ pub fn get_active_app_name() -> String {
         let path: id = msg_send![bundle_url, path];
         nsstring_to_string!(path).unwrap_or("/Unknown.app".to_string())
     }
+}
+
+pub fn update_launch_on_login(is_enable: bool) -> Result<(), auto_launch::Error> {
+    match is_enable {
+        true => AUTO_LAUNCH.enable(),
+        false => AUTO_LAUNCH.disable(),
+    }
+}
+
+pub fn is_launch_on_login() -> bool {
+    AUTO_LAUNCH.is_enabled().unwrap()
 }

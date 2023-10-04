@@ -12,7 +12,7 @@ use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
     ensure_accessibility_permission, run_event_listener, send_backspace, send_string, Handle,
-    KeyModifier, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, RAW_KEY_GLOBE, PressedKey
+    KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, RAW_KEY_GLOBE,
 };
 
 use ui::{UIDataAdapter, UPDATE_UI};
@@ -83,9 +83,10 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                             toggle_vietnamese();
                             return true;
                         }
-                    },
+                    }
                     PressedKey::Char(keycode) => {
-                        let is_hotkey_pressed = INPUT_STATE.get_hotkey().is_match(modifiers, &keycode);
+                        let is_hotkey_pressed =
+                            INPUT_STATE.get_hotkey().is_match(modifiers, &keycode);
                         if is_hotkey_pressed {
                             toggle_vietnamese();
                             return true;
@@ -94,8 +95,9 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                         if INPUT_STATE.is_enabled() {
                             match keycode {
                                 KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
-                                    let is_valid_word =
-                                        vi::validation::is_valid_word(INPUT_STATE.get_displaying_word());
+                                    let is_valid_word = vi::validation::is_valid_word(
+                                        INPUT_STATE.get_displaying_word(),
+                                    );
                                     let is_transformed_word = !INPUT_STATE
                                         .get_typing_buffer()
                                         .eq(INPUT_STATE.get_displaying_word());
@@ -171,7 +173,7 @@ fn main() {
         rebuild_keyboard_layout_map();
         let win = WindowDesc::new(ui::main_ui_builder())
             .title("gõkey")
-            .window_size((320.0, 234.0))
+            .window_size((320.0, 268.0))
             .resizable(false);
         let app = AppLauncher::with_window(win);
         let event_sink = app.get_external_handle();

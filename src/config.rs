@@ -1,5 +1,11 @@
-use std::{fs::File, io::{Result, Write}, io, path::PathBuf, sync::Mutex};
 use std::io::BufRead;
+use std::{
+    fs::File,
+    io,
+    io::{Result, Write},
+    path::PathBuf,
+    sync::Mutex,
+};
 
 use once_cell::sync::Lazy;
 
@@ -11,7 +17,7 @@ pub struct ConfigStore {
     hotkey: String,
     method: String,
     vn_apps: Vec<String>,
-    en_apps: Vec<String>
+    en_apps: Vec<String>,
 }
 
 fn parse_vec_string(line: String) -> Vec<String> {
@@ -44,7 +50,7 @@ impl ConfigStore {
             hotkey: "ctrl+space".to_string(),
             method: "telex".to_string(),
             vn_apps: Vec::new(),
-            en_apps: Vec::new()
+            en_apps: Vec::new(),
         };
 
         let config_path = ConfigStore::get_config_path();
@@ -58,7 +64,7 @@ impl ConfigStore {
                         TYPING_METHOD_CONFIG_KEY => config.method = right.to_string(),
                         VN_APPS_CONFIG_KEY => config.vn_apps = parse_vec_string(right.to_string()),
                         EN_APPS_CONFIG_KEY => config.en_apps = parse_vec_string(right.to_string()),
-                        _ => { }
+                        _ => {}
                     }
                 }
             }
@@ -115,8 +121,7 @@ impl ConfigStore {
 
     // Save config to file
     fn save(&mut self) {
-        self.write_config_data()
-            .expect("Failed to write config");
+        self.write_config_data().expect("Failed to write config");
     }
 }
 

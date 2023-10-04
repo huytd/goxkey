@@ -5,14 +5,11 @@ use log::debug;
 use once_cell::sync::{Lazy, OnceCell};
 use rdev::{Keyboard, KeyboardState};
 
+use crate::platform::get_active_app_name;
 use crate::{
-    config::CONFIG_MANAGER,
-    hotkey::Hotkey,
-    platform::is_in_text_selection,
-    ui::UPDATE_UI,
+    config::CONFIG_MANAGER, hotkey::Hotkey, platform::is_in_text_selection, ui::UPDATE_UI,
     UI_EVENT_SINK,
 };
-use crate::platform::get_active_app_name;
 
 // According to Google search, the longest possible Vietnamese word
 // is "nghiêng", which is 7 letters long. Add a little buffer for
@@ -20,7 +17,10 @@ use crate::platform::get_active_app_name;
 // be around 10 to 12.
 const MAX_POSSIBLE_WORD_LENGTH: usize = 10;
 const MAX_DUPLICATE_LENGTH: usize = 4;
-const TONE_DUPLICATE_PATTERNS: [&str; 16] = ["ss", "ff", "jj", "rr", "xx", "ww", "kk", "tt", "nn", "mm", "yy", "hh", "ii", "aaa", "eee", "ooo"];
+const TONE_DUPLICATE_PATTERNS: [&str; 16] = [
+    "ss", "ff", "jj", "rr", "xx", "ww", "kk", "tt", "nn", "mm", "yy", "hh", "ii", "aaa", "eee",
+    "ooo",
+];
 
 pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(InputState::new);
 
@@ -155,7 +155,7 @@ pub struct InputState {
     enabled: bool,
     should_track: bool,
     previous_word: String,
-    active_app: String
+    active_app: String,
 }
 
 impl InputState {
@@ -169,7 +169,7 @@ impl InputState {
             enabled: true,
             should_track: true,
             previous_word: String::new(),
-            active_app: String::new()
+            active_app: String::new(),
         }
     }
 
@@ -246,10 +246,7 @@ impl InputState {
 
     pub fn set_hotkey(&mut self, key_sequence: &str) {
         self.hotkey = Hotkey::from_str(key_sequence);
-        CONFIG_MANAGER
-            .lock()
-            .unwrap()
-            .set_hotkey(key_sequence);
+        CONFIG_MANAGER.lock().unwrap().set_hotkey(key_sequence);
         if let Some(event_sink) = UI_EVENT_SINK.get() {
             _ = event_sink.submit_command(UPDATE_UI, (), Target::Auto);
         }
@@ -359,7 +356,11 @@ impl InputState {
         // detect attempts to restore a word
         // by doubling tone marks like ss, rr, ff, jj, xx
         let buf = &self.buffer;
-        if TONE_DUPLICATE_PATTERNS.iter().find(|p| buf.to_ascii_lowercase().contains(*p)).is_some() {
+        if TONE_DUPLICATE_PATTERNS
+            .iter()
+            .find(|p| buf.to_ascii_lowercase().contains(*p))
+            .is_some()
+        {
             return true;
         }
 
