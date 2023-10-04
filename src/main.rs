@@ -189,7 +189,7 @@ fn main() {
         rebuild_keyboard_layout_map();
         let win = WindowDesc::new(ui::main_ui_builder())
             .title("gõkey")
-            .window_size((320.0, 320.0))
+            .window_size((320.0, 345.0))
             .resizable(false);
         let app = AppLauncher::with_window(win);
         let event_sink = app.get_external_handle();
