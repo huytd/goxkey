@@ -17,9 +17,9 @@ use crate::{
 // be around 10 to 12.
 const MAX_POSSIBLE_WORD_LENGTH: usize = 10;
 const MAX_DUPLICATE_LENGTH: usize = 4;
-const TONE_DUPLICATE_PATTERNS: [&str; 16] = [
+const TONE_DUPLICATE_PATTERNS: [&str; 17] = [
     "ss", "ff", "jj", "rr", "xx", "ww", "kk", "tt", "nn", "mm", "yy", "hh", "ii", "aaa", "eee",
-    "ooo",
+    "ooo", "ddd",
 ];
 
 pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(InputState::new);
