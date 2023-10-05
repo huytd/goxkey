@@ -13,11 +13,14 @@ use druid::{
         Button, Checkbox, Container, Controller, FillStrat, Flex, Image, Label, LineBreaking,
         RadioGroup, Switch, TextBox,
     },
-    Application, Data, Env, Event, EventCtx, ImageBuf, Lens, Selector, Target, Widget, WidgetExt,
+    Application, Data, Env, Event, EventCtx, ImageBuf, Lens, Screen, Selector, Target, Widget,
+    WidgetExt,
 };
 use log::error;
 
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
+pub const WINDOW_WIDTH: f64 = 320.0;
+pub const WINDOW_HEIGHT: f64 = 268.0;
 
 pub fn format_letter_key(c: char) -> String {
     if c.is_ascii_whitespace() {
@@ -398,4 +401,13 @@ pub fn permission_request_ui_builder() -> impl Widget<()> {
         )
         .must_fill_main_axis(true)
         .padding(6.0)
+}
+
+pub fn center_window_position() -> (f64, f64) {
+    let screen_rect = Screen::get_display_rect();
+
+    let x = (screen_rect.width() - WINDOW_WIDTH) / 2.0;
+    let y = (screen_rect.height() - WINDOW_HEIGHT) / 2.0;
+
+    (x, y)
 }
