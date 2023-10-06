@@ -116,7 +116,7 @@ impl KeyModifier {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum PressedKey {
     Char(char),
     Raw(u16),

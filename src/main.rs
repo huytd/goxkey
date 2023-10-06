@@ -75,6 +75,16 @@ unsafe fn auto_toggle_vietnamese() {
 fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: KeyModifier) -> bool {
     unsafe {
         auto_toggle_vietnamese();
+        let pressed_key_code = pressed_key.and_then(|p| match p {
+            PressedKey::Char(c) => Some(c),
+            _ => None
+        });
+        let is_hotkey_pressed =
+            INPUT_STATE.get_hotkey().is_match(modifiers, pressed_key_code);
+        if is_hotkey_pressed {
+            toggle_vietnamese();
+            return true;
+        }
         match pressed_key {
             Some(pressed_key) => {
                 match pressed_key {
@@ -85,13 +95,6 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                         }
                     }
                     PressedKey::Char(keycode) => {
-                        let is_hotkey_pressed =
-                            INPUT_STATE.get_hotkey().is_match(modifiers, &keycode);
-                        if is_hotkey_pressed {
-                            toggle_vietnamese();
-                            return true;
-                        }
-
                         if INPUT_STATE.is_enabled() {
                             match keycode {
                                 KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
@@ -135,11 +138,9 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                                                     c
                                                 },
                                             );
-                                            if INPUT_STATE.should_transform_keys(&c) {
-                                                let ret = do_transform_keys(handle, false);
-                                                INPUT_STATE.stop_tracking_if_needed();
-                                                return ret;
-                                            }
+                                            let ret = do_transform_keys(handle, false);
+                                            INPUT_STATE.stop_tracking_if_needed();
+                                            return ret;
                                         }
                                     }
                                 }
