@@ -16,7 +16,6 @@ use core_graphics::{
     },
     sys,
 };
-use druid::{commands::HIDE_APPLICATION, Selector};
 use objc::{class, msg_send, sel, sel_impl};
 
 pub use macos_ext::SystemTray;
@@ -46,7 +45,6 @@ pub const SYMBOL_CTRL: &str = "⌃";
 pub const SYMBOL_SUPER: &str = "⌘";
 pub const SYMBOL_ALT: &str = "⌥";
 
-pub const HIDE_COMMAND: Selector = HIDE_APPLICATION;
 static AUTO_LAUNCH: Lazy<AutoLaunch> = Lazy::new(|| {
     let app_path = get_current_app_path();
     let app_name = Path::new(&app_path)
