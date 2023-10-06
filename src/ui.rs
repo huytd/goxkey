@@ -565,7 +565,7 @@ fn macro_row_item() -> impl Widget<MacroEntry> {
             2.0,
         )
         .with_flex_child(
-            Button::new("❌").on_click(|ctx, data: &mut MacroEntry, _| {
+            Button::new("×").on_click(|ctx, data: &mut MacroEntry, _| {
                 ctx.submit_command(DELETE_MACRO.with(data.from.clone()).to(Target::Global))
             }),
             1.0,
