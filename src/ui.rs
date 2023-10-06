@@ -17,18 +17,21 @@ pub const SHOW_UI: Selector = Selector::new("gox-ui.show-ui");
 pub const WINDOW_WIDTH: f64 = 320.0;
 pub const WINDOW_HEIGHT: f64 = 268.0;
 
-pub fn format_letter_key(c: char) -> String {
-    if c.is_ascii_whitespace() {
-        String::from("Space")
-    } else {
-        c.to_ascii_uppercase().to_string()
+pub fn format_letter_key(c: Option<char>) -> String {
+    if let Some(c) = c {
+        return if c.is_ascii_whitespace() {
+            String::from("Space")
+        } else {
+            c.to_ascii_uppercase().to_string()
+        };
     }
+    String::new()
 }
 
-pub fn letter_key_to_char(input: &str) -> char {
+pub fn letter_key_to_char(input: &str) -> Option<char> {
     match input {
-        "Space" => ' ',
-        s => s.chars().last().unwrap(),
+        "Space" => Some(' '),
+        s => if input.len() > 1 { None } else { s.chars().last() },
     }
 }
 
@@ -42,13 +45,14 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for LetterKeyControl
         data: &mut UIDataAdapter,
         env: &Env,
     ) {
+        if let &Event::MouseDown(_) = event {
+            ctx.submit_command(druid::commands::SELECT_ALL);
+        }
         if let &Event::KeyUp(_) = event {
             match data.letter_key.as_str() {
                 "Space" => {}
                 s => {
-                    if let Some(last_char) = s.chars().last() {
-                        data.letter_key = format_letter_key(last_char);
-                    }
+                    data.letter_key = format_letter_key(letter_key_to_char(s));
                 }
             }
         }
@@ -236,7 +240,8 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
                 }
             }
 
-            if !data.letter_key.is_empty() {
+            // Update hotkey
+            {
                 let mut new_mod = KeyModifier::new();
                 new_mod.apply(
                     data.super_key,
@@ -246,13 +251,14 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
                     data.capslock_key,
                 );
                 let key_code = letter_key_to_char(&data.letter_key);
-                if !INPUT_STATE.get_hotkey().is_match(new_mod, &key_code) {
+                if !INPUT_STATE.get_hotkey().is_match(new_mod, key_code) {
                     INPUT_STATE.set_hotkey(&format!(
                         "{}{}",
                         new_mod,
                         match key_code {
-                            ' ' => String::from("space"),
-                            c => c.to_string(),
+                            Some(' ') => String::from("space"),
+                            Some(c) => c.to_string(),
+                            _ => String::new()
                         }
                     ));
                 }

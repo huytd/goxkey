@@ -256,10 +256,6 @@ impl InputState {
         &self.hotkey
     }
 
-    pub fn should_transform_keys(&self, c: &char) -> bool {
-        self.enabled
-    }
-
     pub fn transform_keys(&self) -> Result<String, ()> {
         let transform_method = match self.method {
             TypingMethod::VNI => vi::vni::transform_buffer,
