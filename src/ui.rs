@@ -499,7 +499,7 @@ pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
                 scroll.set_horizontal_scroll_enabled(false);
                 scroll
             }
-            .expand_width(),
+            .expand(),
             1.0,
         )
         .with_default_spacer()
