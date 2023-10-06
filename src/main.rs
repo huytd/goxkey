@@ -120,10 +120,13 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                                         INPUT_STATE.clear_previous_word();
                                     }
 
-                                    if let Some(macro_target) = INPUT_STATE.get_macro_target() {
-                                        debug!("Macro: {}", macro_target);
-                                        do_macro_replace(handle, macro_target)
+                                    if keycode == KEY_TAB || keycode == KEY_SPACE {
+                                        if let Some(macro_target) = INPUT_STATE.get_macro_target() {
+                                            debug!("Macro: {}", macro_target);
+                                            do_macro_replace(handle, macro_target)
+                                        }
                                     }
+
                                     INPUT_STATE.new_word();
                                 }
                                 KEY_DELETE => {
