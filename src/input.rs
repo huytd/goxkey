@@ -178,8 +178,13 @@ impl InputState {
         }
     }
 
-    pub fn update_active_app(&mut self) {
-        self.active_app = get_active_app_name();
+    pub fn update_active_app(&mut self) -> Option<()> {
+        let current_active_app = get_active_app_name();
+        // Only check if switch app
+        if current_active_app == self.active_app {
+            return None;
+        }
+        self.active_app = current_active_app;
         let config = CONFIG_MANAGER.lock().unwrap();
         // Only switch the input mode if we found the app in the config
         if config.is_vietnamese_app(&self.active_app) {
@@ -188,6 +193,7 @@ impl InputState {
         if config.is_english_app(&self.active_app) {
             self.enabled = false;
         }
+        Some(())
     }
 
     pub fn is_enabled(&self) -> bool {

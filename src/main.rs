@@ -77,7 +77,10 @@ unsafe fn toggle_vietnamese() {
 }
 
 unsafe fn auto_toggle_vietnamese() {
-    INPUT_STATE.update_active_app();
+    let has_change = INPUT_STATE.update_active_app().is_some();
+    if !has_change {
+        return;
+    }
     if let Some(event_sink) = UI_EVENT_SINK.get() {
         _ = event_sink.submit_command(UPDATE_UI, (), Target::Auto);
     }
