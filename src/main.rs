@@ -175,6 +175,7 @@ fn main() {
             .title("gõkey")
             .window_size((ui::WINDOW_WIDTH, ui::WINDOW_HEIGHT))
             .set_position(ui::center_window_position())
+            .set_always_on_top(true)
             .resizable(false);
         let app = AppLauncher::with_window(win);
         let event_sink = app.get_external_handle();

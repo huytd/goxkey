@@ -1,24 +1,19 @@
 use crate::{
     input::{rebuild_keyboard_layout_map, TypingMethod, INPUT_STATE},
     platform::{
-        self, is_launch_on_login, update_launch_on_login, KeyModifier, SystemTray,
+        is_launch_on_login, update_launch_on_login, KeyModifier, SystemTray,
         SystemTrayMenuItemKey, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
     },
     UI_EVENT_SINK,
 };
-use druid::{
-    commands::QUIT_APP,
-    theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR},
-    widget::{
-        Button, Checkbox, Container, Controller, FillStrat, Flex, Image, Label, LineBreaking,
-        RadioGroup, Switch, TextBox,
-    },
-    Application, Data, Env, Event, EventCtx, ImageBuf, Lens, Screen, Selector, Target, Widget,
-    WidgetExt,
-};
+use druid::{commands::{QUIT_APP}, theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR}, widget::{
+    Button, Checkbox, Container, Controller, FillStrat, Flex, Image, Label, LineBreaking,
+    RadioGroup, Switch, TextBox,
+}, Application, Data, Env, Event, EventCtx, ImageBuf, Lens, Screen, Selector, Target, Widget, WidgetExt};
 use log::error;
 
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
+pub const SHOW_UI: Selector = Selector::new("gox-ui.show-ui");
 pub const WINDOW_WIDTH: f64 = 320.0;
 pub const WINDOW_HEIGHT: f64 = 268.0;
 
@@ -143,6 +138,12 @@ impl UIDataAdapter {
 
     fn setup_system_tray_actions(&mut self) {
         self.systray
+            .set_menu_item_callback(SystemTrayMenuItemKey::ShowUI, || {
+                UI_EVENT_SINK
+                    .get()
+                    .map(|event| Some(event.submit_command(SHOW_UI, (), Target::Auto)));
+            });
+        self.systray
             .set_menu_item_callback(SystemTrayMenuItemKey::Enable, || {
                 unsafe {
                     INPUT_STATE.toggle_vietnamese();
@@ -202,10 +203,14 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
                     data.update();
                     rebuild_keyboard_layout_map();
                 }
+                if cmd.get(SHOW_UI).is_some() {
+                    ctx.set_handled();
+                    ctx.window().bring_to_front_and_focus();
+                }
             }
             Event::WindowCloseRequested => {
                 ctx.set_handled();
-                ctx.submit_command(platform::HIDE_COMMAND);
+                ctx.window().hide();
             }
             _ => {}
         }
@@ -353,7 +358,9 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                     Button::new("Đóng")
                         .fix_width(100.0)
                         .fix_height(28.0)
-                        .on_click(|event, _, _| event.submit_command(platform::HIDE_COMMAND)),
+                        .on_click(|event, _, _| {
+                            event.window().hide();
+                        }),
                 )
                 .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
                 .main_axis_alignment(druid::widget::MainAxisAlignment::End)
