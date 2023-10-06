@@ -173,7 +173,7 @@ impl InputState {
             should_track: true,
             previous_word: String::new(),
             active_app: String::new(),
-            is_macro_enabled: true,
+            is_macro_enabled: config.is_macro_enabled(),
             macro_table: config.get_macro_table().clone(),
         }
     }
@@ -273,7 +273,11 @@ impl InputState {
     }
 
     pub fn toggle_macro_enabled(&mut self) {
-        self.is_macro_enabled = !self.is_macro_enabled
+        self.is_macro_enabled = !self.is_macro_enabled;
+        CONFIG_MANAGER
+            .lock()
+            .unwrap()
+            .set_macro_enabled(self.is_macro_enabled);
     }
 
     pub fn get_macro_table(&self) -> &BTreeMap<String, String> {
