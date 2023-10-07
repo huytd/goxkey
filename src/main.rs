@@ -58,6 +58,17 @@ fn do_restore_word(handle: Handle) {
     }
 }
 
+fn do_macro_replace(handle: Handle, target: &String) {
+    unsafe {
+        let backspace_count = INPUT_STATE.get_backspace_count(true);
+        debug!("Backspace count: {}", backspace_count);
+        _ = send_backspace(handle, backspace_count);
+        _ = send_string(handle, target);
+        debug!("Sent: {:?}", target);
+        INPUT_STATE.replace(target.to_owned());
+    }
+}
+
 unsafe fn toggle_vietnamese() {
     INPUT_STATE.toggle_vietnamese();
     if let Some(event_sink) = UI_EVENT_SINK.get() {
@@ -66,7 +77,10 @@ unsafe fn toggle_vietnamese() {
 }
 
 unsafe fn auto_toggle_vietnamese() {
-    INPUT_STATE.update_active_app();
+    let has_change = INPUT_STATE.update_active_app().is_some();
+    if !has_change {
+        return;
+    }
     if let Some(event_sink) = UI_EVENT_SINK.get() {
         _ = event_sink.submit_command(UPDATE_UI, (), Target::Auto);
     }
@@ -77,10 +91,11 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
         auto_toggle_vietnamese();
         let pressed_key_code = pressed_key.and_then(|p| match p {
             PressedKey::Char(c) => Some(c),
-            _ => None
+            _ => None,
         });
-        let is_hotkey_pressed =
-            INPUT_STATE.get_hotkey().is_match(modifiers, pressed_key_code);
+        let is_hotkey_pressed = INPUT_STATE
+            .get_hotkey()
+            .is_match(modifiers, pressed_key_code);
         if is_hotkey_pressed {
             toggle_vietnamese();
             return true;
@@ -111,6 +126,14 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                                     if INPUT_STATE.previous_word_is_stop_tracking_words() {
                                         INPUT_STATE.clear_previous_word();
                                     }
+
+                                    if keycode == KEY_TAB || keycode == KEY_SPACE {
+                                        if let Some(macro_target) = INPUT_STATE.get_macro_target() {
+                                            debug!("Macro: {}", macro_target);
+                                            do_macro_replace(handle, macro_target)
+                                        }
+                                    }
+
                                     INPUT_STATE.new_word();
                                 }
                                 KEY_DELETE => {

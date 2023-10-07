@@ -1,4 +1,6 @@
-use cocoa::appkit::{NSApp, NSApplication, NSButton, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem};
+use cocoa::appkit::{
+    NSApp, NSApplication, NSButton, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem,
+};
 use cocoa::base::{nil, YES};
 use cocoa::foundation::{NSAutoreleasePool, NSString};
 use core_foundation::dictionary::CFDictionaryRef;

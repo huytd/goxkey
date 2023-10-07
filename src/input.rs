@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 use druid::{Data, Target};
@@ -156,6 +157,8 @@ pub struct InputState {
     should_track: bool,
     previous_word: String,
     active_app: String,
+    is_macro_enabled: bool,
+    macro_table: BTreeMap<String, String>,
 }
 
 impl InputState {
@@ -170,11 +173,18 @@ impl InputState {
             should_track: true,
             previous_word: String::new(),
             active_app: String::new(),
+            is_macro_enabled: config.is_macro_enabled(),
+            macro_table: config.get_macro_table().clone(),
         }
     }
 
-    pub fn update_active_app(&mut self) {
-        self.active_app = get_active_app_name();
+    pub fn update_active_app(&mut self) -> Option<()> {
+        let current_active_app = get_active_app_name();
+        // Only check if switch app
+        if current_active_app == self.active_app {
+            return None;
+        }
+        self.active_app = current_active_app;
         let config = CONFIG_MANAGER.lock().unwrap();
         // Only switch the input mode if we found the app in the config
         if config.is_vietnamese_app(&self.active_app) {
@@ -183,6 +193,7 @@ impl InputState {
         if config.is_english_app(&self.active_app) {
             self.enabled = false;
         }
+        Some(())
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -202,6 +213,13 @@ impl InputState {
             self.clear();
         }
         self.should_track = true;
+    }
+
+    pub fn get_macro_target(&self) -> Option<&String> {
+        if !self.is_macro_enabled {
+            return None;
+        }
+        self.macro_table.get(&self.display_buffer)
     }
 
     pub fn get_typing_buffer(&self) -> &str {
@@ -254,6 +272,39 @@ impl InputState {
 
     pub fn get_hotkey(&self) -> &Hotkey {
         &self.hotkey
+    }
+
+    pub fn is_macro_enabled(&self) -> bool {
+        self.is_macro_enabled
+    }
+
+    pub fn toggle_macro_enabled(&mut self) {
+        self.is_macro_enabled = !self.is_macro_enabled;
+        CONFIG_MANAGER
+            .lock()
+            .unwrap()
+            .set_macro_enabled(self.is_macro_enabled);
+    }
+
+    pub fn get_macro_table(&self) -> &BTreeMap<String, String> {
+        &self.macro_table
+    }
+
+    pub fn delete_macro(&mut self, from: &String) {
+        self.macro_table.remove(from);
+        CONFIG_MANAGER.lock().unwrap().delete_macro(from);
+    }
+
+    pub fn add_macro(&mut self, from: String, to: String) {
+        CONFIG_MANAGER
+            .lock()
+            .unwrap()
+            .add_macro(from.clone(), to.clone());
+        self.macro_table.insert(from, to);
+    }
+
+    pub fn should_transform_keys(&self, c: &char) -> bool {
+        self.enabled
     }
 
     pub fn transform_keys(&self) -> Result<String, ()> {

@@ -1,21 +1,31 @@
+use std::sync::Arc;
+
 use crate::{
     input::{rebuild_keyboard_layout_map, TypingMethod, INPUT_STATE},
     platform::{
-        is_launch_on_login, update_launch_on_login, KeyModifier, SystemTray,
-        SystemTrayMenuItemKey, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
+        is_launch_on_login, update_launch_on_login, KeyModifier, SystemTray, SystemTrayMenuItemKey,
+        SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
     },
     UI_EVENT_SINK,
 };
-use druid::{commands::{QUIT_APP}, theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR}, widget::{
-    Button, Checkbox, Container, Controller, FillStrat, Flex, Image, Label, LineBreaking,
-    RadioGroup, Switch, TextBox,
-}, Application, Data, Env, Event, EventCtx, ImageBuf, Lens, Screen, Selector, Target, Widget, WidgetExt};
+use druid::{
+    commands::QUIT_APP,
+    theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR},
+    widget::{
+        Button, Checkbox, Container, Controller, FillStrat, Flex, Image, Label, LineBreaking, List,
+        RadioGroup, Scroll, Switch, TextBox,
+    },
+    Application, Color, Data, Env, Event, EventCtx, ImageBuf, Lens, Screen, Selector, Target,
+    Widget, WidgetExt, WindowDesc,
+};
 use log::error;
 
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
 pub const SHOW_UI: Selector = Selector::new("gox-ui.show-ui");
+const DELETE_MACRO: Selector<String> = Selector::new("gox-ui.delete-macro");
+const ADD_MACRO: Selector = Selector::new("gox-ui.add-macro");
 pub const WINDOW_WIDTH: f64 = 320.0;
-pub const WINDOW_HEIGHT: f64 = 268.0;
+pub const WINDOW_HEIGHT: f64 = 345.0;
 
 pub fn format_letter_key(c: Option<char>) -> String {
     if let Some(c) = c {
@@ -31,7 +41,13 @@ pub fn format_letter_key(c: Option<char>) -> String {
 pub fn letter_key_to_char(input: &str) -> Option<char> {
     match input {
         "Space" => Some(' '),
-        s => if input.len() > 1 { None } else { s.chars().last() },
+        s => {
+            if input.len() > 1 {
+                None
+            } else {
+                s.chars().last()
+            }
+        }
     }
 }
 
@@ -60,12 +76,23 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for LetterKeyControl
     }
 }
 
+#[derive(Clone, Data, PartialEq, Eq)]
+struct MacroEntry {
+    from: String,
+    to: String,
+}
+
 #[derive(Clone, Data, Lens, PartialEq, Eq)]
 pub struct UIDataAdapter {
     is_enabled: bool,
     typing_method: TypingMethod,
     hotkey_display: String,
     launch_on_login: bool,
+    // Macro config
+    is_macro_enabled: bool,
+    macro_table: Arc<Vec<MacroEntry>>,
+    new_macro_from: String,
+    new_macro_to: String,
     // Hotkey config
     super_key: bool,
     ctrl_key: bool,
@@ -84,6 +111,10 @@ impl UIDataAdapter {
             typing_method: TypingMethod::Telex,
             hotkey_display: String::new(),
             launch_on_login: false,
+            is_macro_enabled: false,
+            macro_table: Arc::new(Vec::new()),
+            new_macro_from: String::new(),
+            new_macro_to: String::new(),
             super_key: true,
             ctrl_key: true,
             alt_key: false,
@@ -102,7 +133,18 @@ impl UIDataAdapter {
             self.is_enabled = INPUT_STATE.is_enabled();
             self.typing_method = INPUT_STATE.get_method();
             self.hotkey_display = INPUT_STATE.get_hotkey().to_string();
+            self.is_macro_enabled = INPUT_STATE.is_macro_enabled();
             self.launch_on_login = is_launch_on_login();
+            self.macro_table = Arc::new(
+                INPUT_STATE
+                    .get_macro_table()
+                    .iter()
+                    .map(|(source, target)| MacroEntry {
+                        from: source.to_string(),
+                        to: target.to_string(),
+                    })
+                    .collect::<Vec<MacroEntry>>(),
+            );
 
             let (modifiers, keycode) = INPUT_STATE.get_hotkey().inner();
             self.super_key = modifiers.is_super();
@@ -207,9 +249,21 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
                     data.update();
                     rebuild_keyboard_layout_map();
                 }
-                if cmd.get(SHOW_UI).is_some() {
-                    ctx.set_handled();
-                    ctx.window().bring_to_front_and_focus();
+                if let Some(source) = cmd.get(DELETE_MACRO) {
+                    unsafe { INPUT_STATE.delete_macro(source) };
+                    data.update();
+                }
+                if cmd.get(ADD_MACRO).is_some()
+                    && !data.new_macro_from.is_empty()
+                    && !data.new_macro_to.is_empty()
+                {
+                    unsafe {
+                        INPUT_STATE
+                            .add_macro(data.new_macro_from.clone(), data.new_macro_to.clone())
+                    };
+                    data.new_macro_from = String::new();
+                    data.new_macro_to = String::new();
+                    data.update();
                 }
             }
             Event::WindowCloseRequested => {
@@ -258,10 +312,14 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
                         match key_code {
                             Some(' ') => String::from("space"),
                             Some(c) => c.to_string(),
-                            _ => String::new()
+                            _ => String::new(),
                         }
                     ));
                 }
+            }
+
+            if old_data.is_macro_enabled != data.is_macro_enabled {
+                INPUT_STATE.toggle_macro_enabled();
             }
         }
         child.update(ctx, old_data, data, env);
@@ -313,6 +371,34 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                             .with_child(Checkbox::new("").lens(UIDataAdapter::launch_on_login))
                             .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
                             .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+                            .must_fill_main_axis(true)
+                            .expand_width()
+                            .padding(8.0),
+                    )
+                    .with_child(
+                        Flex::row()
+                            .with_child(Label::new("Gõ tắt"))
+                            .with_child(Checkbox::new("").lens(UIDataAdapter::is_macro_enabled))
+                            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                            .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+                            .must_fill_main_axis(true)
+                            .expand_width()
+                            .padding(8.0),
+                    )
+                    .with_child(
+                        Flex::row()
+                            .with_child(Button::new("Bảng gõ tắt").on_click(|ctx, _, _| {
+                                let new_win_position = ctx.window().get_position() - (50.0, 50.0); // offset a bit
+                                let new_window = WindowDesc::new(macro_editor_ui_builder())
+                                    .title("Bảng gõ tắt")
+                                    .window_size((320.0, 320.0))
+                                    .with_min_size((320.0, 320.0))
+                                    .set_always_on_top(true)
+                                    .set_position(new_win_position);
+                                ctx.new_window(new_window);
+                            }))
+                            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                            .main_axis_alignment(druid::widget::MainAxisAlignment::End)
                             .must_fill_main_axis(true)
                             .expand_width()
                             .padding(8.0),
@@ -414,6 +500,103 @@ pub fn permission_request_ui_builder() -> impl Widget<()> {
         )
         .must_fill_main_axis(true)
         .padding(6.0)
+}
+
+pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
+    Flex::column()
+        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+        .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+        .with_child(
+            Flex::row()
+                .with_child(Label::new("Bảng gõ tắt"))
+                .main_axis_alignment(druid::widget::MainAxisAlignment::Center)
+                .expand_width(),
+        )
+        .with_spacer(10.0)
+        .with_flex_child(
+            {
+                let mut scroll = Scroll::new(
+                    List::new(macro_row_item)
+                        .lens(UIDataAdapter::macro_table)
+                        .expand_width(),
+                );
+                scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
+                scroll.set_horizontal_scroll_enabled(false);
+                scroll
+            }
+            .expand(),
+            1.0,
+        )
+        .with_default_spacer()
+        .with_child(
+            Flex::row()
+                .with_flex_child(
+                    TextBox::new()
+                        .with_placeholder("Gõ tắt mới")
+                        .with_text_alignment(druid::text::TextAlignment::Start)
+                        .expand_width()
+                        .lens(UIDataAdapter::new_macro_from),
+                    2.0,
+                )
+                .with_flex_child(
+                    TextBox::new()
+                        .with_placeholder("thay thế")
+                        .with_text_alignment(druid::text::TextAlignment::Start)
+                        .expand_width()
+                        .lens(UIDataAdapter::new_macro_to),
+                    2.0,
+                )
+                .with_flex_child(
+                    Button::new("Thêm")
+                        .on_click(|ctx, _, _| ctx.submit_command(ADD_MACRO.to(Target::Global))),
+                    1.0,
+                )
+                .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+                .cross_axis_alignment(druid::widget::CrossAxisAlignment::Baseline)
+                .expand_width()
+                .border(Color::GRAY, 0.5),
+        )
+        .with_child(
+            Flex::row()
+                .with_child(
+                    Button::new("Đóng")
+                        .on_click(|ctx, _, _| ctx.window().close())
+                        .fix_width(100.0)
+                        .fix_height(28.0),
+                )
+                .main_axis_alignment(druid::widget::MainAxisAlignment::End)
+                .expand_width()
+                .padding(6.0),
+        )
+        .must_fill_main_axis(true)
+        .expand_width()
+        .padding(8.0)
+}
+
+fn macro_row_item() -> impl Widget<MacroEntry> {
+    Flex::row()
+        .with_flex_child(
+            Label::dynamic(|e: &MacroEntry, _| e.from.clone())
+                .with_line_break_mode(LineBreaking::WordWrap)
+                .align_left(),
+            2.0,
+        )
+        .with_flex_child(
+            Label::dynamic(|e: &MacroEntry, _| e.to.clone())
+                .with_line_break_mode(LineBreaking::WordWrap)
+                .align_left(),
+            2.0,
+        )
+        .with_flex_child(
+            Button::new("×").on_click(|ctx, data: &mut MacroEntry, _| {
+                ctx.submit_command(DELETE_MACRO.with(data.from.clone()).to(Target::Global))
+            }),
+            1.0,
+        )
+        .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Baseline)
+        .expand_width()
+        .border(Color::GRAY, 0.5)
 }
 
 pub fn center_window_position() -> (f64, f64) {

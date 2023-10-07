@@ -36,10 +36,10 @@ impl Hotkey {
     pub fn is_match(&self, mut modifiers: KeyModifier, keycode: Option<char>) -> bool {
         // Caps Lock should not interfere with any hotkey
         modifiers.remove(KeyModifier::MODIFIER_CAPSLOCK);
-        let letter_matched =
-            keycode.eq(&self.keycode) ||
-            keycode.and_then(|a| self.keycode.map(|b| a.eq_ignore_ascii_case(&b)))
-            .is_some_and(|c| c == true);
+        let letter_matched = keycode.eq(&self.keycode)
+            || keycode
+                .and_then(|a| self.keycode.map(|b| a.eq_ignore_ascii_case(&b)))
+                .is_some_and(|c| c == true);
         self.modifiers == modifiers && letter_matched
     }
 
@@ -69,7 +69,7 @@ impl Display for Hotkey {
             Some(KEY_DELETE) => write!(f, "Del"),
             Some(KEY_ESCAPE) => write!(f, "Esc"),
             Some(c) => write!(f, "{}", c.to_ascii_uppercase()),
-            _ => write!(f, "")
+            _ => write!(f, ""),
         }
     }
 }
