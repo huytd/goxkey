@@ -393,6 +393,7 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                                     .title("Bảng gõ tắt")
                                     .window_size((320.0, 320.0))
                                     .with_min_size((320.0, 320.0))
+                                    .set_always_on_top(true)
                                     .set_position(new_win_position);
                                 ctx.new_window(new_window);
                             }))
@@ -511,6 +512,7 @@ pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
                 .main_axis_alignment(druid::widget::MainAxisAlignment::Center)
                 .expand_width(),
         )
+        .with_spacer(10.0)
         .with_flex_child(
             {
                 let mut scroll = Scroll::new(
@@ -558,9 +560,7 @@ pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
             Flex::row()
                 .with_child(
                     Button::new("Đóng")
-                        .on_click(|ctx, _, _| {
-                            ctx.submit_command(platform::CLOSE_COMMAND.to(Target::Auto))
-                        })
+                        .on_click(|ctx, _, _| ctx.window().close())
                         .fix_width(100.0)
                         .fix_height(28.0),
                 )
