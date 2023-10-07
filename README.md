@@ -3,7 +3,8 @@
 </p>
 
 ---
-<img width="320" alt="image" align="right" src="https://user-images.githubusercontent.com/613943/213217673-e58c873a-9219-4a33-8487-620a07210206.png">
+<img width="432" alt="image" align="right" src="https://github.com/huytd/goxkey/assets/613943/2a65372b-e27f-4b7f-914c-7f2b5c8484fd">
+
 
 [![Build and Tests](https://github.com/huytd/goxkey/actions/workflows/main.yml/badge.svg)](https://github.com/huytd/goxkey/actions/workflows/main.yml)
 
