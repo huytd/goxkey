@@ -249,6 +249,10 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
                     data.update();
                     rebuild_keyboard_layout_map();
                 }
+                if cmd.get(SHOW_UI).is_some() {
+                    ctx.set_handled();
+                    ctx.window().bring_to_front_and_focus();
+                }
                 if let Some(source) = cmd.get(DELETE_MACRO) {
                     unsafe { INPUT_STATE.delete_macro(source) };
                     data.update();
