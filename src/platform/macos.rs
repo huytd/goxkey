@@ -228,6 +228,11 @@ pub fn run_event_listener(callback: &CallbackFn) {
             CGEventType::FlagsChanged,
         ],
         |proxy, _, event| {
+            if !is_process_trusted() {
+                eprintln!("Accessibility access removed!");
+                std::process::exit(1);
+            }
+
             let mut modifiers = KeyModifier::new();
             let flags = event.get_flags();
             if flags.contains(CGEventFlags::CGEventFlagShift) {
@@ -280,6 +285,10 @@ pub fn run_event_listener(callback: &CallbackFn) {
             CFRunLoop::run_current();
         }
     }
+}
+
+pub fn is_process_trusted() -> bool {
+    unsafe { accessibility_sys::AXIsProcessTrusted() }
 }
 
 pub fn ensure_accessibility_permission() -> bool {

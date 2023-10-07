@@ -7,13 +7,13 @@ use crate::platform::{
 
 pub struct Hotkey {
     modifiers: KeyModifier,
-    keycode: char,
+    keycode: Option<char>,
 }
 
 impl Hotkey {
     pub fn from_str(input: &str) -> Self {
         let mut modifiers = KeyModifier::new();
-        let mut keycode: char = '\0';
+        let mut keycode: Option<char> = None;
         input
             .split('+')
             .for_each(|token| match token.trim().to_uppercase().as_str() {
@@ -21,26 +21,29 @@ impl Hotkey {
                 "ALT" => modifiers.add_alt(),
                 "SUPER" => modifiers.add_super(),
                 "CTRL" => modifiers.add_control(),
-                "ENTER" => keycode = KEY_ENTER,
-                "SPACE" => keycode = KEY_SPACE,
-                "TAB" => keycode = KEY_TAB,
-                "DELETE" => keycode = KEY_DELETE,
-                "ESC" => keycode = KEY_ESCAPE,
+                "ENTER" => keycode = Some(KEY_ENTER),
+                "SPACE" => keycode = Some(KEY_SPACE),
+                "TAB" => keycode = Some(KEY_TAB),
+                "DELETE" => keycode = Some(KEY_DELETE),
+                "ESC" => keycode = Some(KEY_ESCAPE),
                 c => {
-                    keycode = c.chars().last().unwrap();
+                    keycode = c.chars().last();
                 }
             });
         Self { modifiers, keycode }
     }
 
-    pub fn is_match(&self, mut modifiers: KeyModifier, keycode: &char) -> bool {
+    pub fn is_match(&self, mut modifiers: KeyModifier, keycode: Option<char>) -> bool {
         // Caps Lock should not interfere with any hotkey
         modifiers.remove(KeyModifier::MODIFIER_CAPSLOCK);
-
-        self.modifiers == modifiers && self.keycode.eq_ignore_ascii_case(keycode)
+        let letter_matched = keycode.eq(&self.keycode)
+            || keycode
+                .and_then(|a| self.keycode.map(|b| a.eq_ignore_ascii_case(&b)))
+                .is_some_and(|c| c == true);
+        self.modifiers == modifiers && letter_matched
     }
 
-    pub fn inner(&self) -> (KeyModifier, char) {
+    pub fn inner(&self) -> (KeyModifier, Option<char>) {
         (self.modifiers, self.keycode)
     }
 }
@@ -60,12 +63,13 @@ impl Display for Hotkey {
             write!(f, "{} ", SYMBOL_SUPER)?;
         }
         match self.keycode {
-            KEY_ENTER => write!(f, "Enter"),
-            KEY_SPACE => write!(f, "Space"),
-            KEY_TAB => write!(f, "Tab"),
-            KEY_DELETE => write!(f, "Del"),
-            KEY_ESCAPE => write!(f, "Esc"),
-            c => write!(f, "{}", c.to_ascii_uppercase()),
+            Some(KEY_ENTER) => write!(f, "Enter"),
+            Some(KEY_SPACE) => write!(f, "Space"),
+            Some(KEY_TAB) => write!(f, "Tab"),
+            Some(KEY_DELETE) => write!(f, "Del"),
+            Some(KEY_ESCAPE) => write!(f, "Esc"),
+            Some(c) => write!(f, "{}", c.to_ascii_uppercase()),
+            _ => write!(f, ""),
         }
     }
 }
@@ -77,8 +81,8 @@ fn test_parse() {
     actual_modifier.add_shift();
     actual_modifier.add_super();
     assert_eq!(hotkey.modifiers, actual_modifier);
-    assert_eq!(hotkey.keycode, 'Z');
-    assert!(hotkey.is_match(actual_modifier, &'z'));
+    assert_eq!(hotkey.keycode, Some('Z'));
+    assert!(hotkey.is_match(actual_modifier, Some('z')));
 }
 
 #[test]
@@ -90,8 +94,8 @@ fn test_parse_long_input() {
     actual_modifier.add_control();
     actual_modifier.add_alt();
     assert_eq!(hotkey.modifiers, actual_modifier);
-    assert_eq!(hotkey.keycode, 'W');
-    assert!(hotkey.is_match(actual_modifier, &'W'));
+    assert_eq!(hotkey.keycode, Some('W'));
+    assert!(hotkey.is_match(actual_modifier, Some('W')));
 }
 
 #[test]
@@ -101,8 +105,8 @@ fn test_parse_with_named_keycode() {
     actual_modifier.add_super();
     actual_modifier.add_control();
     assert_eq!(hotkey.modifiers, actual_modifier);
-    assert_eq!(hotkey.keycode, KEY_SPACE);
-    assert!(hotkey.is_match(actual_modifier, &KEY_SPACE));
+    assert_eq!(hotkey.keycode, Some(KEY_SPACE));
+    assert!(hotkey.is_match(actual_modifier, Some(KEY_SPACE)));
 }
 
 #[test]
@@ -111,10 +115,21 @@ fn test_can_match_with_or_without_capslock() {
     let mut actual_modifier = KeyModifier::new();
     actual_modifier.add_super();
     actual_modifier.add_control();
-    assert_eq!(hotkey.is_match(actual_modifier, &' '), true);
+    assert_eq!(hotkey.is_match(actual_modifier, Some(' ')), true);
 
     actual_modifier.add_capslock();
-    assert!(hotkey.is_match(actual_modifier, &' '));
+    assert!(hotkey.is_match(actual_modifier, Some(' ')));
+}
+
+#[test]
+fn test_parse_with_just_modifiers() {
+    let hotkey = Hotkey::from_str("ctrl+shift");
+    let mut actual_modifier = KeyModifier::new();
+    actual_modifier.add_control();
+    actual_modifier.add_shift();
+    assert_eq!(hotkey.modifiers, actual_modifier);
+    assert_eq!(hotkey.keycode, None);
+    assert!(hotkey.is_match(actual_modifier, None));
 }
 
 #[test]

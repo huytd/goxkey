@@ -31,6 +31,7 @@ impl Data for Wrapper {
 }
 
 pub enum SystemTrayMenuItemKey {
+    ShowUI,
     Enable,
     TypingMethodTelex,
     TypingMethodVNI,
@@ -75,6 +76,8 @@ impl SystemTray {
     }
 
     pub fn init_menu_items(&self) {
+        self.add_menu_item("Bật bảng điều khiển", || ());
+        self.add_menu_separator();
         self.add_menu_item("Tắt gõ tiếng việt", || ());
         self.add_menu_separator();
         self.add_menu_item("Telex ✓", || ());
@@ -109,10 +112,11 @@ impl SystemTray {
 
     pub fn get_menu_item_index_by_key(&self, key: SystemTrayMenuItemKey) -> i64 {
         match key {
-            SystemTrayMenuItemKey::Enable => 0,
-            SystemTrayMenuItemKey::TypingMethodTelex => 2,
-            SystemTrayMenuItemKey::TypingMethodVNI => 3,
-            SystemTrayMenuItemKey::Exit => 5,
+            SystemTrayMenuItemKey::ShowUI => 0,
+            SystemTrayMenuItemKey::Enable => 2,
+            SystemTrayMenuItemKey::TypingMethodTelex => 4,
+            SystemTrayMenuItemKey::TypingMethodVNI => 5,
+            SystemTrayMenuItemKey::Exit => 7,
         }
     }
 
