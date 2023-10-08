@@ -1,7 +1,7 @@
 use cocoa::appkit::{
     NSApp, NSApplication, NSButton, NSMenu, NSMenuItem, NSStatusBar, NSStatusItem,
 };
-use cocoa::base::{nil, YES};
+use cocoa::base::{id, nil, YES};
 use cocoa::foundation::{NSAutoreleasePool, NSString};
 use core_foundation::dictionary::CFDictionaryRef;
 use core_foundation::string::CFStringRef;
@@ -12,10 +12,10 @@ use core_graphics::{
 use druid::{Data, Lens};
 use libc::c_void;
 use objc::{
+    class,
     declare::ClassDecl,
     msg_send,
-    runtime::Class,
-    runtime::{Object, Sel},
+    runtime::{Class, Object, Sel},
     sel, sel_impl, Message,
 };
 use objc_foundation::{INSObject, NSObject};
@@ -341,4 +341,27 @@ impl INSObject for Callback {
 extern "C" {
     pub fn AXIsProcessTrustedWithOptions(options: CFDictionaryRef) -> bool;
     pub static kAXTrustedCheckOptionPrompt: CFStringRef;
+}
+
+#[link(name = "AppKit", kind = "framework")]
+extern "C" {
+    pub static NSWorkspaceDidActivateApplicationNotification: CFStringRef;
+}
+
+pub fn add_app_change_callback<F>(cb: F)
+where
+    F: Fn() + Send + 'static,
+{
+    unsafe {
+        let shared_workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
+        let notification_center: id = msg_send![shared_workspace, notificationCenter];
+        let cb_obj = Callback::from(Box::new(cb));
+
+        let _: id = msg_send![notification_center,
+            addObserver:cb_obj
+            selector:sel!(call)
+            name:NSWorkspaceDidActivateApplicationNotification
+            object:nil
+        ];
+    }
 }

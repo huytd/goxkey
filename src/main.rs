@@ -11,8 +11,9 @@ use input::{rebuild_keyboard_layout_map, INPUT_STATE};
 use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
-    ensure_accessibility_permission, run_event_listener, send_backspace, send_string, Handle,
-    KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, RAW_KEY_GLOBE,
+    add_app_change_callback, ensure_accessibility_permission, run_event_listener, send_backspace,
+    send_string, Handle, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE,
+    KEY_TAB, RAW_KEY_GLOBE,
 };
 
 use ui::{UIDataAdapter, UPDATE_UI};
@@ -88,7 +89,6 @@ unsafe fn auto_toggle_vietnamese() {
 
 fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: KeyModifier) -> bool {
     unsafe {
-        auto_toggle_vietnamese();
         let pressed_key_code = pressed_key.and_then(|p| match p {
             PressedKey::Char(c) => Some(c),
             _ => None,
@@ -206,6 +206,9 @@ fn main() {
         _ = UI_EVENT_SINK.set(event_sink);
         thread::spawn(|| {
             run_event_listener(&event_handler);
+        });
+        add_app_change_callback(|| {
+            unsafe { auto_toggle_vietnamese() };
         });
         _ = app.launch(UIDataAdapter::new());
     }
