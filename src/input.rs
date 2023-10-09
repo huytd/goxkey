@@ -159,6 +159,7 @@ pub struct InputState {
     active_app: String,
     is_macro_enabled: bool,
     macro_table: BTreeMap<String, String>,
+    temporary_disabled: bool
 }
 
 impl InputState {
@@ -175,6 +176,7 @@ impl InputState {
             active_app: String::new(),
             is_macro_enabled: config.is_macro_enabled(),
             macro_table: config.get_macro_table().clone(),
+            temporary_disabled: false
         }
     }
 
@@ -196,8 +198,12 @@ impl InputState {
         Some(())
     }
 
+    pub fn set_temporary_disabled(&mut self) {
+        self.temporary_disabled = true;
+    }
+
     pub fn is_enabled(&self) -> bool {
-        self.enabled
+        !self.temporary_disabled && self.enabled
     }
 
     pub fn is_tracking(&self) -> bool {
@@ -211,6 +217,9 @@ impl InputState {
     pub fn new_word(&mut self) {
         if !self.buffer.is_empty() {
             self.clear();
+        }
+        if self.temporary_disabled {
+            self.temporary_disabled = false;
         }
         self.should_track = true;
     }

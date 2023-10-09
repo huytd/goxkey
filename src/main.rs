@@ -168,12 +168,25 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                                     }
                                 }
                             }
+                        } else {
+                            match keycode {
+                                KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
+                                    INPUT_STATE.new_word();
+                                },
+                                _ => {}
+                            }
                         }
                     }
                 };
             }
             None => {
-                if !modifiers.is_shift() {
+                if modifiers.is_control() {
+                    if !INPUT_STATE.get_typing_buffer().is_empty() {
+                        do_restore_word(handle);
+                    }
+                    INPUT_STATE.set_temporary_disabled();
+                }
+                if modifiers.is_super() {
                     INPUT_STATE.new_word();
                 }
             }
