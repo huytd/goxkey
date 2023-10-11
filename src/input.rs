@@ -6,7 +6,7 @@ use log::debug;
 use once_cell::sync::{Lazy, OnceCell};
 use rdev::{Keyboard, KeyboardState};
 
-use crate::platform::get_active_app_name;
+use crate::platform::{get_active_app_name, KeyModifier};
 use crate::{
     config::CONFIG_MANAGER, hotkey::Hotkey, platform::is_in_text_selection, ui::UPDATE_UI,
     UI_EVENT_SINK,
@@ -159,7 +159,8 @@ pub struct InputState {
     active_app: String,
     is_macro_enabled: bool,
     macro_table: BTreeMap<String, String>,
-    temporary_disabled: bool
+    temporary_disabled: bool,
+    previous_modifiers: KeyModifier
 }
 
 impl InputState {
@@ -176,7 +177,8 @@ impl InputState {
             active_app: String::new(),
             is_macro_enabled: config.is_macro_enabled(),
             macro_table: config.get_macro_table().clone(),
-            temporary_disabled: false
+            temporary_disabled: false,
+            previous_modifiers: KeyModifier::empty()
         }
     }
 
@@ -246,6 +248,7 @@ impl InputState {
 
     pub fn toggle_vietnamese(&mut self) {
         self.enabled = !self.enabled;
+        self.temporary_disabled = false;
         let mut config = CONFIG_MANAGER.lock().unwrap();
         if self.enabled {
             config.add_vietnamese_app(&self.active_app);
@@ -432,5 +435,13 @@ impl InputState {
             self.stop_tracking();
             debug!("! Stop tracking");
         }
+    }
+
+    pub fn get_previous_modifiers(&self) -> KeyModifier {
+        self.previous_modifiers
+    }
+
+    pub fn save_previous_modifiers(&mut self, modifiers: KeyModifier) {
+        self.previous_modifiers = modifiers;
     }
 }

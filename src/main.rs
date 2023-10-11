@@ -180,17 +180,21 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                 };
             }
             None => {
-                if modifiers.is_control() {
-                    if !INPUT_STATE.get_typing_buffer().is_empty() {
-                        do_restore_word(handle);
+                let previous_modifiers = INPUT_STATE.get_previous_modifiers();
+                if previous_modifiers.is_empty() {
+                    if modifiers.is_control() {
+                        if !INPUT_STATE.get_typing_buffer().is_empty() {
+                            do_restore_word(handle);
+                        }
+                        INPUT_STATE.set_temporary_disabled();
                     }
-                    INPUT_STATE.set_temporary_disabled();
-                }
-                if modifiers.is_super() {
-                    INPUT_STATE.new_word();
+                    if modifiers.is_super() {
+                        INPUT_STATE.new_word();
+                    }
                 }
             }
         }
+        INPUT_STATE.save_previous_modifiers(modifiers);
     }
     false
 }
