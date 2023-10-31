@@ -15,6 +15,10 @@
 - :keyboard: Supported both Telex and VNI input method.
 - :sparkles: Focused on typing experience and features that you will use.
 
+## Why another Vietnamese IME?
+
+> technical curiosity
+
 ## About
 
 This is my attempt to build an input method editor using only Rust. It's not the first, and definitely not the last.
