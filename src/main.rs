@@ -19,6 +19,7 @@ use platform::{
 use ui::{UIDataAdapter, UPDATE_UI};
 
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
     unsafe {
@@ -140,7 +141,7 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                                     INPUT_STATE.pop();
                                 }
                                 c => {
-                                    if "()[]{}<>/\\!@#$%^&*-_=+|~`,.;'\"".contains(c)
+                                    if "()[]{}<>/\\!@#$%^&*-_=+|~`,.;'\"/".contains(c)
                                         || (c.is_numeric() && modifiers.is_shift())
                                     {
                                         // If special characters detected, dismiss the current tracking word
@@ -200,11 +201,12 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
 }
 
 fn main() {
+    let app_title = format!("gõkey v{APP_VERSION}");
     env_logger::init();
     if !ensure_accessibility_permission() {
         // Show the Accessibility Permission Request screen
         let win = WindowDesc::new(ui::permission_request_ui_builder())
-            .title("gõkey")
+            .title(app_title)
             .window_size((500.0, 360.0))
             .resizable(false);
         let app = AppLauncher::with_window(win);
@@ -213,7 +215,7 @@ fn main() {
         // Start the GõKey application
         rebuild_keyboard_layout_map();
         let win = WindowDesc::new(ui::main_ui_builder())
-            .title("gõkey")
+            .title(app_title)
             .window_size((ui::WINDOW_WIDTH, ui::WINDOW_HEIGHT))
             .set_position(ui::center_window_position())
             .set_always_on_top(true)

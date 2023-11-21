@@ -140,6 +140,7 @@ fn get_char(keycode: CGKeyCode) -> Option<PressedKey> {
             43 => Some(PressedKey::Char(key_map[&','])),
             24 => Some(PressedKey::Char(key_map[&'='])),
             42 => Some(PressedKey::Char(key_map[&'\\'])),
+            44 => Some(PressedKey::Char(key_map[&'/'])),
             36 | 52 => Some(PressedKey::Char(KEY_ENTER)), // ENTER
             49 => Some(PressedKey::Char(KEY_SPACE)),      // SPACE
             48 => Some(PressedKey::Char(KEY_TAB)),        // TAB
