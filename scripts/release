@@ -1,0 +1,5 @@
+codesign -s "Developer ID Application: Huy Tran" --timestamp --options=runtime target/release/bundle/osx/GoKey.app
+ditto -c -k --keepParent target/release/bundle/osx/GoKey.app target/release/bundle/osx/GoKey.zip
+xcrun notarytool submit target/release/bundle/osx/GoKey.zip --keychain-profile "AC_PASSWORD" --wait
+xcrun stapler staple target/release/bundle/osx/GoKey.app
+rm target/release/bundle/osx/GoKey.zip
