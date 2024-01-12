@@ -17,6 +17,10 @@ pub use os::SystemTray;
 pub use os::SystemTrayMenuItemKey;
 
 pub const RAW_KEY_GLOBE: u16 = 0xb3;
+pub const RAW_ARROW_DOWN: u16 = 0x7d;
+pub const RAW_ARROW_UP: u16 = 0x7e;
+pub const RAW_ARROW_LEFT: u16 = 0x7b;
+pub const RAW_ARROW_RIGHT: u16 = 0x7c;
 pub const KEY_ENTER: char = '\x13';
 pub const KEY_SPACE: char = '\u{0020}';
 pub const KEY_TAB: char = '\x09';

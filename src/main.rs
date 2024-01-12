@@ -17,6 +17,7 @@ use platform::{
 };
 
 use ui::{UIDataAdapter, UPDATE_UI};
+use crate::platform::{RAW_ARROW_DOWN, RAW_ARROW_LEFT, RAW_ARROW_RIGHT, RAW_ARROW_UP};
 
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -108,6 +109,13 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                         if raw_keycode == RAW_KEY_GLOBE {
                             toggle_vietnamese();
                             return true;
+                        }
+                        if raw_keycode == RAW_ARROW_UP || raw_keycode == RAW_ARROW_DOWN {
+                            INPUT_STATE.new_word();
+                        }
+                        if raw_keycode == RAW_ARROW_LEFT || raw_keycode == RAW_ARROW_RIGHT {
+                            // TODO: Implement a better cursor tracking on each word here
+                            INPUT_STATE.new_word();
                         }
                     }
                     PressedKey::Char(keycode) => {
