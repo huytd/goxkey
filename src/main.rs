@@ -4,6 +4,9 @@ mod input;
 mod platform;
 mod ui;
 
+use std::fs;
+use std::io::{Read, Write};
+use std::os::unix::net::{UnixListener, UnixStream};
 use std::thread;
 
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
@@ -16,11 +19,69 @@ use platform::{
     KEY_TAB, RAW_KEY_GLOBE,
 };
 
-use ui::{UIDataAdapter, UPDATE_UI};
 use crate::platform::{RAW_ARROW_DOWN, RAW_ARROW_LEFT, RAW_ARROW_RIGHT, RAW_ARROW_UP};
+use ui::{UIDataAdapter, UPDATE_UI};
 
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+const SOCKET_PATH: &str = "/tmp/gox-switch-socket";
+
+fn handle_client(mut stream: UnixStream) {
+    let mut buffer = [0u8; 8];
+
+    match stream.read(&mut buffer) {
+        Ok(size) => {
+            let msg = String::from_utf8_lossy(&buffer[..size]);
+            let trimmed_msg = msg.trim();
+
+            // React based on the payload string
+            match trimmed_msg {
+                "vi" | "en" => {
+                    let enabled = if trimmed_msg == "vi" { true } else { false };
+                    unsafe {
+                        INPUT_STATE.set_enabled(enabled);
+                    }
+                    stream.write_all(b"done\n").unwrap();
+                }
+                _ => {
+                    stream.write_all(b"unknown command\n").unwrap();
+                }
+            }
+        }
+        Err(e) => {
+            eprintln!("Error reading from the socket: {}", e);
+        }
+    }
+}
+
+fn listen_switching_socket() {
+    // Clean up the socket file if it already exists
+    let _ = fs::remove_file(SOCKET_PATH);
+
+    let listener = match UnixListener::bind(SOCKET_PATH) {
+        Ok(listener) => listener,
+        Err(e) => {
+            eprintln!("Failed to bind to socket: {}", e);
+            return;
+        }
+    };
+
+    println!("Server listening on {}", SOCKET_PATH);
+
+    // Spawn a new thread to handle incoming connections
+    thread::spawn(move || {
+        for stream in listener.incoming() {
+            match stream {
+                Ok(stream) => {
+                    thread::spawn(|| handle_client(stream));
+                }
+                Err(err) => {
+                    eprintln!("Error accepting connection: {}", err);
+                }
+            }
+        }
+    });
+}
 
 fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
     unsafe {
@@ -181,7 +242,7 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                             match keycode {
                                 KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
                                     INPUT_STATE.new_word();
-                                },
+                                }
                                 _ => {}
                             }
                         }
@@ -237,6 +298,7 @@ fn main() {
         add_app_change_callback(|| {
             unsafe { auto_toggle_vietnamese() };
         });
+        listen_switching_socket();
         _ = app.launch(UIDataAdapter::new());
     }
 }

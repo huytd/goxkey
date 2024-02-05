@@ -160,7 +160,7 @@ pub struct InputState {
     is_macro_enabled: bool,
     macro_table: BTreeMap<String, String>,
     temporary_disabled: bool,
-    previous_modifiers: KeyModifier
+    previous_modifiers: KeyModifier,
 }
 
 impl InputState {
@@ -178,7 +178,7 @@ impl InputState {
             is_macro_enabled: config.is_macro_enabled(),
             macro_table: config.get_macro_table().clone(),
             temporary_disabled: false,
-            previous_modifiers: KeyModifier::empty()
+            previous_modifiers: KeyModifier::empty(),
         }
     }
 
@@ -246,8 +246,8 @@ impl InputState {
         self.should_track = false;
     }
 
-    pub fn toggle_vietnamese(&mut self) {
-        self.enabled = !self.enabled;
+    pub fn set_enabled(&mut self, value: bool) {
+        self.enabled = value;
         self.temporary_disabled = false;
         let mut config = CONFIG_MANAGER.lock().unwrap();
         if self.enabled {
@@ -256,6 +256,10 @@ impl InputState {
             config.add_english_app(&self.active_app);
         }
         self.new_word();
+    }
+
+    pub fn toggle_vietnamese(&mut self) {
+        self.set_enabled(!self.enabled)
     }
 
     pub fn set_method(&mut self, method: TypingMethod) {
