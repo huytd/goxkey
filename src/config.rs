@@ -21,6 +21,7 @@ pub struct ConfigStore {
     en_apps: Vec<String>,
     is_macro_enabled: bool,
     macro_table: BTreeMap<String, String>,
+    is_auto_toggle_enabled: bool,
 }
 
 fn parse_vec_string(line: String) -> Vec<String> {
@@ -64,6 +65,11 @@ impl ConfigStore {
         writeln!(
             file,
             "{} = {}",
+            AUTOS_TOGGLE_ENABLED_CONFIG_KEY, self.is_auto_toggle_enabled
+        )?;
+        writeln!(
+            file,
+            "{} = {}",
             MACRO_ENABLED_CONFIG_KEY, self.is_macro_enabled
         )?;
         for (k, v) in self.macro_table.iter() {
@@ -81,6 +87,7 @@ impl ConfigStore {
             en_apps: Vec::new(),
             is_macro_enabled: false,
             macro_table: BTreeMap::new(),
+            is_auto_toggle_enabled: false,
         };
 
         let config_path = ConfigStore::get_config_path();
@@ -94,6 +101,9 @@ impl ConfigStore {
                         TYPING_METHOD_CONFIG_KEY => config.method = right.to_string(),
                         VN_APPS_CONFIG_KEY => config.vn_apps = parse_vec_string(right.to_string()),
                         EN_APPS_CONFIG_KEY => config.en_apps = parse_vec_string(right.to_string()),
+                        AUTOS_TOGGLE_ENABLED_CONFIG_KEY => {
+                            config.is_auto_toggle_enabled = matches!(right.trim(), "true")
+                        }
                         MACRO_ENABLED_CONFIG_KEY => {
                             config.is_macro_enabled = matches!(right.trim(), "true")
                         }
@@ -157,6 +167,15 @@ impl ConfigStore {
         self.save();
     }
 
+    pub fn is_auto_toggle_enabled(&self) -> bool {
+        self.is_auto_toggle_enabled
+    }
+
+    pub fn set_auto_toggle_enabled(&mut self, flag: bool) {
+        self.is_auto_toggle_enabled = flag;
+        self.save();
+    }
+
     pub fn is_macro_enabled(&self) -> bool {
         self.is_macro_enabled
     }
@@ -191,4 +210,5 @@ const TYPING_METHOD_CONFIG_KEY: &str = "method";
 const VN_APPS_CONFIG_KEY: &str = "vn-apps";
 const EN_APPS_CONFIG_KEY: &str = "en-apps";
 const MACRO_ENABLED_CONFIG_KEY: &str = "is_macro_enabled";
+const AUTOS_TOGGLE_ENABLED_CONFIG_KEY: &str = "is_auto_toggle_enabled";
 const MACROS_CONFIG_KEY: &str = "macros";

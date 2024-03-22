@@ -16,8 +16,8 @@ use platform::{
     KEY_TAB, RAW_KEY_GLOBE,
 };
 
-use ui::{UIDataAdapter, UPDATE_UI};
 use crate::platform::{RAW_ARROW_DOWN, RAW_ARROW_LEFT, RAW_ARROW_RIGHT, RAW_ARROW_UP};
+use ui::{UIDataAdapter, UPDATE_UI};
 
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -80,6 +80,9 @@ unsafe fn toggle_vietnamese() {
 }
 
 unsafe fn auto_toggle_vietnamese() {
+    if !INPUT_STATE.is_auto_toggle_enabled() {
+        return;
+    }
     let has_change = INPUT_STATE.update_active_app().is_some();
     if !has_change {
         return;
@@ -181,7 +184,7 @@ fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: Key
                             match keycode {
                                 KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
                                     INPUT_STATE.new_word();
-                                },
+                                }
                                 _ => {}
                             }
                         }

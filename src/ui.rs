@@ -24,8 +24,8 @@ pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
 pub const SHOW_UI: Selector = Selector::new("gox-ui.show-ui");
 const DELETE_MACRO: Selector<String> = Selector::new("gox-ui.delete-macro");
 const ADD_MACRO: Selector = Selector::new("gox-ui.add-macro");
-pub const WINDOW_WIDTH: f64 = 320.0;
-pub const WINDOW_HEIGHT: f64 = 345.0;
+pub const WINDOW_WIDTH: f64 = 335.0;
+pub const WINDOW_HEIGHT: f64 = 375.0;
 
 pub fn format_letter_key(c: Option<char>) -> String {
     if let Some(c) = c {
@@ -88,6 +88,7 @@ pub struct UIDataAdapter {
     typing_method: TypingMethod,
     hotkey_display: String,
     launch_on_login: bool,
+    is_auto_toggle_enabled: bool,
     // Macro config
     is_macro_enabled: bool,
     macro_table: Arc<Vec<MacroEntry>>,
@@ -111,6 +112,7 @@ impl UIDataAdapter {
             typing_method: TypingMethod::Telex,
             hotkey_display: String::new(),
             launch_on_login: false,
+            is_auto_toggle_enabled: false,
             is_macro_enabled: false,
             macro_table: Arc::new(Vec::new()),
             new_macro_from: String::new(),
@@ -134,6 +136,7 @@ impl UIDataAdapter {
             self.typing_method = INPUT_STATE.get_method();
             self.hotkey_display = INPUT_STATE.get_hotkey().to_string();
             self.is_macro_enabled = INPUT_STATE.is_macro_enabled();
+            self.is_auto_toggle_enabled = INPUT_STATE.is_auto_toggle_enabled();
             self.launch_on_login = is_launch_on_login();
             self.macro_table = Arc::new(
                 INPUT_STATE
@@ -325,6 +328,10 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
             if old_data.is_macro_enabled != data.is_macro_enabled {
                 INPUT_STATE.toggle_macro_enabled();
             }
+
+            if old_data.is_auto_toggle_enabled != data.is_auto_toggle_enabled {
+                INPUT_STATE.toggle_auto_toggle();
+            }
         }
         child.update(ctx, old_data, data, env);
     }
@@ -373,6 +380,18 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                         Flex::row()
                             .with_child(Label::new("Khởi động cùng OS"))
                             .with_child(Checkbox::new("").lens(UIDataAdapter::launch_on_login))
+                            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                            .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+                            .must_fill_main_axis(true)
+                            .expand_width()
+                            .padding(8.0),
+                    )
+                    .with_child(
+                        Flex::row()
+                            .with_child(Label::new("Bật tắt theo ứng dụng"))
+                            .with_child(
+                                Checkbox::new("").lens(UIDataAdapter::is_auto_toggle_enabled),
+                            )
                             .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
                             .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
                             .must_fill_main_axis(true)

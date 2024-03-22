@@ -160,7 +160,8 @@ pub struct InputState {
     is_macro_enabled: bool,
     macro_table: BTreeMap<String, String>,
     temporary_disabled: bool,
-    previous_modifiers: KeyModifier
+    previous_modifiers: KeyModifier,
+    is_auto_toggle_enabled: bool,
 }
 
 impl InputState {
@@ -178,7 +179,8 @@ impl InputState {
             is_macro_enabled: config.is_macro_enabled(),
             macro_table: config.get_macro_table().clone(),
             temporary_disabled: false,
-            previous_modifiers: KeyModifier::empty()
+            previous_modifiers: KeyModifier::empty(),
+            is_auto_toggle_enabled: config.is_auto_toggle_enabled(),
         }
     }
 
@@ -284,6 +286,18 @@ impl InputState {
 
     pub fn get_hotkey(&self) -> &Hotkey {
         &self.hotkey
+    }
+
+    pub fn is_auto_toggle_enabled(&self) -> bool {
+        self.is_auto_toggle_enabled
+    }
+
+    pub fn toggle_auto_toggle(&mut self) {
+        self.is_auto_toggle_enabled = !self.is_auto_toggle_enabled;
+        CONFIG_MANAGER
+            .lock()
+            .unwrap()
+            .set_auto_toggle_enabled(self.is_auto_toggle_enabled);
     }
 
     pub fn is_macro_enabled(&self) -> bool {
