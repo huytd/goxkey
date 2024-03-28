@@ -72,6 +72,7 @@ impl SystemTray {
         unsafe {
             let title = NSString::alloc(nil).init_str(title);
             NSButton::setTitle_(self.item.0, title);
+            let _: () = msg_send![title, release];
         }
     }
 
