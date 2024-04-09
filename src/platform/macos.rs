@@ -37,13 +37,24 @@ use self::macos_ext::{
 };
 
 use super::{
-    CallbackFn, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB,
+    CallbackFn, EventTapType, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE,
+    KEY_SPACE, KEY_TAB,
 };
 
 pub const SYMBOL_SHIFT: &str = "⇧";
 pub const SYMBOL_CTRL: &str = "⌃";
 pub const SYMBOL_SUPER: &str = "⌘";
 pub const SYMBOL_ALT: &str = "⌥";
+
+impl From<CGEventType> for EventTapType {
+    fn from(value: CGEventType) -> Self {
+        match value {
+            CGEventType::KeyDown => EventTapType::KeyDown,
+            CGEventType::FlagsChanged => EventTapType::FlagsChanged,
+            _ => EventTapType::Other,
+        }
+    }
+}
 
 static AUTO_LAUNCH: Lazy<AutoLaunch> = Lazy::new(|| {
     let app_path = get_current_app_path();
@@ -251,9 +262,15 @@ pub fn run_event_listener(callback: &CallbackFn) {
             if flags.contains(CGEventFlags::CGEventFlagAlternate) {
                 modifiers.add_alt();
             }
+            if flags.eq(&CGEventFlags::CGEventFlagNonCoalesced)
+                || flags.eq(&CGEventFlags::CGEventFlagNull)
+            {
+                modifiers = KeyModifier::MODIFIER_NONE;
+            }
 
-            match event.get_type() {
-                CGEventType::KeyDown => {
+            let event_tap_type: EventTapType = EventTapType::from(event.get_type());
+            match event_tap_type {
+                EventTapType::KeyDown => {
                     let source_state_id =
                         event.get_integer_value_field(EventField::EVENT_SOURCE_STATE_ID);
                     if source_state_id == 1 {
@@ -261,19 +278,17 @@ pub fn run_event_listener(callback: &CallbackFn) {
                             .get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE)
                             as CGKeyCode;
 
-                        if callback(proxy, get_char(key_code), modifiers) {
+                        if callback(proxy, event_tap_type, get_char(key_code), modifiers) {
                             // block the key if already processed
                             return None;
                         }
                     }
                 }
-                CGEventType::FlagsChanged => {
-                    if !modifiers.is_empty() {
-                        callback(proxy, None, modifiers);
-                    }
+                EventTapType::FlagsChanged => {
+                    callback(proxy, event_tap_type, None, modifiers);
                 }
                 _ => {
-                    callback(proxy, None, KeyModifier::new());
+                    callback(proxy, event_tap_type, None, KeyModifier::new());
                 }
             }
             Some(event.to_owned())

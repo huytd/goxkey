@@ -125,4 +125,12 @@ pub enum PressedKey {
     Char(char),
     Raw(u16),
 }
-pub type CallbackFn = dyn Fn(os::Handle, Option<PressedKey>, KeyModifier) -> bool;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum EventTapType {
+    KeyDown,
+    FlagsChanged,
+    Other,
+}
+
+pub type CallbackFn = dyn Fn(os::Handle, EventTapType, Option<PressedKey>, KeyModifier) -> bool;

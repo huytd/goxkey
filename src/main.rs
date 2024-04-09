@@ -7,16 +7,19 @@ mod ui;
 use std::thread;
 
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
-use input::{rebuild_keyboard_layout_map, INPUT_STATE};
+use input::{rebuild_keyboard_layout_map, HOTKEY_MATCHING_CIRCUIT_BREAK, INPUT_STATE};
 use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
     add_app_change_callback, ensure_accessibility_permission, run_event_listener, send_backspace,
-    send_string, Handle, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE,
-    KEY_TAB, RAW_KEY_GLOBE,
+    send_string, EventTapType, Handle, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE,
+    KEY_SPACE, KEY_TAB, RAW_KEY_GLOBE,
 };
 
-use crate::platform::{RAW_ARROW_DOWN, RAW_ARROW_LEFT, RAW_ARROW_RIGHT, RAW_ARROW_UP};
+use crate::{
+    input::{HOTKEY_MATCHING, HOTKEY_MODIFIERS},
+    platform::{RAW_ARROW_DOWN, RAW_ARROW_LEFT, RAW_ARROW_RIGHT, RAW_ARROW_UP},
+};
 use ui::{UIDataAdapter, UPDATE_UI};
 
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
@@ -92,19 +95,40 @@ unsafe fn auto_toggle_vietnamese() {
     }
 }
 
-fn event_handler(handle: Handle, pressed_key: Option<PressedKey>, modifiers: KeyModifier) -> bool {
+fn event_handler(
+    handle: Handle,
+    event_type: EventTapType,
+    pressed_key: Option<PressedKey>,
+    modifiers: KeyModifier,
+) -> bool {
     unsafe {
         let pressed_key_code = pressed_key.and_then(|p| match p {
             PressedKey::Char(c) => Some(c),
             _ => None,
         });
-        let is_hotkey_pressed = INPUT_STATE
-            .get_hotkey()
-            .is_match(modifiers, pressed_key_code);
-        if is_hotkey_pressed {
-            toggle_vietnamese();
-            return true;
+
+        if event_type == EventTapType::FlagsChanged {
+            if modifiers.is_empty() {
+                // Modifier keys are released
+                if HOTKEY_MATCHING && !HOTKEY_MATCHING_CIRCUIT_BREAK {
+                    toggle_vietnamese();
+                }
+                HOTKEY_MODIFIERS = KeyModifier::MODIFIER_NONE;
+                HOTKEY_MATCHING = false;
+                HOTKEY_MATCHING_CIRCUIT_BREAK = false;
+            } else {
+                HOTKEY_MODIFIERS.set(modifiers, true);
+            }
         }
+
+        let is_hotkey_matched = INPUT_STATE
+            .get_hotkey()
+            .is_match(HOTKEY_MODIFIERS, pressed_key_code);
+        if HOTKEY_MATCHING && !is_hotkey_matched {
+            HOTKEY_MATCHING_CIRCUIT_BREAK = true;
+        }
+        HOTKEY_MATCHING = is_hotkey_matched;
+
         match pressed_key {
             Some(pressed_key) => {
                 match pressed_key {

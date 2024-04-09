@@ -24,6 +24,9 @@ const TONE_DUPLICATE_PATTERNS: [&str; 17] = [
 ];
 
 pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(InputState::new);
+pub static mut HOTKEY_MODIFIERS: KeyModifier = KeyModifier::MODIFIER_NONE;
+pub static mut HOTKEY_MATCHING: bool = false;
+pub static mut HOTKEY_MATCHING_CIRCUIT_BREAK: bool = false;
 
 pub const PREDEFINED_CHARS: [char; 47] = [
     'a', '`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't',
