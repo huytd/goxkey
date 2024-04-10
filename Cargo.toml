@@ -2,7 +2,7 @@
 description = "Bộ gõ tiếng Việt mã nguồn mở đa hệ điều hành Gõ Key"
 edition = "2021"
 name = "goxkey"
-version = "0.2.4"
+version = "0.2.5"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -33,4 +33,4 @@ copyright = "Copyright (c) Huy Tran 2023. All rights reserved."
 icon = ["icons/icon.icns", "icons/icon.png"]
 identifier = "com.goxkey.app"
 name = "GoKey"
-version = "0.2.4"
+version = "0.2.5"

@@ -22,6 +22,7 @@ pub struct ConfigStore {
     is_macro_enabled: bool,
     macro_table: BTreeMap<String, String>,
     is_auto_toggle_enabled: bool,
+    is_gox_mode_enabled: bool,
 }
 
 fn parse_vec_string(line: String) -> Vec<String> {
@@ -75,7 +76,11 @@ impl ConfigStore {
         for (k, v) in self.macro_table.iter() {
             writeln!(file, "{} = {}", MACROS_CONFIG_KEY, build_kv_string(k, &v))?;
         }
-
+        writeln!(
+            file,
+            "{} = {}",
+            GOX_MODE_CONFIG_KEY, self.is_gox_mode_enabled
+        )?;
         Ok(())
     }
 
@@ -88,6 +93,7 @@ impl ConfigStore {
             is_macro_enabled: false,
             macro_table: BTreeMap::new(),
             is_auto_toggle_enabled: false,
+            is_gox_mode_enabled: false,
         };
 
         let config_path = ConfigStore::get_config_path();
@@ -111,6 +117,9 @@ impl ConfigStore {
                             if let Some((k, v)) = parse_kv_string(right) {
                                 config.macro_table.insert(k, v);
                             }
+                        }
+                        GOX_MODE_CONFIG_KEY => {
+                            config.is_gox_mode_enabled = matches!(right.trim(), "true")
                         }
                         _ => {}
                     }
@@ -176,6 +185,15 @@ impl ConfigStore {
         self.save();
     }
 
+    pub fn is_gox_mode_enabled(&self) -> bool {
+        self.is_gox_mode_enabled
+    }
+
+    pub fn set_gox_mode_enabled(&mut self, flag: bool) {
+        self.is_gox_mode_enabled = flag;
+        self.save();
+    }
+
     pub fn is_macro_enabled(&self) -> bool {
         self.is_macro_enabled
     }
@@ -212,3 +230,4 @@ const EN_APPS_CONFIG_KEY: &str = "en-apps";
 const MACRO_ENABLED_CONFIG_KEY: &str = "is_macro_enabled";
 const AUTOS_TOGGLE_ENABLED_CONFIG_KEY: &str = "is_auto_toggle_enabled";
 const MACROS_CONFIG_KEY: &str = "macros";
+const GOX_MODE_CONFIG_KEY: &str = "is_gox_mode_enabled";

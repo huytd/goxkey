@@ -158,12 +158,22 @@ impl UIDataAdapter {
 
             match self.is_enabled {
                 true => {
-                    self.systray.set_title("VN");
+                    self.systray
+                        .set_title(if INPUT_STATE.is_gox_mode_enabled() {
+                            "gõ"
+                        } else {
+                            "VN"
+                        });
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::Enable, "Tắt gõ tiếng việt");
                 }
                 false => {
-                    self.systray.set_title("EN");
+                    self.systray
+                        .set_title(if INPUT_STATE.is_gox_mode_enabled() {
+                            "gox"
+                        } else {
+                            "EN"
+                        });
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::Enable, "Bật gõ tiếng việt");
                 }

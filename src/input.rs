@@ -165,6 +165,7 @@ pub struct InputState {
     temporary_disabled: bool,
     previous_modifiers: KeyModifier,
     is_auto_toggle_enabled: bool,
+    is_gox_mode_enabled: bool,
 }
 
 impl InputState {
@@ -184,6 +185,7 @@ impl InputState {
             temporary_disabled: false,
             previous_modifiers: KeyModifier::empty(),
             is_auto_toggle_enabled: config.is_auto_toggle_enabled(),
+            is_gox_mode_enabled: config.is_gox_mode_enabled(),
         }
     }
 
@@ -207,6 +209,10 @@ impl InputState {
 
     pub fn set_temporary_disabled(&mut self) {
         self.temporary_disabled = true;
+    }
+
+    pub fn is_gox_mode_enabled(&self) -> bool {
+        self.is_gox_mode_enabled
     }
 
     pub fn is_enabled(&self) -> bool {
