@@ -184,10 +184,7 @@ fn event_handler(
                                         INPUT_STATE.new_word();
                                     } else {
                                         // Otherwise, process the character
-                                        if modifiers.is_super()
-                                            || modifiers.is_control()
-                                            || modifiers.is_alt()
-                                        {
+                                        if modifiers.is_super() || modifiers.is_alt() {
                                             INPUT_STATE.new_word();
                                         } else if INPUT_STATE.is_tracking() {
                                             INPUT_STATE.push(
@@ -209,7 +206,11 @@ fn event_handler(
                                 KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
                                     INPUT_STATE.new_word();
                                 }
-                                _ => {}
+                                _ => {
+                                    if !modifiers.is_empty() {
+                                        INPUT_STATE.new_word();
+                                    }
+                                }
                             }
                         }
                     }
