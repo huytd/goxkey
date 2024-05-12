@@ -173,7 +173,11 @@ fn event_handler(
                                     INPUT_STATE.new_word();
                                 }
                                 KEY_DELETE => {
-                                    INPUT_STATE.pop();
+                                    if !modifiers.is_empty() && !modifiers.is_shift() {
+                                        INPUT_STATE.new_word();
+                                    } else {
+                                        INPUT_STATE.pop();
+                                    }
                                 }
                                 c => {
                                     if "()[]{}<>/\\!@#$%^&*-_=+|~`,.;'\"/".contains(c)
