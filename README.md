@@ -70,3 +70,10 @@ It would be much appreciated if you want to make a small donation to support my 
 Your name will be put on a special place in the application as a thank you gesture from the development team!
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/B0B6NHSJ)
+
+## Fun fact
+
+Do you know how to type gõkey in Telex?
+
+Do this: `gox<cmd>key`
+
