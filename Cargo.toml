@@ -2,7 +2,7 @@
 description = "Bộ gõ tiếng Việt mã nguồn mở đa hệ điều hành Gõ Key"
 edition = "2021"
 name = "goxkey"
-version = "0.2.6"
+version = "0.2.7"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,7 +10,7 @@ version = "0.2.6"
 env_logger = "0.10.0"
 libc = "0.2.139"
 log = "0.4.17"
-vi = { git = "https://github.com/zerox-dg/vi-rs", branch = "master" }
+vi = "0.6.0"
 bitflags = "1.3.2"
 druid = { features = ["image", "png"], git = "https://github.com/huytd/druid", branch = "master" }
 once_cell = "1.17.0"
@@ -33,4 +33,4 @@ copyright = "Copyright (c) Huy Tran 2023. All rights reserved."
 icon = ["icons/icon.icns", "icons/icon.png"]
 identifier = "com.goxkey.app"
 name = "GoKey"
-version = "0.2.6"
+version = "0.2.7"
