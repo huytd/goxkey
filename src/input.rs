@@ -467,4 +467,9 @@ impl InputState {
     pub fn save_previous_modifiers(&mut self, modifiers: KeyModifier) {
         self.previous_modifiers = modifiers;
     }
+
+    pub fn is_allowed_word(&self, word: &str) -> bool {
+        let config = CONFIG_MANAGER.lock().unwrap();
+        return config.is_allowed_word(word);
+    }
 }

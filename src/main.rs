@@ -54,6 +54,11 @@ fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
 
 fn do_restore_word(handle: Handle) {
     unsafe {
+        println!(
+            "Restoring. Remove typed: {} - Send original: {}",
+            INPUT_STATE.get_displaying_word(),
+            INPUT_STATE.get_typing_buffer()
+        );
         let backspace_count = INPUT_STATE.get_backspace_count(true);
         debug!("Backspace count: {}", backspace_count);
         _ = send_backspace(handle, backspace_count);
@@ -152,10 +157,12 @@ fn event_handler(
                                     let is_valid_word = vi::validation::is_valid_word(
                                         INPUT_STATE.get_displaying_word(),
                                     );
+                                    let is_allowed_word = INPUT_STATE
+                                        .is_allowed_word(INPUT_STATE.get_displaying_word());
                                     let is_transformed_word = !INPUT_STATE
                                         .get_typing_buffer()
                                         .eq(INPUT_STATE.get_displaying_word());
-                                    if is_transformed_word && !is_valid_word {
+                                    if is_transformed_word && !is_valid_word && !is_allowed_word {
                                         do_restore_word(handle);
                                     }
 

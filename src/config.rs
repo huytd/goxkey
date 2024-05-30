@@ -23,6 +23,7 @@ pub struct ConfigStore {
     macro_table: BTreeMap<String, String>,
     is_auto_toggle_enabled: bool,
     is_gox_mode_enabled: bool,
+    allowed_words: Vec<String>,
 }
 
 fn parse_vec_string(line: String) -> Vec<String> {
@@ -66,6 +67,12 @@ impl ConfigStore {
         writeln!(
             file,
             "{} = {}",
+            ALLOWED_WORDS_CONFIG_KEY,
+            self.allowed_words.join(",")
+        )?;
+        writeln!(
+            file,
+            "{} = {}",
             AUTOS_TOGGLE_ENABLED_CONFIG_KEY, self.is_auto_toggle_enabled
         )?;
         writeln!(
@@ -94,6 +101,7 @@ impl ConfigStore {
             macro_table: BTreeMap::new(),
             is_auto_toggle_enabled: false,
             is_gox_mode_enabled: false,
+            allowed_words: vec!["đc".to_string()],
         };
 
         let config_path = ConfigStore::get_config_path();
@@ -107,6 +115,9 @@ impl ConfigStore {
                         TYPING_METHOD_CONFIG_KEY => config.method = right.to_string(),
                         VN_APPS_CONFIG_KEY => config.vn_apps = parse_vec_string(right.to_string()),
                         EN_APPS_CONFIG_KEY => config.en_apps = parse_vec_string(right.to_string()),
+                        ALLOWED_WORDS_CONFIG_KEY => {
+                            config.allowed_words = parse_vec_string(right.to_string())
+                        }
                         AUTOS_TOGGLE_ENABLED_CONFIG_KEY => {
                             config.is_auto_toggle_enabled = matches!(right.trim(), "true")
                         }
@@ -176,6 +187,10 @@ impl ConfigStore {
         self.save();
     }
 
+    pub fn is_allowed_word(&self, word: &str) -> bool {
+        self.allowed_words.contains(&word.to_string())
+    }
+
     pub fn is_auto_toggle_enabled(&self) -> bool {
         self.is_auto_toggle_enabled
     }
@@ -231,3 +246,4 @@ const MACRO_ENABLED_CONFIG_KEY: &str = "is_macro_enabled";
 const AUTOS_TOGGLE_ENABLED_CONFIG_KEY: &str = "is_auto_toggle_enabled";
 const MACROS_CONFIG_KEY: &str = "macros";
 const GOX_MODE_CONFIG_KEY: &str = "is_gox_mode_enabled";
+const ALLOWED_WORDS_CONFIG_KEY: &str = "allowed_words";
