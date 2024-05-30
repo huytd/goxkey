@@ -54,11 +54,6 @@ fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
 
 fn do_restore_word(handle: Handle) {
     unsafe {
-        println!(
-            "Restoring. Remove typed: {} - Send original: {}",
-            INPUT_STATE.get_displaying_word(),
-            INPUT_STATE.get_typing_buffer()
-        );
         let backspace_count = INPUT_STATE.get_backspace_count(true);
         debug!("Backspace count: {}", backspace_count);
         _ = send_backspace(handle, backspace_count);
