@@ -5,6 +5,7 @@ use druid::{Data, Target};
 use log::debug;
 use once_cell::sync::{Lazy, OnceCell};
 use rdev::{Keyboard, KeyboardState};
+use vi::TransformResult;
 
 use crate::platform::{get_active_app_name, KeyModifier};
 use crate::{
@@ -342,18 +343,18 @@ impl InputState {
         self.enabled
     }
 
-    pub fn transform_keys(&self) -> Result<String, ()> {
+    pub fn transform_keys(&self) -> Result<(String, TransformResult), ()> {
         let transform_method = match self.method {
             TypingMethod::VNI => vi::vni::transform_buffer,
             TypingMethod::Telex => vi::telex::transform_buffer,
         };
         let result = std::panic::catch_unwind(|| {
             let mut output = String::new();
-            transform_method(self.buffer.chars(), &mut output);
-            output
+            let transform_result = transform_method(self.buffer.chars(), &mut output);
+            (output, transform_result)
         });
-        if let Ok(output) = result {
-            return Ok(output);
+        if let Ok((output, transform_result)) = result {
+            return Ok((output, transform_result));
         }
         Err(())
     }

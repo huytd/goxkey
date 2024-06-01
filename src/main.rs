@@ -27,7 +27,7 @@ const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
     unsafe {
-        if let Ok(output) = INPUT_STATE.transform_keys() {
+        if let Ok((output, transform_result)) = INPUT_STATE.transform_keys() {
             debug!("Transformed: {:?}", output);
             if INPUT_STATE.should_send_keyboard_event(&output) || is_delete {
                 // This is a workaround for Firefox, where macOS's Accessibility API cannot work.
@@ -45,6 +45,11 @@ fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
                 _ = send_string(handle, &output);
                 debug!("Sent: {:?}", output);
                 INPUT_STATE.replace(output);
+                if transform_result.letter_modification_removed
+                    || transform_result.tone_mark_removed
+                {
+                    INPUT_STATE.stop_tracking();
+                }
                 return true;
             }
         }
@@ -186,7 +191,9 @@ fn event_handler(
                                         || (c.is_numeric() && modifiers.is_shift())
                                     {
                                         // If special characters detected, dismiss the current tracking word
-                                        INPUT_STATE.push(c);
+                                        if c.is_numeric() {
+                                            INPUT_STATE.push(c);
+                                        }
                                         INPUT_STATE.new_word();
                                     } else {
                                         // Otherwise, process the character
