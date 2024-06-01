@@ -360,7 +360,7 @@ impl InputState {
     }
 
     pub fn should_send_keyboard_event(&self, word: &str) -> bool {
-        !self.buffer.eq(word)
+        !self.display_buffer.eq(word)
     }
 
     pub fn should_dismiss_selection_if_needed(&self) -> bool {
