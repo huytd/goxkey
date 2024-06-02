@@ -778,7 +778,7 @@ dependencies = [
 
 [[package]]
 name = "goxkey"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "accessibility",
  "accessibility-sys",
