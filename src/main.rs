@@ -238,7 +238,7 @@ fn event_handler(
                         }
                         INPUT_STATE.set_temporary_disabled();
                     }
-                    if modifiers.is_super() {
+                    if modifiers.is_super() || event_type == EventTapType::Other {
                         INPUT_STATE.new_word();
                     }
                 }
