@@ -1893,9 +1893,9 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "vi"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "973589bf6a0cc2a175a33a32937b4a2fcba740c4785507a56a818c0d789d2c81"
+checksum = "fb38b5175c128d52d0179cc5330ba4613a954c40742ade3d2a6c74fa09a6b639"
 dependencies = [
  "log",
  "nom",
