@@ -792,6 +792,7 @@ dependencies = [
  "foreign-types",
  "libc",
  "log",
+ "nom",
  "objc",
  "objc-foundation",
  "objc_id",

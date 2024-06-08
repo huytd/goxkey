@@ -2,6 +2,7 @@ mod config;
 mod hotkey;
 mod input;
 mod platform;
+mod scripting;
 mod ui;
 
 use std::thread;
