@@ -1,3 +1,9 @@
+## Deprecation Notice
+
+Development on this project is no longer active. If you're looking for an alternative, consider checking out **VKey** (https://github.com/ldhnam/VKey), which is a promising new project.
+
+---
+
 <p align="center">
 	<img src="./icons/icon.png" width="90px">
 </p>
@@ -62,14 +68,6 @@ Without this step, the app will crash and can't be use.
 
 - [core-foundation](https://crates.io/crates/core-foundation), [core-graphics](https://crates.io/crates/core-graphics): for event handling on macOS
 - [vi-rs](https://github.com/zerox-dg/vi-rs): the Vietnamese Input Engine
-
-## Want to support the project?
-
-It would be much appreciated if you want to make a small donation to support my work!
-
-Your name will be put on a special place in the application as a thank you gesture from the development team!
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/B0B6NHSJ)
 
 ## Fun fact
 
