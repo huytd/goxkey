@@ -31,7 +31,7 @@ fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
         if let Ok((output, transform_result)) = INPUT_STATE.transform_keys() {
             debug!("Transformed: {:?}", output);
             if INPUT_STATE.should_send_keyboard_event(&output) || is_delete {
-                // This is a workaround for Firefox, where macOS's Accessibility API cannot work.
+                // This is a workaround for Firefox-based browsers, where macOS's Accessibility API cannot work.
                 // We cannot get the selected text in the address bar, so we will go with another
                 // hacky way: Always send a space and delete it immediately. This will dismiss the
                 // current pre-selected URL and fix the double character issue.
