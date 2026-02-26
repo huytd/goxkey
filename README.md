@@ -1,9 +1,3 @@
-## Deprecation Notice
-
-Development on this project is no longer active. If you're looking for an alternative, consider checking out **VKey** (https://github.com/ldhnam/VKey), which is a promising new project.
-
----
-
 <p align="center">
 	<img src="./icons/icon.png" width="90px">
 </p>
