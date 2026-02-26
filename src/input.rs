@@ -364,7 +364,8 @@ impl InputState {
     }
 
     pub fn should_dismiss_selection_if_needed(&self) -> bool {
-        return self.active_app.contains("Firefox");
+        const DISMISS_APPS: [&str; 2] = ["Firefox", "Floorp"];
+        return DISMISS_APPS.iter().any(|app| self.active_app.contains(app));
     }
 
     pub fn get_backspace_count(&self, is_delete: bool) -> usize {
