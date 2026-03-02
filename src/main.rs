@@ -8,7 +8,9 @@ mod ui;
 use std::thread;
 
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
-use input::{rebuild_keyboard_layout_map, HOTKEY_MATCHING_CIRCUIT_BREAK, INPUT_STATE};
+use input::{
+    rebuild_keyboard_layout_map, TypingMethod, HOTKEY_MATCHING_CIRCUIT_BREAK, INPUT_STATE,
+};
 use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
@@ -68,6 +70,24 @@ fn do_restore_word(handle: Handle) {
         debug!("Sent: {:?}", typing_buffer);
         INPUT_STATE.replace(typing_buffer.to_owned());
     }
+}
+
+fn should_restore_transformed_word(
+    method: TypingMethod,
+    typing_buffer: &str,
+    display_buffer: &str,
+    is_valid_word: bool,
+    is_allowed_word: bool,
+) -> bool {
+    let is_transformed_word = typing_buffer != display_buffer;
+    if !is_transformed_word || is_valid_word || is_allowed_word {
+        return false;
+    }
+
+    // Keep VNI shorthand words (like d9m -> đm) when ending a word with space/tab/enter.
+    let is_vni_numeric_shortcut =
+        method == TypingMethod::VNI && typing_buffer.chars().any(|c| c.is_numeric());
+    !is_vni_numeric_shortcut
 }
 
 fn do_macro_replace(handle: Handle, target: &String) {
@@ -155,15 +175,17 @@ fn event_handler(
                         if INPUT_STATE.is_enabled() {
                             match keycode {
                                 KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
-                                    let is_valid_word = vi::validation::is_valid_word(
-                                        INPUT_STATE.get_displaying_word(),
-                                    );
-                                    let is_allowed_word = INPUT_STATE
-                                        .is_allowed_word(INPUT_STATE.get_displaying_word());
-                                    let is_transformed_word = !INPUT_STATE
-                                        .get_typing_buffer()
-                                        .eq(INPUT_STATE.get_displaying_word());
-                                    if is_transformed_word && !is_valid_word && !is_allowed_word {
+                                    let typing_buffer = INPUT_STATE.get_typing_buffer();
+                                    let display_word = INPUT_STATE.get_displaying_word();
+                                    let is_valid_word = vi::validation::is_valid_word(display_word);
+                                    let is_allowed_word = INPUT_STATE.is_allowed_word(display_word);
+                                    if should_restore_transformed_word(
+                                        INPUT_STATE.get_method(),
+                                        typing_buffer,
+                                        display_word,
+                                        is_valid_word,
+                                        is_allowed_word,
+                                    ) {
                                         do_restore_word(handle);
                                     }
 
@@ -248,6 +270,47 @@ fn event_handler(
         INPUT_STATE.save_previous_modifiers(modifiers);
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_restore_transformed_word;
+    use crate::input::TypingMethod;
+
+    #[test]
+    fn restore_when_invalid_and_not_allowed() {
+        let should_restore =
+            should_restore_transformed_word(TypingMethod::Telex, "maaa", "màa", false, false);
+        assert!(should_restore);
+    }
+
+    #[test]
+    fn no_restore_for_valid_word() {
+        let should_restore =
+            should_restore_transformed_word(TypingMethod::Telex, "tieens", "tiến", true, false);
+        assert!(!should_restore);
+    }
+
+    #[test]
+    fn no_restore_for_allowed_word() {
+        let should_restore =
+            should_restore_transformed_word(TypingMethod::Telex, "ddc", "đc", false, true);
+        assert!(!should_restore);
+    }
+
+    #[test]
+    fn no_restore_for_vni_numeric_shorthand() {
+        let should_restore =
+            should_restore_transformed_word(TypingMethod::VNI, "d9m", "đm", false, false);
+        assert!(!should_restore);
+    }
+
+    #[test]
+    fn restore_for_vni_invalid_without_numeric_shorthand() {
+        let should_restore =
+            should_restore_transformed_word(TypingMethod::VNI, "dam", "đm", false, false);
+        assert!(should_restore);
+    }
 }
 
 fn main() {
