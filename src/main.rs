@@ -28,9 +28,26 @@ use ui::{UIDataAdapter, UPDATE_UI};
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
+fn apply_capslock_to_output(output: String, is_capslock: bool) -> String {
+    if is_capslock {
+        output.to_uppercase()
+    } else {
+        output
+    }
+}
+
+fn normalize_input_char(c: char, is_shift: bool) -> char {
+    if is_shift {
+        c.to_ascii_uppercase()
+    } else {
+        c
+    }
+}
+
+fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool {
     unsafe {
         if let Ok((output, transform_result)) = INPUT_STATE.transform_keys() {
+            let output = apply_capslock_to_output(output, is_capslock);
             debug!("Transformed: {:?}", output);
             if INPUT_STATE.should_send_keyboard_event(&output) || is_delete {
                 // This is a workaround for Firefox-based browsers, where macOS's Accessibility API cannot work.
@@ -223,14 +240,15 @@ fn event_handler(
                                         if modifiers.is_super() || modifiers.is_alt() {
                                             INPUT_STATE.new_word();
                                         } else if INPUT_STATE.is_tracking() {
-                                            INPUT_STATE.push(
-                                                if modifiers.is_shift() || modifiers.is_capslock() {
-                                                    c.to_ascii_uppercase()
-                                                } else {
-                                                    c
-                                                },
+                                            INPUT_STATE.push(normalize_input_char(
+                                                c,
+                                                modifiers.is_shift(),
+                                            ));
+                                            let ret = do_transform_keys(
+                                                handle,
+                                                false,
+                                                modifiers.is_capslock(),
                                             );
-                                            let ret = do_transform_keys(handle, false);
                                             INPUT_STATE.stop_tracking_if_needed();
                                             return ret;
                                         }
@@ -274,7 +292,7 @@ fn event_handler(
 
 #[cfg(test)]
 mod tests {
-    use super::should_restore_transformed_word;
+    use super::{apply_capslock_to_output, normalize_input_char, should_restore_transformed_word};
     use crate::input::TypingMethod;
 
     #[test]
@@ -310,6 +328,27 @@ mod tests {
         let should_restore =
             should_restore_transformed_word(TypingMethod::VNI, "dam", "đm", false, false);
         assert!(should_restore);
+    }
+
+    #[test]
+    fn normalize_input_char_only_depends_on_shift() {
+        assert_eq!(normalize_input_char('d', true), 'D');
+        assert_eq!(normalize_input_char('d', false), 'd');
+    }
+
+    #[test]
+    fn apply_capslock_to_transformed_output() {
+        let lower = String::from("duyệt");
+        assert_eq!(apply_capslock_to_output(lower.clone(), false), "duyệt");
+        assert_eq!(apply_capslock_to_output(lower, true), "DUYỆT");
+    }
+
+    #[test]
+    fn capslock_path_keeps_telex_tone_position() {
+        let mut transformed = String::new();
+        vi::telex::transform_buffer("duyeetj".chars(), &mut transformed);
+
+        assert_eq!(apply_capslock_to_output(transformed, true), "DUYỆT");
     }
 }
 
