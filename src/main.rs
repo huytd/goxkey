@@ -46,10 +46,11 @@ fn normalize_input_char(c: char, is_shift: bool) -> char {
 
 fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool {
     unsafe {
-        if let Ok((output, transform_result)) = INPUT_STATE.transform_keys() {
-            let output = apply_capslock_to_output(output, is_capslock);
+        if let Ok((raw_output, transform_result)) = INPUT_STATE.transform_keys() {
+            let should_send_event = INPUT_STATE.should_send_keyboard_event(&raw_output);
+            let output = apply_capslock_to_output(raw_output, is_capslock);
             debug!("Transformed: {:?}", output);
-            if INPUT_STATE.should_send_keyboard_event(&output) || is_delete {
+            if should_send_event || is_delete {
                 // This is a workaround for Firefox-based browsers, where macOS's Accessibility API cannot work.
                 // We cannot get the selected text in the address bar, so we will go with another
                 // hacky way: Always send a space and delete it immediately. This will dismiss the
@@ -77,15 +78,16 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
     false
 }
 
-fn do_restore_word(handle: Handle) {
+fn do_restore_word(handle: Handle, is_capslock: bool) {
     unsafe {
         let backspace_count = INPUT_STATE.get_backspace_count(true);
         debug!("Backspace count: {}", backspace_count);
         _ = send_backspace(handle, backspace_count);
         let typing_buffer = INPUT_STATE.get_typing_buffer();
-        _ = send_string(handle, typing_buffer);
-        debug!("Sent: {:?}", typing_buffer);
-        INPUT_STATE.replace(typing_buffer.to_owned());
+        let output = apply_capslock_to_output(typing_buffer.to_owned(), is_capslock);
+        _ = send_string(handle, &output);
+        debug!("Sent: {:?}", output);
+        INPUT_STATE.replace(output);
     }
 }
 
@@ -203,7 +205,7 @@ fn event_handler(
                                         is_valid_word,
                                         is_allowed_word,
                                     ) {
-                                        do_restore_word(handle);
+                                        do_restore_word(handle, modifiers.is_capslock());
                                     }
 
                                     if INPUT_STATE.previous_word_is_stop_tracking_words() {
@@ -275,7 +277,7 @@ fn event_handler(
                 if previous_modifiers.is_empty() {
                     if modifiers.is_control() {
                         if !INPUT_STATE.get_typing_buffer().is_empty() {
-                            do_restore_word(handle);
+                            do_restore_word(handle, modifiers.is_capslock());
                         }
                         INPUT_STATE.set_temporary_disabled();
                     }
@@ -349,6 +351,15 @@ mod tests {
         vi::telex::transform_buffer("duyeetj".chars(), &mut transformed);
 
         assert_eq!(apply_capslock_to_output(transformed, true), "DUYỆT");
+    }
+
+    #[test]
+    fn no_send_needed_for_plain_letter_with_capslock_only_case_change() {
+        // For plain letters with Caps Lock, OS already inserts uppercase characters.
+        // We should not treat case-only difference as a transform event.
+        let mut transformed = String::new();
+        vi::telex::transform_buffer("z".chars(), &mut transformed);
+        assert_eq!(transformed, "z");
     }
 }
 
