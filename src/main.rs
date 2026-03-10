@@ -28,11 +28,29 @@ use ui::{UIDataAdapter, UPDATE_UI};
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
+fn apply_capslock_to_output(output: String, is_capslock: bool) -> String {
+    if is_capslock {
+        output.to_uppercase()
+    } else {
+        output
+    }
+}
+
+fn normalize_input_char(c: char, is_shift: bool) -> char {
+    if is_shift {
+        c.to_ascii_uppercase()
+    } else {
+        c
+    }
+}
+
+fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool {
     unsafe {
-        if let Ok((output, transform_result)) = INPUT_STATE.transform_keys() {
+        if let Ok((raw_output, transform_result)) = INPUT_STATE.transform_keys() {
+            let should_send_event = INPUT_STATE.should_send_keyboard_event(&raw_output);
+            let output = apply_capslock_to_output(raw_output, is_capslock);
             debug!("Transformed: {:?}", output);
-            if INPUT_STATE.should_send_keyboard_event(&output) || is_delete {
+            if should_send_event || is_delete {
                 // This is a workaround for Firefox-based browsers, where macOS's Accessibility API cannot work.
                 // We cannot get the selected text in the address bar, so we will go with another
                 // hacky way: Always send a space and delete it immediately. This will dismiss the
@@ -60,15 +78,16 @@ fn do_transform_keys(handle: Handle, is_delete: bool) -> bool {
     false
 }
 
-fn do_restore_word(handle: Handle) {
+fn do_restore_word(handle: Handle, is_capslock: bool) {
     unsafe {
         let backspace_count = INPUT_STATE.get_backspace_count(true);
         debug!("Backspace count: {}", backspace_count);
         _ = send_backspace(handle, backspace_count);
         let typing_buffer = INPUT_STATE.get_typing_buffer();
-        _ = send_string(handle, typing_buffer);
-        debug!("Sent: {:?}", typing_buffer);
-        INPUT_STATE.replace(typing_buffer.to_owned());
+        let output = apply_capslock_to_output(typing_buffer.to_owned(), is_capslock);
+        _ = send_string(handle, &output);
+        debug!("Sent: {:?}", output);
+        INPUT_STATE.replace(output);
     }
 }
 
@@ -186,7 +205,7 @@ fn event_handler(
                                         is_valid_word,
                                         is_allowed_word,
                                     ) {
-                                        do_restore_word(handle);
+                                        do_restore_word(handle, modifiers.is_capslock());
                                     }
 
                                     if INPUT_STATE.previous_word_is_stop_tracking_words() {
@@ -223,14 +242,15 @@ fn event_handler(
                                         if modifiers.is_super() || modifiers.is_alt() {
                                             INPUT_STATE.new_word();
                                         } else if INPUT_STATE.is_tracking() {
-                                            INPUT_STATE.push(
-                                                if modifiers.is_shift() || modifiers.is_capslock() {
-                                                    c.to_ascii_uppercase()
-                                                } else {
-                                                    c
-                                                },
+                                            INPUT_STATE.push(normalize_input_char(
+                                                c,
+                                                modifiers.is_shift(),
+                                            ));
+                                            let ret = do_transform_keys(
+                                                handle,
+                                                false,
+                                                modifiers.is_capslock(),
                                             );
-                                            let ret = do_transform_keys(handle, false);
                                             INPUT_STATE.stop_tracking_if_needed();
                                             return ret;
                                         }
@@ -257,7 +277,7 @@ fn event_handler(
                 if previous_modifiers.is_empty() {
                     if modifiers.is_control() {
                         if !INPUT_STATE.get_typing_buffer().is_empty() {
-                            do_restore_word(handle);
+                            do_restore_word(handle, modifiers.is_capslock());
                         }
                         INPUT_STATE.set_temporary_disabled();
                     }
@@ -274,7 +294,7 @@ fn event_handler(
 
 #[cfg(test)]
 mod tests {
-    use super::should_restore_transformed_word;
+    use super::{apply_capslock_to_output, normalize_input_char, should_restore_transformed_word};
     use crate::input::TypingMethod;
 
     #[test]
@@ -310,6 +330,36 @@ mod tests {
         let should_restore =
             should_restore_transformed_word(TypingMethod::VNI, "dam", "đm", false, false);
         assert!(should_restore);
+    }
+
+    #[test]
+    fn normalize_input_char_only_depends_on_shift() {
+        assert_eq!(normalize_input_char('d', true), 'D');
+        assert_eq!(normalize_input_char('d', false), 'd');
+    }
+
+    #[test]
+    fn apply_capslock_to_transformed_output() {
+        let lower = String::from("duyệt");
+        assert_eq!(apply_capslock_to_output(lower.clone(), false), "duyệt");
+        assert_eq!(apply_capslock_to_output(lower, true), "DUYỆT");
+    }
+
+    #[test]
+    fn capslock_path_keeps_telex_tone_position() {
+        let mut transformed = String::new();
+        vi::telex::transform_buffer("duyeetj".chars(), &mut transformed);
+
+        assert_eq!(apply_capslock_to_output(transformed, true), "DUYỆT");
+    }
+
+    #[test]
+    fn no_send_needed_for_plain_letter_with_capslock_only_case_change() {
+        // For plain letters with Caps Lock, OS already inserts uppercase characters.
+        // We should not treat case-only difference as a transform event.
+        let mut transformed = String::new();
+        vi::telex::transform_buffer("z".chars(), &mut transformed);
+        assert_eq!(transformed, "z");
     }
 }
 
