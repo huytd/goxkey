@@ -55,7 +55,8 @@ impl SystemTray {
             app.activateIgnoringOtherApps_(YES);
             let item = NSStatusBar::systemStatusBar(nil).statusItemWithLength_(-1.0);
             let title = NSString::alloc(nil).init_str("VN");
-            NSButton::setTitle_(item, title);
+            let button: id = msg_send![item, button];
+            let _: () = msg_send![button, setTitle: title];
             item.setMenu_(menu);
 
             let s = Self {
@@ -70,9 +71,10 @@ impl SystemTray {
 
     pub fn set_title(&mut self, title: &str) {
         unsafe {
-            let title = NSString::alloc(nil).init_str(title);
-            NSButton::setTitle_(self.item.0, title);
-            let _: () = msg_send![title, release];
+            let title_str = NSString::alloc(nil).init_str(title);
+            let button: id = msg_send![self.item.0, button];
+            let _: () = msg_send![button, setTitle: title_str];
+            let _: () = msg_send![title_str, release];
         }
     }
 
@@ -125,7 +127,9 @@ impl SystemTray {
         unsafe {
             let item_title = NSString::alloc(nil).init_str(label);
             let index = self.get_menu_item_index_by_key(key);
-            NSButton::setTitle_(self.menu.0.itemAtIndex_(index), item_title);
+            let menu_item: id = msg_send![self.menu.0, itemAtIndex: index];
+            let _: () = msg_send![menu_item, setTitle: item_title];
+            let _: () = msg_send![item_title, release];
         }
     }
 
