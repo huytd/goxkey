@@ -126,6 +126,7 @@ pub fn rebuild_keyboard_layout_map() {
 pub enum TypingMethod {
     VNI,
     Telex,
+    TelexVNI,
 }
 
 impl FromStr for TypingMethod {
@@ -134,6 +135,7 @@ impl FromStr for TypingMethod {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s.to_ascii_lowercase().as_str() {
             "vni" => TypingMethod::VNI,
+            "telexvni" => TypingMethod::TelexVNI,
             _ => TypingMethod::Telex,
         })
     }
@@ -147,6 +149,7 @@ impl Display for TypingMethod {
             match self {
                 Self::VNI => "vni",
                 Self::Telex => "telex",
+                Self::TelexVNI => "telexvni",
             }
         )
     }
@@ -374,9 +377,29 @@ impl InputState {
     }
 
     pub fn transform_keys(&self) -> Result<(String, TransformResult), ()> {
+        if self.method == TypingMethod::TelexVNI {
+            // Try both methods; prefer VNI when the buffer contains digits
+            // (VNI's key differentiator), otherwise fall back to Telex.
+            let buffer = self.buffer.clone();
+            let result = std::panic::catch_unwind(move || {
+                let has_digits = buffer.chars().any(|c| c.is_ascii_digit());
+                if has_digits {
+                    let mut output = String::new();
+                    let transform_result = vi::vni::transform_buffer(buffer.chars(), &mut output);
+                    (output, transform_result)
+                } else {
+                    let mut output = String::new();
+                    let transform_result =
+                        vi::telex::transform_buffer(buffer.chars(), &mut output);
+                    (output, transform_result)
+                }
+            });
+            return result.map_err(|_| ());
+        }
+
         let transform_method = match self.method {
             TypingMethod::VNI => vi::vni::transform_buffer,
-            TypingMethod::Telex => vi::telex::transform_buffer,
+            TypingMethod::Telex | TypingMethod::TelexVNI => vi::telex::transform_buffer,
         };
         let result = std::panic::catch_unwind(|| {
             let mut output = String::new();
