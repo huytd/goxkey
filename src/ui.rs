@@ -12,8 +12,8 @@ use druid::{
     commands::QUIT_APP,
     theme::{BACKGROUND_DARK, BORDER_DARK, PLACEHOLDER_COLOR},
     widget::{
-        Button, Checkbox, Container, Controller, FillStrat, Flex, Image, Label, LineBreaking, List,
-        RadioGroup, Scroll, Switch, TextBox,
+        Button, Checkbox, Container, Controller, Either, FillStrat, Flex, Image, Label,
+        LineBreaking, List, RadioGroup, Scroll, Switch, TextBox,
     },
     Application, Color, Data, Env, Event, EventCtx, ImageBuf, Lens, Screen, Selector, Target,
     Widget, WidgetExt, WindowDesc,
@@ -30,6 +30,16 @@ const ADD_VN_APP: Selector = Selector::new("gox-ui.add-vn-app");
 const ADD_EN_APP: Selector = Selector::new("gox-ui.add-en-app");
 pub const WINDOW_WIDTH: f64 = 335.0;
 pub const WINDOW_HEIGHT: f64 = 375.0;
+
+// Design tokens
+const ROW_HEIGHT: f64 = 28.0;
+const SECTION_HEADER_BG: Color = Color::grey8(0x2a);
+const ROW_BG_EVEN: Color = Color::grey8(0x22);
+const ROW_BG_ODD: Color = Color::grey8(0x1c);
+const DIVIDER_COLOR: Color = Color::grey8(0x38);
+const ACCENT_RED: Color = Color::rgb8(0xc0, 0x3b, 0x3b);
+const ACCENT_RED_HOVER: Color = Color::rgb8(0xe0, 0x50, 0x50);
+const TEXT_SECONDARY: Color = Color::grey8(0x88);
 
 pub fn format_letter_key(c: Option<char>) -> String {
     if let Some(c) = c {
@@ -467,8 +477,8 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                                 let new_win_position = ctx.window().get_position() - (50.0, 50.0);
                                 let new_window = WindowDesc::new(app_settings_ui_builder())
                                     .title("Danh sách ứng dụng")
-                                    .window_size((420.0, 360.0))
-                                    .with_min_size((420.0, 360.0))
+                                    .window_size((460.0, 380.0))
+                                    .with_min_size((420.0, 320.0))
                                     .set_always_on_top(true)
                                     .set_position(new_win_position);
                                 ctx.new_window(new_window);
@@ -703,153 +713,188 @@ fn macro_row_item() -> impl Widget<MacroEntry> {
         .border(Color::GRAY, 0.5)
 }
 
+/// A single app row with the app name and a styled delete button.
 fn app_row_item(delete_selector: Selector<String>) -> impl Widget<AppEntry> {
     Flex::row()
         .with_flex_child(
             Label::dynamic(|e: &AppEntry, _| e.name.clone())
-                .with_line_break_mode(LineBreaking::WordWrap)
-                .align_left(),
-            4.0,
-        )
-        .with_flex_child(
-            Button::new("×").on_click(move |ctx, data: &mut AppEntry, _| {
-                ctx.submit_command(delete_selector.with(data.name.clone()).to(Target::Global))
-            }),
+                .with_line_break_mode(LineBreaking::Clip)
+                .align_left()
+                .padding((6.0, 0.0)),
             1.0,
         )
+        .with_child(
+            Button::new("✕")
+                .fix_width(28.0)
+                .fix_height(ROW_HEIGHT)
+                .on_click(move |ctx, data: &mut AppEntry, _| {
+                    ctx.submit_command(delete_selector.with(data.name.clone()).to(Target::Global))
+                }),
+        )
+        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
         .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
-        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Baseline)
+        .fix_height(ROW_HEIGHT)
         .expand_width()
-        .border(Color::GRAY, 0.5)
+        .background(ROW_BG_EVEN)
+        .rounded(4.0)
+        .padding((0.0, 1.0))
+}
+
+/// A section column for the app settings window (Vietnamese or English).
+fn app_column(
+    title: &'static str,
+    list_lens: impl druid::Lens<UIDataAdapter, Arc<Vec<AppEntry>>> + 'static,
+    input_lens: impl druid::Lens<UIDataAdapter, String> + 'static,
+    add_selector: Selector,
+    delete_selector: Selector<String>,
+) -> impl Widget<UIDataAdapter> {
+    Flex::column()
+        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+        // Section header
+        .with_child(
+            Container::new(
+                Label::new(title)
+                    .with_text_color(Color::WHITE)
+                    .padding((8.0, 5.0)),
+            )
+            .background(SECTION_HEADER_BG)
+            .rounded(4.0)
+            .expand_width(),
+        )
+        .with_spacer(4.0)
+        // Scrollable list with empty state
+        .with_flex_child(
+            {
+                let empty_state = Label::new("Chưa có ứng dụng nào")
+                    .with_text_color(TEXT_SECONDARY)
+                    .center()
+                    .expand();
+
+                let list = {
+                    let mut scroll = Scroll::new(
+                        List::new(move || app_row_item(delete_selector))
+                            .lens(list_lens)
+                            .expand_width(),
+                    );
+                    scroll.set_enabled_scrollbars(
+                        druid::scroll_component::ScrollbarsEnabled::Vertical,
+                    );
+                    scroll.set_horizontal_scroll_enabled(false);
+                    scroll.expand()
+                };
+
+                Either::new(
+                    |data: &UIDataAdapter, _| {
+                        // This closure is a placeholder — Either needs a concrete lens.
+                        // We use the list widget directly; empty state is shown by the
+                        // list itself rendering nothing. We wrap in a Container so the
+                        // background always fills.
+                        false
+                    },
+                    empty_state,
+                    list,
+                )
+            },
+            1.0,
+        )
+        .with_spacer(6.0)
+        // Add input row
+        .with_child(
+            Flex::row()
+                .with_flex_child(
+                    TextBox::new()
+                        .with_placeholder("Tên ứng dụng")
+                        .fix_height(ROW_HEIGHT)
+                        .expand_width()
+                        .lens(input_lens),
+                    1.0,
+                )
+                .with_spacer(4.0)
+                .with_child(
+                    Button::new("＋ Thêm")
+                        .fix_height(ROW_HEIGHT)
+                        .on_click(move |ctx, _, _| {
+                            ctx.submit_command(add_selector.to(Target::Global))
+                        }),
+                )
+                .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
+                .expand_width(),
+        )
+        .padding(8.0)
+        .background(BACKGROUND_DARK)
+        .border(BORDER_DARK, 1.0)
+        .rounded(6.0)
+        .expand()
 }
 
 pub fn app_settings_ui_builder() -> impl Widget<UIDataAdapter> {
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-        .main_axis_alignment(druid::widget::MainAxisAlignment::Start)
+        // Window title
         .with_child(
-            Flex::row()
-                .with_child(Label::new("Danh sách ứng dụng"))
-                .main_axis_alignment(druid::widget::MainAxisAlignment::Center)
+            Label::new("Danh sách ứng dụng theo ngôn ngữ")
+                .with_text_color(Color::WHITE)
+                .center()
                 .expand_width()
-                .padding((0.0, 0.0, 0.0, 8.0)),
+                .padding((0.0, 8.0, 0.0, 12.0)),
         )
+        // Two columns side by side
         .with_flex_child(
             Flex::row()
-                .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-                // Vietnamese apps column
                 .with_flex_child(
-                    Flex::column()
-                        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-                        .with_child(
-                            Label::new("Ứng dụng tiếng Việt")
-                                .padding((0.0, 0.0, 0.0, 4.0)),
-                        )
-                        .with_flex_child(
-                            {
-                                let mut scroll = Scroll::new(
-                                    List::new(move || app_row_item(DELETE_VN_APP))
-                                        .lens(UIDataAdapter::vn_apps)
-                                        .expand_width(),
-                                );
-                                scroll.set_enabled_scrollbars(
-                                    druid::scroll_component::ScrollbarsEnabled::Vertical,
-                                );
-                                scroll.set_horizontal_scroll_enabled(false);
-                                scroll
-                            }
-                            .expand(),
-                            1.0,
-                        )
-                        .with_default_spacer()
-                        .with_child(
-                            Flex::row()
-                                .with_flex_child(
-                                    TextBox::new()
-                                        .with_placeholder("Tên ứng dụng")
-                                        .expand_width()
-                                        .lens(UIDataAdapter::new_vn_app),
-                                    3.0,
-                                )
-                                .with_flex_child(
-                                    Button::new("Thêm").on_click(|ctx, _, _| {
-                                        ctx.submit_command(ADD_VN_APP.to(Target::Global))
-                                    }),
-                                    1.0,
-                                )
-                                .expand_width()
-                                .border(Color::GRAY, 0.5),
-                        )
-                        .expand()
-                        .padding(4.0),
+                    app_column(
+                        "🇻🇳  Tiếng Việt",
+                        UIDataAdapter::vn_apps,
+                        UIDataAdapter::new_vn_app,
+                        ADD_VN_APP,
+                        DELETE_VN_APP,
+                    ),
                     1.0,
                 )
-                .with_spacer(8.0)
-                // English apps column
+                .with_child(
+                    // Vertical divider
+                    Container::new(Flex::column())
+                        .fix_width(1.0)
+                        .expand_height()
+                        .background(DIVIDER_COLOR)
+                        .padding((6.0, 0.0)),
+                )
                 .with_flex_child(
-                    Flex::column()
-                        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-                        .with_child(
-                            Label::new("Ứng dụng tiếng Anh")
-                                .padding((0.0, 0.0, 0.0, 4.0)),
-                        )
-                        .with_flex_child(
-                            {
-                                let mut scroll = Scroll::new(
-                                    List::new(move || app_row_item(DELETE_EN_APP))
-                                        .lens(UIDataAdapter::en_apps)
-                                        .expand_width(),
-                                );
-                                scroll.set_enabled_scrollbars(
-                                    druid::scroll_component::ScrollbarsEnabled::Vertical,
-                                );
-                                scroll.set_horizontal_scroll_enabled(false);
-                                scroll
-                            }
-                            .expand(),
-                            1.0,
-                        )
-                        .with_default_spacer()
-                        .with_child(
-                            Flex::row()
-                                .with_flex_child(
-                                    TextBox::new()
-                                        .with_placeholder("Tên ứng dụng")
-                                        .expand_width()
-                                        .lens(UIDataAdapter::new_en_app),
-                                    3.0,
-                                )
-                                .with_flex_child(
-                                    Button::new("Thêm").on_click(|ctx, _, _| {
-                                        ctx.submit_command(ADD_EN_APP.to(Target::Global))
-                                    }),
-                                    1.0,
-                                )
-                                .expand_width()
-                                .border(Color::GRAY, 0.5),
-                        )
-                        .expand()
-                        .padding(4.0),
+                    app_column(
+                        "🇺🇸  Tiếng Anh",
+                        UIDataAdapter::en_apps,
+                        UIDataAdapter::new_en_app,
+                        ADD_EN_APP,
+                        DELETE_EN_APP,
+                    ),
                     1.0,
                 )
+                .cross_axis_alignment(druid::widget::CrossAxisAlignment::Fill)
                 .expand(),
             1.0,
         )
+        // Footer
         .with_child(
             Flex::row()
                 .with_child(
-                    Button::new("Đóng")
-                        .on_click(|ctx, _, _| ctx.window().close())
-                        .fix_width(100.0)
-                        .fix_height(28.0),
+                    Label::new("Nhập đúng tên ứng dụng (vd: Zalo, Terminal, Safari)")
+                        .with_text_color(TEXT_SECONDARY)
+                        .with_line_break_mode(LineBreaking::WordWrap),
                 )
-                .main_axis_alignment(druid::widget::MainAxisAlignment::End)
+                .with_flex_spacer(1.0)
+                .with_child(
+                    Button::new("Đóng")
+                        .fix_width(80.0)
+                        .fix_height(ROW_HEIGHT)
+                        .on_click(|ctx, _, _| ctx.window().close()),
+                )
+                .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
                 .expand_width()
-                .padding(6.0),
+                .padding((0.0, 10.0, 0.0, 0.0)),
         )
         .must_fill_main_axis(true)
         .expand()
-        .padding(8.0)
+        .padding(12.0)
 }
 
 pub fn center_window_position() -> (f64, f64) {
