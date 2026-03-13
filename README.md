@@ -3,7 +3,8 @@
 </p>
 
 ---
-<img width="432" alt="image" align="right" src="https://github.com/huytd/goxkey/assets/613943/2a65372b-e27f-4b7f-914c-7f2b5c8484fd">
+
+<img width="855" height="569" alt="image" src="https://github.com/user-attachments/assets/fb96c284-1c7b-42e4-87b2-42fe0053fa01" />
 
 
 **Gõkey** - A Vietnamese input method editor.
