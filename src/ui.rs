@@ -3,8 +3,8 @@ use std::sync::Arc;
 use crate::{
     input::{rebuild_keyboard_layout_map, TypingMethod, INPUT_STATE},
     platform::{
-        is_launch_on_login, update_launch_on_login, KeyModifier, SystemTray, SystemTrayMenuItemKey,
-        SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
+        defer_open_app_file_picker, is_launch_on_login, update_launch_on_login, KeyModifier,
+        SystemTray, SystemTrayMenuItemKey, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
     },
     UI_EVENT_SINK,
 };
@@ -28,6 +28,8 @@ const DELETE_VN_APP: Selector<String> = Selector::new("gox-ui.delete-vn-app");
 const DELETE_EN_APP: Selector<String> = Selector::new("gox-ui.delete-en-app");
 const ADD_VN_APP: Selector = Selector::new("gox-ui.add-vn-app");
 const ADD_EN_APP: Selector = Selector::new("gox-ui.add-en-app");
+const SET_VN_APP_FROM_PICKER: Selector<String> = Selector::new("gox-ui.set-vn-app-from-picker");
+const SET_EN_APP_FROM_PICKER: Selector<String> = Selector::new("gox-ui.set-en-app-from-picker");
 pub const WINDOW_WIDTH: f64 = 335.0;
 pub const WINDOW_HEIGHT: f64 = 375.0;
 
@@ -334,6 +336,12 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
                     unsafe { INPUT_STATE.add_english_app(&data.new_en_app.clone()) };
                     data.new_en_app = String::new();
                     data.update();
+                }
+                if let Some(name) = cmd.get(SET_VN_APP_FROM_PICKER) {
+                    data.new_vn_app = name.clone();
+                }
+                if let Some(name) = cmd.get(SET_EN_APP_FROM_PICKER) {
+                    data.new_en_app = name.clone();
                 }
             }
             Event::WindowCloseRequested => {
@@ -706,19 +714,26 @@ fn macro_row_item() -> impl Widget<MacroEntry> {
 fn app_row_item(delete_selector: Selector<String>) -> impl Widget<AppEntry> {
     Flex::row()
         .with_flex_child(
-            Label::dynamic(|e: &AppEntry, _| e.name.clone())
-                .with_line_break_mode(LineBreaking::WordWrap)
-                .align_left(),
-            4.0,
-        )
-        .with_flex_child(
-            Button::new("×").on_click(move |ctx, data: &mut AppEntry, _| {
-                ctx.submit_command(delete_selector.with(data.name.clone()).to(Target::Global))
-            }),
+            Label::dynamic(|e: &AppEntry, _| {
+                std::path::Path::new(&e.name)
+                    .file_name()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or(&e.name)
+                    .to_string()
+            })
+            .with_line_break_mode(LineBreaking::Clip)
+            .align_left()
+            .padding((4.0, 2.0)),
             1.0,
         )
-        .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
-        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Baseline)
+        .with_child(
+            Button::new("×")
+                .fix_width(28.0)
+                .on_click(move |ctx, data: &mut AppEntry, _| {
+                    ctx.submit_command(delete_selector.with(data.name.clone()).to(Target::Global))
+                }),
+        )
+        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
         .expand_width()
         .border(Color::GRAY, 0.5)
 }
@@ -769,16 +784,31 @@ pub fn app_settings_ui_builder() -> impl Widget<UIDataAdapter> {
                                         .with_placeholder("Tên ứng dụng")
                                         .expand_width()
                                         .lens(UIDataAdapter::new_vn_app),
-                                    3.0,
+                                    1.0,
                                 )
-                                .with_flex_child(
+                                .with_spacer(4.0)
+                                .with_child(
+                                    Button::new("...").fix_width(32.0).on_click(|_, _, _| {
+                                        defer_open_app_file_picker(Box::new(|name| {
+                                            if let Some(name) = name {
+                                                if let Some(sink) = UI_EVENT_SINK.get() {
+                                                    let _ = sink.submit_command(
+                                                        SET_VN_APP_FROM_PICKER,
+                                                        name,
+                                                        Target::Auto,
+                                                    );
+                                                }
+                                            }
+                                        }));
+                                    }),
+                                )
+                                .with_spacer(4.0)
+                                .with_child(
                                     Button::new("Thêm").on_click(|ctx, _, _| {
                                         ctx.submit_command(ADD_VN_APP.to(Target::Global))
                                     }),
-                                    1.0,
                                 )
-                                .expand_width()
-                                .border(Color::GRAY, 0.5),
+                                .expand_width(),
                         )
                         .expand()
                         .padding(4.0),
@@ -817,16 +847,31 @@ pub fn app_settings_ui_builder() -> impl Widget<UIDataAdapter> {
                                         .with_placeholder("Tên ứng dụng")
                                         .expand_width()
                                         .lens(UIDataAdapter::new_en_app),
-                                    3.0,
+                                    1.0,
                                 )
-                                .with_flex_child(
+                                .with_spacer(4.0)
+                                .with_child(
+                                    Button::new("...").fix_width(32.0).on_click(|_, _, _| {
+                                        defer_open_app_file_picker(Box::new(|name| {
+                                            if let Some(name) = name {
+                                                if let Some(sink) = UI_EVENT_SINK.get() {
+                                                    let _ = sink.submit_command(
+                                                        SET_EN_APP_FROM_PICKER,
+                                                        name,
+                                                        Target::Auto,
+                                                    );
+                                                }
+                                            }
+                                        }));
+                                    }),
+                                )
+                                .with_spacer(4.0)
+                                .with_child(
                                     Button::new("Thêm").on_click(|ctx, _, _| {
                                         ctx.submit_command(ADD_EN_APP.to(Target::Global))
                                     }),
-                                    1.0,
                                 )
-                                .expand_width()
-                                .border(Color::GRAY, 0.5),
+                                .expand_width(),
                         )
                         .expand()
                         .padding(4.0),
