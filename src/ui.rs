@@ -31,7 +31,7 @@ const ADD_EN_APP: Selector = Selector::new("gox-ui.add-en-app");
 const SET_VN_APP_FROM_PICKER: Selector<String> = Selector::new("gox-ui.set-vn-app-from-picker");
 const SET_EN_APP_FROM_PICKER: Selector<String> = Selector::new("gox-ui.set-en-app-from-picker");
 pub const WINDOW_WIDTH: f64 = 335.0;
-pub const WINDOW_HEIGHT: f64 = 375.0;
+pub const WINDOW_HEIGHT: f64 = 420.0;
 
 pub fn format_letter_key(c: Option<char>) -> String {
     if let Some(c) = c {
