@@ -24,6 +24,10 @@ pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
 pub const SHOW_UI: Selector = Selector::new("gox-ui.show-ui");
 const DELETE_MACRO: Selector<String> = Selector::new("gox-ui.delete-macro");
 const ADD_MACRO: Selector = Selector::new("gox-ui.add-macro");
+const DELETE_VN_APP: Selector<String> = Selector::new("gox-ui.delete-vn-app");
+const DELETE_EN_APP: Selector<String> = Selector::new("gox-ui.delete-en-app");
+const ADD_VN_APP: Selector = Selector::new("gox-ui.add-vn-app");
+const ADD_EN_APP: Selector = Selector::new("gox-ui.add-en-app");
 pub const WINDOW_WIDTH: f64 = 335.0;
 pub const WINDOW_HEIGHT: f64 = 375.0;
 
@@ -82,6 +86,11 @@ struct MacroEntry {
     to: String,
 }
 
+#[derive(Clone, Data, PartialEq, Eq)]
+struct AppEntry {
+    name: String,
+}
+
 #[derive(Clone, Data, Lens, PartialEq, Eq)]
 pub struct UIDataAdapter {
     is_enabled: bool,
@@ -94,6 +103,11 @@ pub struct UIDataAdapter {
     macro_table: Arc<Vec<MacroEntry>>,
     new_macro_from: String,
     new_macro_to: String,
+    // App language settings
+    vn_apps: Arc<Vec<AppEntry>>,
+    en_apps: Arc<Vec<AppEntry>>,
+    new_vn_app: String,
+    new_en_app: String,
     // Hotkey config
     super_key: bool,
     ctrl_key: bool,
@@ -117,6 +131,10 @@ impl UIDataAdapter {
             macro_table: Arc::new(Vec::new()),
             new_macro_from: String::new(),
             new_macro_to: String::new(),
+            vn_apps: Arc::new(Vec::new()),
+            en_apps: Arc::new(Vec::new()),
+            new_vn_app: String::new(),
+            new_en_app: String::new(),
             super_key: true,
             ctrl_key: true,
             alt_key: false,
@@ -147,6 +165,20 @@ impl UIDataAdapter {
                         to: target.to_string(),
                     })
                     .collect::<Vec<MacroEntry>>(),
+            );
+            self.vn_apps = Arc::new(
+                INPUT_STATE
+                    .get_vn_apps()
+                    .into_iter()
+                    .map(|name| AppEntry { name })
+                    .collect(),
+            );
+            self.en_apps = Arc::new(
+                INPUT_STATE
+                    .get_en_apps()
+                    .into_iter()
+                    .map(|name| AppEntry { name })
+                    .collect(),
             );
 
             let (modifiers, keycode) = INPUT_STATE.get_hotkey().inner();
@@ -285,6 +317,24 @@ impl<W: Widget<UIDataAdapter>> Controller<UIDataAdapter, W> for UIController {
                     data.new_macro_to = String::new();
                     data.update();
                 }
+                if let Some(app_name) = cmd.get(DELETE_VN_APP) {
+                    unsafe { INPUT_STATE.remove_vietnamese_app(app_name) };
+                    data.update();
+                }
+                if let Some(app_name) = cmd.get(DELETE_EN_APP) {
+                    unsafe { INPUT_STATE.remove_english_app(app_name) };
+                    data.update();
+                }
+                if cmd.get(ADD_VN_APP).is_some() && !data.new_vn_app.is_empty() {
+                    unsafe { INPUT_STATE.add_vietnamese_app(&data.new_vn_app.clone()) };
+                    data.new_vn_app = String::new();
+                    data.update();
+                }
+                if cmd.get(ADD_EN_APP).is_some() && !data.new_en_app.is_empty() {
+                    unsafe { INPUT_STATE.add_english_app(&data.new_en_app.clone()) };
+                    data.new_en_app = String::new();
+                    data.update();
+                }
             }
             Event::WindowCloseRequested => {
                 ctx.set_handled();
@@ -413,6 +463,24 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                     )
                     .with_child(
                         Flex::row()
+                            .with_child(Button::new("Danh sách ứng dụng").on_click(|ctx, _, _| {
+                                let new_win_position = ctx.window().get_position() - (50.0, 50.0);
+                                let new_window = WindowDesc::new(app_settings_ui_builder())
+                                    .title("Danh sách ứng dụng")
+                                    .window_size((420.0, 360.0))
+                                    .with_min_size((420.0, 360.0))
+                                    .set_always_on_top(true)
+                                    .set_position(new_win_position);
+                                ctx.new_window(new_window);
+                            }))
+                            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                            .main_axis_alignment(druid::widget::MainAxisAlignment::End)
+                            .must_fill_main_axis(true)
+                            .expand_width()
+                            .padding(8.0),
+                    )
+                    .with_child(
+                        Flex::row()
                             .with_child(Label::new("Gõ tắt"))
                             .with_child(Checkbox::new("").lens(UIDataAdapter::is_macro_enabled))
                             .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
@@ -424,7 +492,7 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                     .with_child(
                         Flex::row()
                             .with_child(Button::new("Bảng gõ tắt").on_click(|ctx, _, _| {
-                                let new_win_position = ctx.window().get_position() - (50.0, 50.0); // offset a bit
+                                let new_win_position = ctx.window().get_position() - (50.0, 50.0);
                                 let new_window = WindowDesc::new(macro_editor_ui_builder())
                                     .title("Bảng gõ tắt")
                                     .window_size((320.0, 320.0))
@@ -633,6 +701,155 @@ fn macro_row_item() -> impl Widget<MacroEntry> {
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Baseline)
         .expand_width()
         .border(Color::GRAY, 0.5)
+}
+
+fn app_row_item(delete_selector: Selector<String>) -> impl Widget<AppEntry> {
+    Flex::row()
+        .with_flex_child(
+            Label::dynamic(|e: &AppEntry, _| e.name.clone())
+                .with_line_break_mode(LineBreaking::WordWrap)
+                .align_left(),
+            4.0,
+        )
+        .with_flex_child(
+            Button::new("×").on_click(move |ctx, data: &mut AppEntry, _| {
+                ctx.submit_command(delete_selector.with(data.name.clone()).to(Target::Global))
+            }),
+            1.0,
+        )
+        .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Baseline)
+        .expand_width()
+        .border(Color::GRAY, 0.5)
+}
+
+pub fn app_settings_ui_builder() -> impl Widget<UIDataAdapter> {
+    Flex::column()
+        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+        .main_axis_alignment(druid::widget::MainAxisAlignment::Start)
+        .with_child(
+            Flex::row()
+                .with_child(Label::new("Danh sách ứng dụng"))
+                .main_axis_alignment(druid::widget::MainAxisAlignment::Center)
+                .expand_width()
+                .padding((0.0, 0.0, 0.0, 8.0)),
+        )
+        .with_flex_child(
+            Flex::row()
+                .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                // Vietnamese apps column
+                .with_flex_child(
+                    Flex::column()
+                        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                        .with_child(
+                            Label::new("Ứng dụng tiếng Việt")
+                                .padding((0.0, 0.0, 0.0, 4.0)),
+                        )
+                        .with_flex_child(
+                            {
+                                let mut scroll = Scroll::new(
+                                    List::new(move || app_row_item(DELETE_VN_APP))
+                                        .lens(UIDataAdapter::vn_apps)
+                                        .expand_width(),
+                                );
+                                scroll.set_enabled_scrollbars(
+                                    druid::scroll_component::ScrollbarsEnabled::Vertical,
+                                );
+                                scroll.set_horizontal_scroll_enabled(false);
+                                scroll
+                            }
+                            .expand(),
+                            1.0,
+                        )
+                        .with_default_spacer()
+                        .with_child(
+                            Flex::row()
+                                .with_flex_child(
+                                    TextBox::new()
+                                        .with_placeholder("Tên ứng dụng")
+                                        .expand_width()
+                                        .lens(UIDataAdapter::new_vn_app),
+                                    3.0,
+                                )
+                                .with_flex_child(
+                                    Button::new("Thêm").on_click(|ctx, _, _| {
+                                        ctx.submit_command(ADD_VN_APP.to(Target::Global))
+                                    }),
+                                    1.0,
+                                )
+                                .expand_width()
+                                .border(Color::GRAY, 0.5),
+                        )
+                        .expand()
+                        .padding(4.0),
+                    1.0,
+                )
+                .with_spacer(8.0)
+                // English apps column
+                .with_flex_child(
+                    Flex::column()
+                        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                        .with_child(
+                            Label::new("Ứng dụng tiếng Anh")
+                                .padding((0.0, 0.0, 0.0, 4.0)),
+                        )
+                        .with_flex_child(
+                            {
+                                let mut scroll = Scroll::new(
+                                    List::new(move || app_row_item(DELETE_EN_APP))
+                                        .lens(UIDataAdapter::en_apps)
+                                        .expand_width(),
+                                );
+                                scroll.set_enabled_scrollbars(
+                                    druid::scroll_component::ScrollbarsEnabled::Vertical,
+                                );
+                                scroll.set_horizontal_scroll_enabled(false);
+                                scroll
+                            }
+                            .expand(),
+                            1.0,
+                        )
+                        .with_default_spacer()
+                        .with_child(
+                            Flex::row()
+                                .with_flex_child(
+                                    TextBox::new()
+                                        .with_placeholder("Tên ứng dụng")
+                                        .expand_width()
+                                        .lens(UIDataAdapter::new_en_app),
+                                    3.0,
+                                )
+                                .with_flex_child(
+                                    Button::new("Thêm").on_click(|ctx, _, _| {
+                                        ctx.submit_command(ADD_EN_APP.to(Target::Global))
+                                    }),
+                                    1.0,
+                                )
+                                .expand_width()
+                                .border(Color::GRAY, 0.5),
+                        )
+                        .expand()
+                        .padding(4.0),
+                    1.0,
+                )
+                .expand(),
+            1.0,
+        )
+        .with_child(
+            Flex::row()
+                .with_child(
+                    Button::new("Đóng")
+                        .on_click(|ctx, _, _| ctx.window().close())
+                        .fix_width(100.0)
+                        .fix_height(28.0),
+                )
+                .main_axis_alignment(druid::widget::MainAxisAlignment::End)
+                .expand_width()
+                .padding(6.0),
+        )
+        .must_fill_main_axis(true)
+        .expand()
+        .padding(8.0)
 }
 
 pub fn center_window_position() -> (f64, f64) {

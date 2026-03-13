@@ -169,21 +169,41 @@ impl ConfigStore {
         self.en_apps.contains(&app_name.to_string())
     }
 
+    pub fn get_vn_apps(&self) -> Vec<String> {
+        self.vn_apps.clone()
+    }
+
+    pub fn get_en_apps(&self) -> Vec<String> {
+        self.en_apps.clone()
+    }
+
     pub fn add_vietnamese_app(&mut self, app_name: &str) {
         if self.is_english_app(app_name) {
-            // Remove from english apps
             self.en_apps.retain(|x| x != app_name);
         }
-        self.vn_apps.push(app_name.to_string());
+        if !self.is_vietnamese_app(app_name) {
+            self.vn_apps.push(app_name.to_string());
+        }
         self.save();
     }
 
     pub fn add_english_app(&mut self, app_name: &str) {
         if self.is_vietnamese_app(app_name) {
-            // Remove from vietnamese apps
             self.vn_apps.retain(|x| x != app_name);
         }
-        self.en_apps.push(app_name.to_string());
+        if !self.is_english_app(app_name) {
+            self.en_apps.push(app_name.to_string());
+        }
+        self.save();
+    }
+
+    pub fn remove_vietnamese_app(&mut self, app_name: &str) {
+        self.vn_apps.retain(|x| x != app_name);
+        self.save();
+    }
+
+    pub fn remove_english_app(&mut self, app_name: &str) {
+        self.en_apps.retain(|x| x != app_name);
         self.save();
     }
 

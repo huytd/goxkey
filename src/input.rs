@@ -270,6 +270,36 @@ impl InputState {
         self.new_word();
     }
 
+    pub fn add_vietnamese_app(&mut self, app_name: &str) {
+        CONFIG_MANAGER.lock().unwrap().add_vietnamese_app(app_name);
+    }
+
+    pub fn add_english_app(&mut self, app_name: &str) {
+        CONFIG_MANAGER.lock().unwrap().add_english_app(app_name);
+    }
+
+    pub fn remove_vietnamese_app(&mut self, app_name: &str) {
+        CONFIG_MANAGER
+            .lock()
+            .unwrap()
+            .remove_vietnamese_app(app_name);
+    }
+
+    pub fn remove_english_app(&mut self, app_name: &str) {
+        CONFIG_MANAGER
+            .lock()
+            .unwrap()
+            .remove_english_app(app_name);
+    }
+
+    pub fn get_vn_apps(&self) -> Vec<String> {
+        CONFIG_MANAGER.lock().unwrap().get_vn_apps()
+    }
+
+    pub fn get_en_apps(&self) -> Vec<String> {
+        CONFIG_MANAGER.lock().unwrap().get_en_apps()
+    }
+
     pub fn set_method(&mut self, method: TypingMethod) {
         self.method = method;
         self.new_word();
@@ -376,10 +406,6 @@ impl InputState {
             dp_len - 1
         };
 
-        // Add an extra backspace to compensate the initial text selection deletion.
-        // This is useful in applications like chrome, where the URL bar uses text selection
-        // for autocompletion, causing the first backspace to delete the selection instead of
-        // the character behind the cursor.
         if is_in_text_selection() {
             backspace_count + 1
         } else {
@@ -434,17 +460,11 @@ impl InputState {
         STOP_TRACKING_WORDS.contains(&self.previous_word.as_str())
     }
 
-    // a set of rules that will trigger a hard stop for tracking
-    // maybe these weird stuff should not be here, but let's
-    // implement it anyway. we'll figure out where to put these
-    // later on.
     pub fn should_stop_tracking(&mut self) -> bool {
         let len = self.buffer.len();
         if len > MAX_POSSIBLE_WORD_LENGTH {
             return true;
         }
-        // detect attempts to restore a word
-        // by doubling tone marks like ss, rr, ff, jj, xx
         let buf = &self.buffer;
         if TONE_DUPLICATE_PATTERNS
             .iter()
