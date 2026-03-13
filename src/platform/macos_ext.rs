@@ -35,6 +35,7 @@ pub enum SystemTrayMenuItemKey {
     Enable,
     TypingMethodTelex,
     TypingMethodVNI,
+    TypingMethodTelexVNI,
     Exit,
 }
 
@@ -85,6 +86,7 @@ impl SystemTray {
         self.add_menu_separator();
         self.add_menu_item("Telex ✓", || ());
         self.add_menu_item("VNI", || ());
+        self.add_menu_item("Telex+VNI", || ());
         self.add_menu_separator();
         self.add_menu_item("Thoát ứng dụng", || ());
     }
@@ -119,7 +121,8 @@ impl SystemTray {
             SystemTrayMenuItemKey::Enable => 2,
             SystemTrayMenuItemKey::TypingMethodTelex => 4,
             SystemTrayMenuItemKey::TypingMethodVNI => 5,
-            SystemTrayMenuItemKey::Exit => 7,
+            SystemTrayMenuItemKey::TypingMethodTelexVNI => 6,
+            SystemTrayMenuItemKey::Exit => 8,
         }
     }
 

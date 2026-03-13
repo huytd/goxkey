@@ -31,7 +31,7 @@ const ADD_EN_APP: Selector = Selector::new("gox-ui.add-en-app");
 const SET_VN_APP_FROM_PICKER: Selector<String> = Selector::new("gox-ui.set-vn-app-from-picker");
 const SET_EN_APP_FROM_PICKER: Selector<String> = Selector::new("gox-ui.set-en-app-from-picker");
 pub const WINDOW_WIDTH: f64 = 335.0;
-pub const WINDOW_HEIGHT: f64 = 420.0;
+pub const WINDOW_HEIGHT: f64 = 455.0;
 
 pub fn format_letter_key(c: Option<char>) -> String {
     if let Some(c) = c {
@@ -206,6 +206,7 @@ impl UIDataAdapter {
                         match self.typing_method {
                             TypingMethod::Telex => "gox",
                             TypingMethod::VNI => "go4",
+                            TypingMethod::TelexVNI => "go+",
                         }
                     } else {
                         "EN"
@@ -221,12 +222,24 @@ impl UIDataAdapter {
                         .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelex, "Telex");
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodVNI, "VNI ✓");
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelexVNI, "Telex+VNI");
                 }
                 TypingMethod::Telex => {
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelex, "Telex ✓");
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodVNI, "VNI");
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelexVNI, "Telex+VNI");
+                }
+                TypingMethod::TelexVNI => {
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelex, "Telex");
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodVNI, "VNI");
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelexVNI, "Telex+VNI ✓");
                 }
             }
         }
@@ -261,6 +274,15 @@ impl UIDataAdapter {
             .set_menu_item_callback(SystemTrayMenuItemKey::TypingMethodVNI, || {
                 unsafe {
                     INPUT_STATE.set_method(TypingMethod::VNI);
+                }
+                UI_EVENT_SINK
+                    .get()
+                    .map(|event| Some(event.submit_command(UPDATE_UI, (), Target::Auto)));
+            });
+        self.systray
+            .set_menu_item_callback(SystemTrayMenuItemKey::TypingMethodTelexVNI, || {
+                unsafe {
+                    INPUT_STATE.set_method(TypingMethod::TelexVNI);
                 }
                 UI_EVENT_SINK
                     .get()
@@ -438,6 +460,7 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                                 RadioGroup::column(vec![
                                     ("Telex", TypingMethod::Telex),
                                     ("VNI", TypingMethod::VNI),
+                                    ("Telex+VNI", TypingMethod::TelexVNI),
                                 ])
                                 .lens(UIDataAdapter::typing_method),
                             )
