@@ -295,22 +295,6 @@ impl TabBar {
         }
     }
 
-    fn draw_icon_shortcuts(ctx: &mut PaintCtx, cx: f64, cy: f64, color: &Color) {
-        ctx.stroke(
-            RoundedRect::new(cx - 8.0, cy - 5.0, cx + 8.0, cy + 5.0, 2.0),
-            color,
-            1.5,
-        );
-        ctx.fill(
-            RoundedRect::new(cx - 6.0, cy - 1.5, cx - 2.0, cy + 1.5, 1.0),
-            color,
-        );
-        ctx.fill(
-            RoundedRect::new(cx + 2.0, cy - 1.5, cx + 6.0, cy + 1.5, 1.0),
-            color,
-        );
-    }
-
     fn draw_icon_advanced(ctx: &mut PaintCtx, cx: f64, cy: f64, color: &Color) {
         ctx.stroke(Circle::new((cx, cy), 7.0), color, 1.5);
         let mut hand = BezPath::new();
@@ -354,8 +338,8 @@ impl Widget<u32> for TabBar {
     ) -> Size {
         let w = bc.max().width;
         let h = 58.0;
-        let tab_w = w / 4.0;
-        self.tab_rects = (0..4)
+        let tab_w = w / 3.0;
+        self.tab_rects = (0..3)
             .map(|i| Rect::new(i as f64 * tab_w, 0.0, (i + 1) as f64 * tab_w, h))
             .collect();
         Size::new(w, h)
@@ -370,11 +354,10 @@ impl Widget<u32> for TabBar {
             0.5,
         );
 
-        let labels = ["General", "Apps", "Shortcuts", "Advanced"];
-        let icon_fns: [fn(&mut PaintCtx, f64, f64, &Color); 4] = [
+        let labels = ["General", "Apps", "Advanced"];
+        let icon_fns: [fn(&mut PaintCtx, f64, f64, &Color); 3] = [
             TabBar::draw_icon_general,
             TabBar::draw_icon_apps,
-            TabBar::draw_icon_shortcuts,
             TabBar::draw_icon_advanced,
         ];
 

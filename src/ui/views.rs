@@ -1,6 +1,6 @@
 use crate::{
     input::TypingMethod,
-    platform::{defer_open_app_file_picker, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER},
+    platform::defer_open_app_file_picker,
     UI_EVENT_SINK,
 };
 use druid::{
@@ -18,7 +18,7 @@ use super::{
         BADGE_EN_BG, BADGE_EN_BORDER, BADGE_VI_BG, BADGE_VI_BORDER, BTN_RESET_BG, BTN_RESET_BORDER,
         CARD_BG, CARD_BORDER, DIVIDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_SECTION, WIN_BG,
     },
-    controllers::{LetterKeyController, UIController},
+    controllers::UIController,
     data::{MacroEntry, UIDataAdapter},
     selectors::{ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, SET_EN_APP_FROM_PICKER},
     widgets::{
@@ -501,138 +501,6 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
         .padding((24.0, 20.0, 24.0, 24.0))
 }
 
-fn shortcuts_tab() -> impl Widget<UIDataAdapter> {
-    let card = settings_card(
-        Flex::column()
-            .with_child(
-                Flex::row()
-                    .with_flex_child(
-                        Flex::column()
-                            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-                            .with_child(
-                                Painter::new(|ctx, _: &UIDataAdapter, _| {
-                                    let layout = ctx
-                                        .text()
-                                        .new_text_layout("Toggle Vietnamese input")
-                                        .font(FontFamily::SYSTEM_UI, 13.0)
-                                        .text_color(TEXT_PRIMARY)
-                                        .build()
-                                        .unwrap();
-                                    ctx.draw_text(&layout, (0.0, 0.0));
-                                })
-                                .fix_height(18.0)
-                                .expand_width(),
-                            )
-                            .with_child(
-                                Painter::new(|ctx, data: &UIDataAdapter, _| {
-                                    let layout = ctx
-                                        .text()
-                                        .new_text_layout(data.hotkey_display.clone())
-                                        .font(FontFamily::SYSTEM_UI, 12.0)
-                                        .text_color(TEXT_SECONDARY)
-                                        .build()
-                                        .unwrap();
-                                    ctx.draw_text(&layout, (0.0, 0.0));
-                                })
-                                .fix_height(16.0)
-                                .expand_width(),
-                            ),
-                        1.0,
-                    )
-                    .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
-                    .expand_width()
-                    .padding((14.0, 10.0)),
-            )
-            .with_child(card_divider())
-            .with_child(
-                Flex::column()
-                    .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-                    .with_child(
-                        Painter::new(|ctx, _: &UIDataAdapter, _| {
-                            let layout = ctx
-                                .text()
-                                .new_text_layout("Modifiers")
-                                .font(FontFamily::SYSTEM_UI, 12.0)
-                                .text_color(TEXT_SECONDARY)
-                                .build()
-                                .unwrap();
-                            ctx.draw_text(&layout, (0.0, 0.0));
-                        })
-                        .fix_height(16.0)
-                        .expand_width(),
-                    )
-                    .with_spacer(8.0)
-                    .with_child(modifier_row())
-                    .with_spacer(12.0)
-                    .with_child(
-                        Painter::new(|ctx, _: &UIDataAdapter, _| {
-                            let layout = ctx
-                                .text()
-                                .new_text_layout("Key")
-                                .font(FontFamily::SYSTEM_UI, 12.0)
-                                .text_color(TEXT_SECONDARY)
-                                .build()
-                                .unwrap();
-                            ctx.draw_text(&layout, (0.0, 0.0));
-                        })
-                        .fix_height(16.0)
-                        .expand_width(),
-                    )
-                    .with_spacer(6.0)
-                    .with_child(
-                        TextBox::new()
-                            .lens(UIDataAdapter::letter_key)
-                            .controller(LetterKeyController)
-                            .fix_width(80.0),
-                    )
-                    .expand_width()
-                    .padding((14.0, 10.0)),
-            ),
-    );
-
-    Flex::column()
-        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-        .with_child(section_label("Keyboard shortcut"))
-        .with_child(card)
-        .with_flex_spacer(1.0)
-        .padding((24.0, 20.0, 24.0, 24.0))
-}
-
-fn modifier_row() -> impl Widget<UIDataAdapter> {
-    fn modifier_checkbox(
-        lens: impl druid::Lens<UIDataAdapter, bool> + 'static,
-        symbol: &'static str,
-    ) -> impl Widget<UIDataAdapter> {
-        Flex::row()
-            .with_child(StyledCheckbox.lens(lens).padding((0.0, 0.0, 6.0, 0.0)))
-            .with_child(
-                Painter::new(move |ctx, _: &UIDataAdapter, _| {
-                    let layout = ctx
-                        .text()
-                        .new_text_layout(symbol)
-                        .font(FontFamily::SYSTEM_UI, 13.0)
-                        .text_color(TEXT_PRIMARY)
-                        .build()
-                        .unwrap();
-                    ctx.draw_text(&layout, (0.0, 0.0));
-                })
-                .fix_height(20.0)
-                .fix_width(24.0),
-            )
-            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
-    }
-
-    Flex::row()
-        .with_child(modifier_checkbox(UIDataAdapter::super_key, SYMBOL_SUPER))
-        .with_spacer(12.0)
-        .with_child(modifier_checkbox(UIDataAdapter::ctrl_key, SYMBOL_CTRL))
-        .with_spacer(12.0)
-        .with_child(modifier_checkbox(UIDataAdapter::alt_key, SYMBOL_ALT))
-        .with_spacer(12.0)
-        .with_child(modifier_checkbox(UIDataAdapter::shift_key, SYMBOL_SHIFT))
-        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
-}
-
 fn advanced_tab() -> impl Widget<UIDataAdapter> {
     let macro_card = settings_card(
         Flex::column()
@@ -754,8 +622,7 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
                 |data: &UIDataAdapter, _env| data.active_tab,
                 |tab, _data, _env| match tab {
                     1 => Box::new(apps_tab()),
-                    2 => Box::new(shortcuts_tab()),
-                    3 => Box::new(advanced_tab()),
+                    2 => Box::new(advanced_tab()),
                     _ => Box::new(general_tab()),
                 },
             )
