@@ -9,7 +9,7 @@ use druid::{
 use super::{
     colors::{
         BADGE_BG, BADGE_BORDER, BADGE_EN_BG, BADGE_EN_BORDER, BADGE_VI_BG, BADGE_VI_BORDER,
-        DIVIDER, GREEN, GREEN_BG, TEXT_PRIMARY,
+        DIVIDER, GREEN, GREEN_BG, TEXT_PRIMARY, TEXT_SECONDARY,
     },
     data::UIDataAdapter,
     selectors::TOGGLE_APP_MODE,
@@ -295,16 +295,35 @@ impl TabBar {
         }
     }
 
-    fn draw_icon_advanced(ctx: &mut PaintCtx, cx: f64, cy: f64, color: &Color) {
-        ctx.stroke(Circle::new((cx, cy), 7.0), color, 1.5);
-        let mut hand = BezPath::new();
-        hand.move_to((cx, cy));
-        hand.line_to((cx, cy - 4.0));
-        ctx.stroke(hand, color, 1.5);
-        let mut hand2 = BezPath::new();
-        hand2.move_to((cx, cy));
-        hand2.line_to((cx + 3.0, cy + 2.0));
-        ctx.stroke(hand2, color, 1.5);
+    fn draw_icon_text_expansion(ctx: &mut PaintCtx, cx: f64, cy: f64, color: &Color) {
+        // "{" left brace
+        let mut brace = BezPath::new();
+        brace.move_to((cx - 9.0, cy - 4.5));
+        brace.line_to((cx - 11.0, cy - 4.5));
+        brace.line_to((cx - 11.0, cy - 1.5));
+        brace.line_to((cx - 13.0, cy));
+        brace.line_to((cx - 11.0, cy + 1.5));
+        brace.line_to((cx - 11.0, cy + 4.5));
+        brace.line_to((cx - 9.0, cy + 4.5));
+        ctx.stroke(brace, color, 1.3);
+        // Arrow →
+        let mut arrow = BezPath::new();
+        arrow.move_to((cx - 6.0, cy));
+        arrow.line_to((cx + 2.0, cy));
+        arrow.move_to((cx - 1.0, cy - 2.5));
+        arrow.line_to((cx + 2.5, cy));
+        arrow.line_to((cx - 1.0, cy + 2.5));
+        ctx.stroke(arrow, color, 1.3);
+        // "}" right brace
+        let mut brace2 = BezPath::new();
+        brace2.move_to((cx + 5.0, cy - 4.5));
+        brace2.line_to((cx + 7.0, cy - 4.5));
+        brace2.line_to((cx + 7.0, cy - 1.5));
+        brace2.line_to((cx + 9.0, cy));
+        brace2.line_to((cx + 7.0, cy + 1.5));
+        brace2.line_to((cx + 7.0, cy + 4.5));
+        brace2.line_to((cx + 5.0, cy + 4.5));
+        ctx.stroke(brace2, color, 1.3);
     }
 }
 
@@ -354,11 +373,11 @@ impl Widget<u32> for TabBar {
             0.5,
         );
 
-        let labels = ["General", "Apps", "Advanced"];
+        let labels = ["General", "Apps", "Text Expansion"];
         let icon_fns: [fn(&mut PaintCtx, f64, f64, &Color); 3] = [
             TabBar::draw_icon_general,
             TabBar::draw_icon_apps,
-            TabBar::draw_icon_advanced,
+            TabBar::draw_icon_text_expansion,
         ];
 
         for (i, rect) in self.tab_rects.iter().enumerate() {
@@ -530,6 +549,140 @@ impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
     fn paint(&mut self, ctx: &mut PaintCtx, _data: &UIDataAdapter, env: &Env) {
         for badge in &mut self.badges {
             badge.paint(ctx, &(), env);
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MacroListWidget
+// ══════════════════════════════════════════════════════════════════════════════
+
+pub(super) struct MacroListWidget {
+    row_rects: Vec<Rect>,
+}
+
+const MACRO_ROW_HEIGHT: f64 = 44.0;
+
+impl MacroListWidget {
+    pub(super) fn new() -> Self {
+        Self { row_rects: Vec::new() }
+    }
+}
+
+impl Widget<UIDataAdapter> for MacroListWidget {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut UIDataAdapter, _env: &Env) {
+        if let Event::MouseDown(mouse) = event {
+            for (i, rect) in self.row_rects.iter().enumerate() {
+                if rect.contains(mouse.pos) {
+                    data.selected_macro_index = i as i32;
+                    ctx.request_paint();
+                    break;
+                }
+            }
+        }
+    }
+
+    fn lifecycle(
+        &mut self,
+        _ctx: &mut LifeCycleCtx,
+        _event: &LifeCycle,
+        _data: &UIDataAdapter,
+        _env: &Env,
+    ) {
+    }
+
+    fn update(
+        &mut self,
+        ctx: &mut UpdateCtx,
+        old_data: &UIDataAdapter,
+        data: &UIDataAdapter,
+        _env: &Env,
+    ) {
+        if old_data.macro_table != data.macro_table {
+            ctx.request_layout();
+        } else if old_data.selected_macro_index != data.selected_macro_index {
+            ctx.request_paint();
+        }
+    }
+
+    fn layout(
+        &mut self,
+        _ctx: &mut LayoutCtx,
+        bc: &BoxConstraints,
+        data: &UIDataAdapter,
+        _env: &Env,
+    ) -> Size {
+        let n = data.macro_table.len();
+        let w = bc.max().width;
+        self.row_rects = (0..n)
+            .map(|i| {
+                Rect::new(0.0, i as f64 * MACRO_ROW_HEIGHT, w, (i + 1) as f64 * MACRO_ROW_HEIGHT)
+            })
+            .collect();
+        Size::new(w, (n as f64 * MACRO_ROW_HEIGHT).max(0.0))
+    }
+
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &UIDataAdapter, _env: &Env) {
+        let size = ctx.size();
+
+        for (i, entry) in data.macro_table.iter().enumerate() {
+            let rect = self.row_rects[i];
+            let is_selected = data.selected_macro_index == i as i32;
+
+            if is_selected {
+                ctx.fill(
+                    RoundedRect::new(rect.x0, rect.y0, rect.x1, rect.y1, 0.0),
+                    &Color::rgba8(0, 0, 0, 8),
+                );
+            }
+
+            if i > 0 {
+                ctx.fill(
+                    Rect::new(14.0, rect.y0, size.width - 14.0, rect.y0 + 0.5),
+                    &DIVIDER,
+                );
+            }
+
+            // "From" label (shorthand)
+            let from_layout = ctx
+                .text()
+                .new_text_layout(entry.from.clone())
+                .font(FontFamily::SYSTEM_UI, 13.0)
+                .text_color(TEXT_PRIMARY)
+                .build()
+                .unwrap();
+            ctx.draw_text(
+                &from_layout,
+                (14.0, rect.y0 + (MACRO_ROW_HEIGHT - from_layout.size().height) / 2.0),
+            );
+
+            // Arrow "→" separator
+            let arrow_layout = ctx
+                .text()
+                .new_text_layout("→")
+                .font(FontFamily::SYSTEM_UI, 12.0)
+                .text_color(TEXT_SECONDARY)
+                .build()
+                .unwrap();
+            let arrow_x = size.width / 2.0 - arrow_layout.size().width / 2.0;
+            ctx.draw_text(
+                &arrow_layout,
+                (arrow_x, rect.y0 + (MACRO_ROW_HEIGHT - arrow_layout.size().height) / 2.0),
+            );
+
+            // "To" label (replacement)
+            let to_layout = ctx
+                .text()
+                .new_text_layout(entry.to.clone())
+                .font(FontFamily::SYSTEM_UI, 13.0)
+                .text_color(TEXT_PRIMARY)
+                .build()
+                .unwrap();
+            let to_x = size.width / 2.0 + 20.0;
+            ctx.draw_text(
+                &to_layout,
+                (to_x, rect.y0 + (MACRO_ROW_HEIGHT - to_layout.size().height) / 2.0),
+            );
         }
     }
 }

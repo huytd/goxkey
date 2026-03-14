@@ -9,7 +9,8 @@ use super::{
     data::UIDataAdapter,
     format_letter_key, letter_key_to_char,
     selectors::{
-        ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, SET_EN_APP_FROM_PICKER, TOGGLE_APP_MODE,
+        ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO,
+        SET_EN_APP_FROM_PICKER, TOGGLE_APP_MODE,
     },
     SHOW_UI, UPDATE_UI,
 };
@@ -72,6 +73,17 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                         }
                     }
                     data.update();
+                }
+                if cmd.get(DELETE_SELECTED_MACRO).is_some() {
+                    let idx = data.selected_macro_index;
+                    if idx >= 0 {
+                        if let Some(entry) = data.macro_table.get(idx as usize) {
+                            let source = entry.from.clone();
+                            unsafe { INPUT_STATE.delete_macro(&source) };
+                        }
+                        data.selected_macro_index = -1;
+                        data.update();
+                    }
                 }
                 if cmd.get(DELETE_SELECTED_APP).is_some() {
                     let idx = data.selected_app_index;

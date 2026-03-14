@@ -47,6 +47,8 @@ pub struct UIDataAdapter {
     pub(super) active_tab: u32,
     // Apps tab selected row (combined vn+en list, -1 = none)
     pub(super) selected_app_index: i32,
+    // Text Expansion tab selected row (-1 = none)
+    pub(super) selected_macro_index: i32,
     // system tray
     pub(super) systray: SystemTray,
 }
@@ -74,6 +76,7 @@ impl UIDataAdapter {
             letter_key: String::from("Space"),
             active_tab: 0,
             selected_app_index: -1,
+            selected_macro_index: -1,
             systray: SystemTray::new(),
         };
         ret.setup_system_tray_actions();

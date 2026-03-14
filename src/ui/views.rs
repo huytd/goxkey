@@ -20,9 +20,10 @@ use super::{
     },
     controllers::UIController,
     data::{MacroEntry, UIDataAdapter},
-    selectors::{ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, SET_EN_APP_FROM_PICKER},
+    selectors::{ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO, SET_EN_APP_FROM_PICKER},
     widgets::{
-        AppsListWidget, HotkeyBadgesWidget, SegmentedControl, StyledCheckbox, TabBar, ToggleSwitch,
+        AppsListWidget, HotkeyBadgesWidget, MacroListWidget, SegmentedControl, StyledCheckbox,
+        TabBar, ToggleSwitch,
     },
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
@@ -502,81 +503,147 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
 }
 
 fn advanced_tab() -> impl Widget<UIDataAdapter> {
-    let macro_card = settings_card(
-        Flex::column()
-            .with_child(settings_row(
-                "Text expansion",
-                "Expand shorthand into full text",
-                StyledCheckbox.lens(UIDataAdapter::is_macro_enabled),
-            ))
-            .with_child(card_divider())
-            .with_child(
-                Flex::column()
-                    .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-                    .with_child(
-                        Painter::new(|ctx, _: &UIDataAdapter, _| {
-                            let layout = ctx
-                                .text()
-                                .new_text_layout("Macro table")
-                                .font(FontFamily::SYSTEM_UI, 12.0)
-                                .text_color(TEXT_SECONDARY)
-                                .build()
-                                .unwrap();
-                            ctx.draw_text(&layout, (0.0, 0.0));
-                        })
-                        .fix_height(16.0)
-                        .expand_width(),
-                    )
-                    .with_spacer(8.0)
-                    .with_flex_child(
-                        {
-                            let mut scroll = Scroll::new(
-                                List::new(macro_row_item)
-                                    .lens(UIDataAdapter::macro_table)
-                                    .expand_width(),
-                            );
-                            scroll.set_enabled_scrollbars(
-                                druid::scroll_component::ScrollbarsEnabled::Vertical,
-                            );
-                            scroll.set_horizontal_scroll_enabled(false);
-                            scroll
-                        }
-                        .expand(),
-                        1.0,
-                    )
-                    .with_spacer(8.0)
-                    .with_child(
-                        Flex::row()
-                            .with_flex_child(
-                                TextBox::new()
-                                    .with_placeholder("Shorthand")
-                                    .expand_width()
-                                    .lens(UIDataAdapter::new_macro_from),
-                                2.0,
-                            )
-                            .with_spacer(6.0)
-                            .with_flex_child(
-                                TextBox::new()
-                                    .with_placeholder("Replacement")
-                                    .expand_width()
-                                    .lens(UIDataAdapter::new_macro_to),
-                                2.0,
-                            )
-                            .with_spacer(6.0)
-                            .with_child(Button::new("Add").on_click(|ctx, _, _| {
-                                ctx.submit_command(ADD_MACRO.to(Target::Global))
-                            }))
-                            .expand_width(),
-                    )
-                    .expand_width()
-                    .padding((14.0, 10.0)),
+    let description = Painter::new(|ctx, _: &UIDataAdapter, _| {
+        let layout = ctx
+            .text()
+            .new_text_layout("Expand shorthand into full text automatically.")
+            .font(FontFamily::SYSTEM_UI, 13.0)
+            .text_color(TEXT_PRIMARY)
+            .build()
+            .unwrap();
+        ctx.draw_text(&layout, (0.0, 0.0));
+    })
+    .fix_height(18.0)
+    .expand_width();
+
+    let enable_row = settings_card(settings_row(
+        "Text expansion",
+        "Enable shorthand expansion",
+        ToggleSwitch.lens(UIDataAdapter::is_macro_enabled),
+    ));
+
+    let macro_list = {
+        let mut scroll = Scroll::new(MacroListWidget::new().expand_width());
+        scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
+        scroll.set_horizontal_scroll_enabled(false);
+        scroll
+    };
+
+    let add_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let layout = ctx
+            .text()
+            .new_text_layout("+")
+            .font(FontFamily::SYSTEM_UI, 18.0)
+            .text_color(TEXT_PRIMARY)
+            .build()
+            .unwrap();
+        ctx.draw_text(
+            &layout,
+            (
+                (size.width - layout.size().width) / 2.0,
+                (size.height - layout.size().height) / 2.0,
             ),
-    );
+        );
+    })
+    .fix_size(44.0, 44.0)
+    .on_click(|ctx, data: &mut UIDataAdapter, _| {
+        if !data.new_macro_from.is_empty() && !data.new_macro_to.is_empty() {
+            ctx.submit_command(ADD_MACRO.to(Target::Global));
+        }
+    });
+
+    let remove_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let is_enabled = data.selected_macro_index >= 0;
+        let color = if is_enabled {
+            TEXT_PRIMARY
+        } else {
+            Color::rgb8(187, 187, 187)
+        };
+        ctx.fill(Rect::new(0.0, 10.0, 0.5, size.height - 10.0), &DIVIDER);
+        let layout = ctx
+            .text()
+            .new_text_layout("−")
+            .font(FontFamily::SYSTEM_UI, 18.0)
+            .text_color(color)
+            .build()
+            .unwrap();
+        ctx.draw_text(
+            &layout,
+            (
+                (size.width - layout.size().width) / 2.0 + 0.5,
+                (size.height - layout.size().height) / 2.0,
+            ),
+        );
+    })
+    .fix_size(44.0, 44.0)
+    .on_click(|ctx, data: &mut UIDataAdapter, _| {
+        if data.selected_macro_index >= 0 {
+            ctx.submit_command(DELETE_SELECTED_MACRO.to(Target::Global));
+        }
+    });
+
+    let input_row = Flex::row()
+        .with_flex_child(
+            TextBox::new()
+                .with_placeholder("Shorthand")
+                .expand_width()
+                .lens(UIDataAdapter::new_macro_from),
+            1.0,
+        )
+        .with_spacer(6.0)
+        .with_flex_child(
+            TextBox::new()
+                .with_placeholder("Replacement")
+                .expand_width()
+                .lens(UIDataAdapter::new_macro_to),
+            2.0,
+        )
+        .expand_width()
+        .padding((8.0, 6.0));
+
+    let card = Container::new(
+        Flex::column()
+            .with_flex_child(macro_list.expand(), 1.0)
+            .with_child(
+                Painter::new(|ctx, _: &UIDataAdapter, _| {
+                    let w = ctx.size().width;
+                    ctx.fill(Rect::new(0.0, 0.0, w, 0.5), &DIVIDER);
+                })
+                .fix_height(0.5)
+                .expand_width(),
+            )
+            .with_child(input_row)
+            .with_child(
+                Painter::new(|ctx, _: &UIDataAdapter, _| {
+                    let w = ctx.size().width;
+                    ctx.fill(Rect::new(0.0, 0.0, w, 0.5), &DIVIDER);
+                })
+                .fix_height(0.5)
+                .expand_width(),
+            )
+            .with_child(
+                Flex::row()
+                    .with_child(add_btn)
+                    .with_child(remove_btn)
+                    .with_flex_spacer(1.0)
+                    .expand_width(),
+            ),
+    )
+    .background(CARD_BG)
+    .border(CARD_BORDER, 0.5)
+    .rounded(10.0);
 
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-        .with_child(section_label("Text expansion"))
-        .with_flex_child(macro_card.expand_height(), 1.0)
+        .with_child(description)
+        .with_spacer(12.0)
+        .with_child(enable_row)
+        .with_spacer(16.0)
+        .with_flex_child(card.expand_height(), 1.0)
+        .must_fill_main_axis(true)
+        .expand()
         .padding((24.0, 20.0, 24.0, 24.0))
 }
 
