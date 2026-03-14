@@ -35,7 +35,6 @@ pub struct UIDataAdapter {
     // App language settings
     pub(super) vn_apps: Arc<Vec<AppEntry>>,
     pub(super) en_apps: Arc<Vec<AppEntry>>,
-    pub(super) new_vn_app: String,
     pub(super) new_en_app: String,
     // Hotkey config
     pub(super) super_key: bool,
@@ -66,7 +65,6 @@ impl UIDataAdapter {
             new_macro_to: String::new(),
             vn_apps: Arc::new(Vec::new()),
             en_apps: Arc::new(Vec::new()),
-            new_vn_app: String::new(),
             new_en_app: String::new(),
             super_key: true,
             ctrl_key: true,

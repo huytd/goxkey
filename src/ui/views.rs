@@ -19,7 +19,7 @@ use super::{
         CARD_BG, CARD_BORDER, DIVIDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_SECTION, WIN_BG,
     },
     controllers::{LetterKeyController, UIController},
-    data::{AppEntry, MacroEntry, UIDataAdapter},
+    data::{MacroEntry, UIDataAdapter},
     selectors::{ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, SET_EN_APP_FROM_PICKER},
     widgets::{
         AppsListWidget, HotkeyBadgesWidget, SegmentedControl, StyledCheckbox, TabBar, ToggleSwitch,
@@ -736,31 +736,6 @@ fn macro_row_item() -> impl Widget<MacroEntry> {
         )
         .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Baseline)
-        .expand_width()
-        .border(Color::rgb8(224, 224, 224), 0.5)
-}
-
-fn app_row_item(delete_selector: druid::Selector<String>) -> impl Widget<AppEntry> {
-    Flex::row()
-        .with_flex_child(
-            Label::dynamic(|e: &AppEntry, _| {
-                std::path::Path::new(&e.name)
-                    .file_name()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or(&e.name)
-                    .to_string()
-            })
-            .with_line_break_mode(LineBreaking::Clip)
-            .align_left()
-            .padding((4.0, 2.0)),
-            1.0,
-        )
-        .with_child(Button::new("×").fix_width(28.0).on_click(
-            move |ctx, data: &mut AppEntry, _| {
-                ctx.submit_command(delete_selector.with(data.name.clone()).to(Target::Global))
-            },
-        ))
-        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
         .expand_width()
         .border(Color::rgb8(224, 224, 224), 0.5)
 }

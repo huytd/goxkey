@@ -9,8 +9,7 @@ use super::{
     data::UIDataAdapter,
     format_letter_key, letter_key_to_char,
     selectors::{
-        ADD_EN_APP, ADD_MACRO, ADD_VN_APP, DELETE_EN_APP, DELETE_MACRO, DELETE_SELECTED_APP,
-        DELETE_VN_APP, SET_EN_APP_FROM_PICKER, SET_VN_APP_FROM_PICKER, TOGGLE_APP_MODE,
+        ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, SET_EN_APP_FROM_PICKER, TOGGLE_APP_MODE,
     },
     SHOW_UI, UPDATE_UI,
 };
@@ -51,27 +50,6 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                     data.new_macro_from = String::new();
                     data.new_macro_to = String::new();
                     data.update();
-                }
-                if let Some(app_name) = cmd.get(DELETE_VN_APP) {
-                    unsafe { INPUT_STATE.remove_vietnamese_app(app_name) };
-                    data.update();
-                }
-                if let Some(app_name) = cmd.get(DELETE_EN_APP) {
-                    unsafe { INPUT_STATE.remove_english_app(app_name) };
-                    data.update();
-                }
-                if cmd.get(ADD_VN_APP).is_some() && !data.new_vn_app.is_empty() {
-                    unsafe { INPUT_STATE.add_vietnamese_app(&data.new_vn_app.clone()) };
-                    data.new_vn_app = String::new();
-                    data.update();
-                }
-                if cmd.get(ADD_EN_APP).is_some() && !data.new_en_app.is_empty() {
-                    unsafe { INPUT_STATE.add_english_app(&data.new_en_app.clone()) };
-                    data.new_en_app = String::new();
-                    data.update();
-                }
-                if let Some(name) = cmd.get(SET_VN_APP_FROM_PICKER) {
-                    data.new_vn_app = name.clone();
                 }
                 if let Some(name) = cmd.get(SET_EN_APP_FROM_PICKER) {
                     data.new_en_app = name.clone();
