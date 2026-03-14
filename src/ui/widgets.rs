@@ -227,19 +227,6 @@ impl Widget<TypingMethod> for SegmentedControl {
                 ctx.stroke(rr, &GREEN, 1.5);
             }
 
-            // Radio dot
-            let dot_cx = rect.x0 + 14.0;
-            let dot_cy = rect.y0 + rect.height() / 2.0;
-            let ring_color = if is_active {
-                GREEN
-            } else {
-                Color::rgb8(187, 187, 187)
-            };
-            ctx.stroke(Circle::new((dot_cx, dot_cy), 5.0), &ring_color, 1.5);
-            if is_active {
-                ctx.fill(Circle::new((dot_cx, dot_cy), 2.5), &GREEN);
-            }
-
             // Label text
             let text_color = if is_active {
                 GREEN
@@ -253,9 +240,22 @@ impl Widget<TypingMethod> for SegmentedControl {
                 .text_color(text_color)
                 .build()
                 .unwrap();
-            let text_x = rect.x0 + (rect.width() - layout.size().width + 14.0) / 2.0 + 7.0;
-            let text_y = rect.y0 + (rect.height() - layout.size().height) / 2.0;
+            let text_x = rect.x0 + (rect.width() - layout.size().width) / 2.0 + 7.0;
+            let text_y = rect.y0 + (rect.height() - layout.size().height) / 2.0 - 1.0;
             ctx.draw_text(&layout, (text_x, text_y));
+
+            // Radio dot
+            let dot_cx = text_x - 14.0;
+            let dot_cy = rect.y0 + rect.height() / 2.0;
+            let ring_color = if is_active {
+                GREEN
+            } else {
+                Color::rgb8(187, 187, 187)
+            };
+            ctx.stroke(Circle::new((dot_cx, dot_cy), 5.0), &ring_color, 1.5);
+            if is_active {
+                ctx.fill(Circle::new((dot_cx, dot_cy), 2.5), &GREEN);
+            }
         }
     }
 }
@@ -583,7 +583,11 @@ impl AppsListWidget {
             .map(|e| to_entry(e, true))
             .chain(data.en_apps.iter().map(|e| to_entry(e, false)))
             .collect();
-        entries.sort_by(|a, b| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase()));
+        entries.sort_by(|a, b| {
+            a.display_name
+                .to_lowercase()
+                .cmp(&b.display_name.to_lowercase())
+        });
         entries
     }
 
@@ -682,7 +686,12 @@ impl Widget<UIDataAdapter> for AppsListWidget {
                 let toggle_y = i as f64 * ROW_HEIGHT + (ROW_HEIGHT - bh) / 2.0;
                 [
                     Rect::new(toggle_x, toggle_y, toggle_x + opt_w, toggle_y + bh),
-                    Rect::new(toggle_x + opt_w + gap, toggle_y, toggle_x + toggle_w, toggle_y + bh),
+                    Rect::new(
+                        toggle_x + opt_w + gap,
+                        toggle_y,
+                        toggle_x + toggle_w,
+                        toggle_y + bh,
+                    ),
                 ]
             })
             .collect();
@@ -777,8 +786,10 @@ impl Widget<UIDataAdapter> for AppsListWidget {
                 let opt_rr = druid::kurbo::RoundedRectRadii::new(
                     corners[0], corners[1], corners[2], corners[3],
                 );
-                let opt_rect =
-                    RoundedRect::from_rect(Rect::new(opt_x, toggle_y, opt_x + opt_w, toggle_y + bh), opt_rr);
+                let opt_rect = RoundedRect::from_rect(
+                    Rect::new(opt_x, toggle_y, opt_x + opt_w, toggle_y + bh),
+                    opt_rr,
+                );
 
                 if *is_active {
                     ctx.fill(opt_rect, active_bg);
