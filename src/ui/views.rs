@@ -1,8 +1,4 @@
-use crate::{
-    input::TypingMethod,
-    platform::defer_open_app_file_picker,
-    UI_EVENT_SINK,
-};
+use crate::{input::TypingMethod, platform::defer_open_app_file_picker, UI_EVENT_SINK};
 use druid::{
     kurbo::RoundedRect,
     piet::{FontFamily, Text, TextLayout, TextLayoutBuilder},
@@ -20,7 +16,9 @@ use super::{
     },
     controllers::UIController,
     data::{MacroEntry, UIDataAdapter},
-    selectors::{ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO, SET_EN_APP_FROM_PICKER},
+    selectors::{
+        ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO, SET_EN_APP_FROM_PICKER,
+    },
     widgets::{
         AppsListWidget, HotkeyBadgesWidget, MacroListWidget, SegmentedControl, StyledCheckbox,
         TabBar, ToggleSwitch,
@@ -194,20 +192,11 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
             ),
     );
 
-    let system_card = settings_card(
-        Flex::column()
-            .with_child(settings_row(
-                "Launch at login",
-                "Start gõkey when you log in",
-                StyledCheckbox.lens(UIDataAdapter::launch_on_login),
-            ))
-            .with_child(card_divider())
-            .with_child(settings_row(
-                "Per-app toggle",
-                "Enable/disable per application",
-                StyledCheckbox.lens(UIDataAdapter::is_auto_toggle_enabled),
-            )),
-    );
+    let system_card = settings_card(settings_row(
+        "Launch at login",
+        "Start gõkey when you log in",
+        StyledCheckbox.lens(UIDataAdapter::launch_on_login),
+    ));
 
     let shortcut_card = settings_card(
         Flex::row()
@@ -490,10 +479,18 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
     .border(CARD_BORDER, 0.5)
     .rounded(10.0);
 
+    let per_app_toggle_card = settings_card(settings_row(
+        "Per-app toggle",
+        "Enable/disable per application",
+        ToggleSwitch.lens(UIDataAdapter::is_auto_toggle_enabled),
+    ));
+
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
         .with_child(description)
         .with_spacer(12.0)
+        .with_child(per_app_toggle_card)
+        .with_spacer(16.0)
         .with_child(legend)
         .with_spacer(12.0)
         .with_flex_child(card.expand_height(), 1.0)
