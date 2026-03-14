@@ -710,40 +710,64 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
 }
 
 pub fn permission_request_ui_builder() -> impl Widget<()> {
+    use super::colors::{CARD_BORDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY, WIN_BG};
     let image_data = ImageBuf::from_data(include_bytes!("../../assets/accessibility.png")).unwrap();
+
+    let title_label = Label::new("Chờ đã! Bạn cần phải cấp quyền Accessibility cho ứng dụng GõKey trước khi sử dụng.")
+        .with_text_color(TEXT_PRIMARY)
+        .with_font(druid::FontDescriptor::new(FontFamily::SYSTEM_UI).with_size(13.0))
+        .with_line_break_mode(LineBreaking::WordWrap);
+
+    let img_container = Container::new(
+        Image::new(image_data).fill_mode(FillStrat::Cover)
+    )
+    .rounded(8.0)
+    .border(CARD_BORDER, 1.0);
+
+    let subtitle_label = Label::new("Bạn vui lòng thoát khỏi ứng dụng và mở lại sau khi đã cấp quyền.")
+        .with_text_color(TEXT_SECONDARY)
+        .with_font(druid::FontDescriptor::new(FontFamily::SYSTEM_UI).with_size(12.0))
+        .with_line_break_mode(LineBreaking::WordWrap);
+
+    let exit_btn = Painter::new(|ctx, _: &(), _| {
+        let size = ctx.size();
+        let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
+        ctx.fill(rr, &GREEN);
+        let layout = ctx
+            .text()
+            .new_text_layout("Thoát")
+            .font(FontFamily::SYSTEM_UI, 13.0)
+            .text_color(Color::WHITE)
+            .build()
+            .unwrap();
+        ctx.draw_text(
+            &layout,
+            (
+                (size.width - layout.size().width) / 2.0,
+                (size.height - layout.size().height) / 2.0,
+            ),
+        );
+    })
+    .fix_size(90.0, 30.0)
+    .on_click(|_, _, _| Application::global().quit());
+
+    let buttons = Flex::row()
+        .with_flex_spacer(1.0)
+        .with_child(exit_btn)
+        .expand_width();
+
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
         .main_axis_alignment(druid::widget::MainAxisAlignment::Start)
-        .with_child(
-            Label::new("Chờ đã! Bạn cần phải cấp quyền Accessibility cho ứng dụng GõKey trước khi sử dụng.")
-                .with_line_break_mode(LineBreaking::WordWrap)
-                .padding(6.0),
-        )
-        .with_child(
-            Container::new(Image::new(image_data).fill_mode(FillStrat::Cover))
-                .rounded(4.0)
-                .padding(6.0),
-        )
-        .with_child(
-            Label::new("Bạn vui lòng thoát khỏi ứng dụng và mở lại sau khi đã cấp quyền.")
-                .with_line_break_mode(LineBreaking::WordWrap)
-                .padding(6.0),
-        )
-        .with_child(
-            Flex::row()
-                .cross_axis_alignment(druid::widget::CrossAxisAlignment::End)
-                .main_axis_alignment(druid::widget::MainAxisAlignment::End)
-                .with_child(
-                    Button::new("Thoát")
-                        .fix_width(100.0)
-                        .fix_height(28.0)
-                        .on_click(|_, _, _| Application::global().quit())
-                        .padding(6.0),
-                )
-                .must_fill_main_axis(true),
-        )
-        .must_fill_main_axis(true)
-        .padding(6.0)
+        .with_child(title_label)
+        .with_spacer(16.0)
+        .with_child(img_container)
+        .with_spacer(16.0)
+        .with_child(subtitle_label)
+        .with_flex_spacer(1.0)
+        .with_child(buttons)
+        .padding((24.0, 20.0, 24.0, 20.0))
+        .background(WIN_BG)
 }
 
 pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
