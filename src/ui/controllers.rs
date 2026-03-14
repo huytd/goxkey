@@ -11,8 +11,8 @@ use super::{
     format_letter_key, letter_key_to_char,
     selectors::{
         ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO,
-        SAVE_SHORTCUT, SET_EN_APP_FROM_PICKER, SHOW_ADD_MACRO_DIALOG, SHOW_EDIT_SHORTCUT_DIALOG,
-        TOGGLE_APP_MODE,
+        RESET_DEFAULTS, SAVE_SHORTCUT, SET_EN_APP_FROM_PICKER, SHOW_ADD_MACRO_DIALOG,
+        SHOW_EDIT_SHORTCUT_DIALOG, TOGGLE_APP_MODE,
     },
     SHOW_UI, UPDATE_UI, ADD_MACRO_DIALOG_HEIGHT, ADD_MACRO_DIALOG_WIDTH,
     EDIT_SHORTCUT_DIALOG_HEIGHT, EDIT_SHORTCUT_DIALOG_WIDTH,
@@ -161,6 +161,20 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                         data.selected_app_index = -1;
                         data.update();
                     }
+                }
+                if cmd.get(RESET_DEFAULTS).is_some() {
+                    unsafe {
+                        if !INPUT_STATE.is_enabled() {
+                            INPUT_STATE.toggle_vietnamese();
+                        }
+                        INPUT_STATE.set_method(crate::input::TypingMethod::Telex);
+                        INPUT_STATE.set_hotkey("ctrl+space");
+                    }
+                    if let Err(err) = update_launch_on_login(true) {
+                        error!("{}", err);
+                    }
+                    data.update();
+                    ctx.set_handled();
                 }
             }
             Event::WindowCloseRequested => {

@@ -12,3 +12,4 @@ pub(super) const SHOW_EDIT_SHORTCUT_DIALOG: Selector =
     Selector::new("gox-ui.show-edit-shortcut-dialog");
 pub(super) const SAVE_SHORTCUT: Selector<(bool, bool, bool, bool, String)> =
     Selector::new("gox-ui.save-shortcut");
+pub(super) const RESET_DEFAULTS: Selector = Selector::new("gox-ui.reset-defaults");

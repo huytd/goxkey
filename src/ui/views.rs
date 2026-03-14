@@ -303,7 +303,10 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                     ),
                 );
             })
-            .fix_size(120.0, 30.0),
+            .fix_size(120.0, 30.0)
+            .on_click(|ctx, _data: &mut UIDataAdapter, _env| {
+                ctx.submit_command(super::selectors::RESET_DEFAULTS);
+            }),
         )
         .with_spacer(8.0)
         .with_child(
