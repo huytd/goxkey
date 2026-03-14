@@ -2,8 +2,8 @@ mod colors;
 mod controllers;
 mod data;
 mod selectors;
-mod widgets;
 mod views;
+mod widgets;
 
 use druid::Selector;
 

@@ -1,31 +1,29 @@
 use crate::{
     input::TypingMethod,
-    platform::{
-        defer_open_app_file_picker, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
-    },
+    platform::{defer_open_app_file_picker, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER},
     UI_EVENT_SINK,
 };
 use druid::{
     kurbo::RoundedRect,
     piet::{FontFamily, Text, TextLayout, TextLayoutBuilder},
     widget::{
-        Button, Container, FillStrat, Flex, Image, Label, LineBreaking, List,
-        Painter, Scroll, TextBox, ViewSwitcher,
+        Button, Container, FillStrat, Flex, Image, Label, LineBreaking, List, Painter, Scroll,
+        TextBox, ViewSwitcher,
     },
-    Application, Color, ImageBuf, RenderContext, Rect, Screen,
-    Target, Widget, WidgetExt,
+    Application, Color, ImageBuf, Rect, RenderContext, Screen, Target, Widget, WidgetExt,
 };
 
 use super::{
     colors::{
-        BADGE_EN_BG, BADGE_EN_BORDER, BADGE_VI_BG, BADGE_VI_BORDER, BTN_RESET_BG,
-        BTN_RESET_BORDER, CARD_BG, CARD_BORDER, DIVIDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY,
-        TEXT_SECTION, WIN_BG,
+        BADGE_EN_BG, BADGE_EN_BORDER, BADGE_VI_BG, BADGE_VI_BORDER, BTN_RESET_BG, BTN_RESET_BORDER,
+        CARD_BG, CARD_BORDER, DIVIDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_SECTION, WIN_BG,
     },
     controllers::{LetterKeyController, UIController},
     data::{AppEntry, MacroEntry, UIDataAdapter},
     selectors::{ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, SET_EN_APP_FROM_PICKER},
-    widgets::{AppsListWidget, HotkeyBadgesWidget, SegmentedControl, StyledCheckbox, TabBar, ToggleSwitch},
+    widgets::{
+        AppsListWidget, HotkeyBadgesWidget, SegmentedControl, StyledCheckbox, TabBar, ToggleSwitch,
+    },
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 
@@ -151,13 +149,11 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                             ),
                         1.0,
                     )
-                    .with_child(
-                        ToggleSwitch
-                            .lens(UIDataAdapter::is_enabled)
-                            .on_click(|_, data: &mut UIDataAdapter, _| {
-                                data.toggle_vietnamese();
-                            }),
-                    )
+                    .with_child(ToggleSwitch.lens(UIDataAdapter::is_enabled).on_click(
+                        |_, data: &mut UIDataAdapter, _| {
+                            data.toggle_vietnamese();
+                        },
+                    ))
                     .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
                     .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
                     .must_fill_main_axis(true)
@@ -272,7 +268,10 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                     .unwrap();
                 ctx.draw_text(
                     &layout,
-                    ((size.width - layout.size().width) / 2.0, (size.height - layout.size().height) / 2.0),
+                    (
+                        (size.width - layout.size().width) / 2.0,
+                        (size.height - layout.size().height) / 2.0,
+                    ),
                 );
             })
             .fix_size(120.0, 30.0),
@@ -292,7 +291,10 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                     .unwrap();
                 ctx.draw_text(
                     &layout,
-                    ((size.width - layout.size().width) / 2.0, (size.height - layout.size().height) / 2.0),
+                    (
+                        (size.width - layout.size().width) / 2.0,
+                        (size.height - layout.size().height) / 2.0,
+                    ),
                 );
             })
             .fix_size(70.0, 30.0)
@@ -347,7 +349,13 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
         let vi_rr = RoundedRect::new(x, badge_y, x + bw, badge_y + bh, 5.0);
         ctx.fill(vi_rr, &BADGE_VI_BG);
         ctx.stroke(vi_rr, &BADGE_VI_BORDER, 1.0);
-        ctx.draw_text(&vi_layout, (x + (bw - vi_layout.size().width) / 2.0, badge_y + (bh - vi_layout.size().height) / 2.0));
+        ctx.draw_text(
+            &vi_layout,
+            (
+                x + (bw - vi_layout.size().width) / 2.0,
+                badge_y + (bh - vi_layout.size().height) / 2.0,
+            ),
+        );
         x += bw + 8.0;
 
         let vn_label = ctx
@@ -371,7 +379,13 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
         let en_rr = RoundedRect::new(x, badge_y, x + bw_en, badge_y + bh, 5.0);
         ctx.fill(en_rr, &BADGE_EN_BG);
         ctx.stroke(en_rr, &BADGE_EN_BORDER, 1.0);
-        ctx.draw_text(&en_layout, (x + (bw_en - en_layout.size().width) / 2.0, badge_y + (bh - en_layout.size().height) / 2.0));
+        ctx.draw_text(
+            &en_layout,
+            (
+                x + (bw_en - en_layout.size().width) / 2.0,
+                badge_y + (bh - en_layout.size().height) / 2.0,
+            ),
+        );
         x += bw_en + 8.0;
 
         let en_label = ctx
@@ -402,7 +416,13 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
             .text_color(TEXT_PRIMARY)
             .build()
             .unwrap();
-        ctx.draw_text(&layout, ((size.width - layout.size().width) / 2.0, (size.height - layout.size().height) / 2.0));
+        ctx.draw_text(
+            &layout,
+            (
+                (size.width - layout.size().width) / 2.0,
+                (size.height - layout.size().height) / 2.0,
+            ),
+        );
     })
     .fix_size(44.0, 44.0)
     .on_click(|_, _, _| {
@@ -418,7 +438,11 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
     let remove_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
         let size = ctx.size();
         let is_enabled = data.selected_app_index >= 0;
-        let color = if is_enabled { TEXT_PRIMARY } else { Color::rgb8(187, 187, 187) };
+        let color = if is_enabled {
+            TEXT_PRIMARY
+        } else {
+            Color::rgb8(187, 187, 187)
+        };
         ctx.fill(Rect::new(0.0, 10.0, 0.5, size.height - 10.0), &DIVIDER);
         let layout = ctx
             .text()
@@ -427,7 +451,13 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
             .text_color(color)
             .build()
             .unwrap();
-        ctx.draw_text(&layout, ((size.width - layout.size().width) / 2.0 + 0.5, (size.height - layout.size().height) / 2.0));
+        ctx.draw_text(
+            &layout,
+            (
+                (size.width - layout.size().width) / 2.0 + 0.5,
+                (size.height - layout.size().height) / 2.0,
+            ),
+        );
     })
     .fix_size(44.0, 44.0)
     .on_click(|ctx, data: &mut UIDataAdapter, _| {
@@ -569,7 +599,10 @@ fn shortcuts_tab() -> impl Widget<UIDataAdapter> {
 }
 
 fn modifier_row() -> impl Widget<UIDataAdapter> {
-    fn modifier_checkbox(lens: impl druid::Lens<UIDataAdapter, bool> + 'static, symbol: &'static str) -> impl Widget<UIDataAdapter> {
+    fn modifier_checkbox(
+        lens: impl druid::Lens<UIDataAdapter, bool> + 'static,
+        symbol: &'static str,
+    ) -> impl Widget<UIDataAdapter> {
         Flex::row()
             .with_child(StyledCheckbox.lens(lens).padding((0.0, 0.0, 6.0, 0.0)))
             .with_child(
@@ -634,7 +667,9 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
                                     .lens(UIDataAdapter::macro_table)
                                     .expand_width(),
                             );
-                            scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
+                            scroll.set_enabled_scrollbars(
+                                druid::scroll_component::ScrollbarsEnabled::Vertical,
+                            );
                             scroll.set_horizontal_scroll_enabled(false);
                             scroll
                         }
@@ -720,13 +755,11 @@ fn app_row_item(delete_selector: druid::Selector<String>) -> impl Widget<AppEntr
             .padding((4.0, 2.0)),
             1.0,
         )
-        .with_child(
-            Button::new("×")
-                .fix_width(28.0)
-                .on_click(move |ctx, data: &mut AppEntry, _| {
-                    ctx.submit_command(delete_selector.with(data.name.clone()).to(Target::Global))
-                }),
-        )
+        .with_child(Button::new("×").fix_width(28.0).on_click(
+            move |ctx, data: &mut AppEntry, _| {
+                ctx.submit_command(delete_selector.with(data.name.clone()).to(Target::Global))
+            },
+        ))
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
         .expand_width()
         .border(Color::rgb8(224, 224, 224), 0.5)
@@ -736,7 +769,11 @@ fn app_row_item(delete_selector: druid::Selector<String>) -> impl Widget<AppEntr
 
 pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
     Flex::column()
-        .with_child(TabBar::new().lens(UIDataAdapter::active_tab).fix_height(58.0))
+        .with_child(
+            TabBar::new()
+                .lens(UIDataAdapter::active_tab)
+                .fix_height(58.0),
+        )
         .with_flex_child(
             ViewSwitcher::new(
                 |data: &UIDataAdapter, _env| data.active_tab,

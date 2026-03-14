@@ -7,7 +7,7 @@ use crate::{
 };
 use druid::{commands::QUIT_APP, Data, Lens, Target};
 
-use super::{format_letter_key, UPDATE_UI, SHOW_UI};
+use super::{format_letter_key, SHOW_UI, UPDATE_UI};
 
 #[derive(Clone, Data, PartialEq, Eq)]
 pub(super) struct MacroEntry {
@@ -125,7 +125,11 @@ impl UIDataAdapter {
 
             match self.is_enabled {
                 true => {
-                    let title = if INPUT_STATE.is_gox_mode_enabled() { "gõ" } else { "VN" };
+                    let title = if INPUT_STATE.is_gox_mode_enabled() {
+                        "gõ"
+                    } else {
+                        "VN"
+                    };
                     self.systray.set_title(title);
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::Enable, "Tắt gõ tiếng Việt");
@@ -151,24 +155,30 @@ impl UIDataAdapter {
                         .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelex, "Telex");
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodVNI, "VNI ✓");
-                    self.systray
-                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelexVNI, "Telex+VNI");
+                    self.systray.set_menu_item_title(
+                        SystemTrayMenuItemKey::TypingMethodTelexVNI,
+                        "Telex+VNI",
+                    );
                 }
                 TypingMethod::Telex => {
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelex, "Telex ✓");
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodVNI, "VNI");
-                    self.systray
-                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelexVNI, "Telex+VNI");
+                    self.systray.set_menu_item_title(
+                        SystemTrayMenuItemKey::TypingMethodTelexVNI,
+                        "Telex+VNI",
+                    );
                 }
                 TypingMethod::TelexVNI => {
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelex, "Telex");
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodVNI, "VNI");
-                    self.systray
-                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelexVNI, "Telex+VNI ✓");
+                    self.systray.set_menu_item_title(
+                        SystemTrayMenuItemKey::TypingMethodTelexVNI,
+                        "Telex+VNI ✓",
+                    );
                 }
             }
         }
@@ -183,28 +193,36 @@ impl UIDataAdapter {
             });
         self.systray
             .set_menu_item_callback(SystemTrayMenuItemKey::Enable, || {
-                unsafe { INPUT_STATE.toggle_vietnamese(); }
+                unsafe {
+                    INPUT_STATE.toggle_vietnamese();
+                }
                 UI_EVENT_SINK
                     .get()
                     .map(|event| Some(event.submit_command(UPDATE_UI, (), Target::Auto)));
             });
         self.systray
             .set_menu_item_callback(SystemTrayMenuItemKey::TypingMethodTelex, || {
-                unsafe { INPUT_STATE.set_method(TypingMethod::Telex); }
+                unsafe {
+                    INPUT_STATE.set_method(TypingMethod::Telex);
+                }
                 UI_EVENT_SINK
                     .get()
                     .map(|event| Some(event.submit_command(UPDATE_UI, (), Target::Auto)));
             });
         self.systray
             .set_menu_item_callback(SystemTrayMenuItemKey::TypingMethodVNI, || {
-                unsafe { INPUT_STATE.set_method(TypingMethod::VNI); }
+                unsafe {
+                    INPUT_STATE.set_method(TypingMethod::VNI);
+                }
                 UI_EVENT_SINK
                     .get()
                     .map(|event| Some(event.submit_command(UPDATE_UI, (), Target::Auto)));
             });
         self.systray
             .set_menu_item_callback(SystemTrayMenuItemKey::TypingMethodTelexVNI, || {
-                unsafe { INPUT_STATE.set_method(TypingMethod::TelexVNI); }
+                unsafe {
+                    INPUT_STATE.set_method(TypingMethod::TelexVNI);
+                }
                 UI_EVENT_SINK
                     .get()
                     .map(|event| Some(event.submit_command(UPDATE_UI, (), Target::Auto)));
@@ -218,7 +236,9 @@ impl UIDataAdapter {
     }
 
     pub fn toggle_vietnamese(&mut self) {
-        unsafe { INPUT_STATE.toggle_vietnamese(); }
+        unsafe {
+            INPUT_STATE.toggle_vietnamese();
+        }
         self.update();
     }
 }

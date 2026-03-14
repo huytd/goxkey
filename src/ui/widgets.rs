@@ -2,8 +2,8 @@ use crate::input::TypingMethod;
 use druid::{
     kurbo::{BezPath, Circle, RoundedRect},
     piet::{FontFamily, Text, TextLayout, TextLayoutBuilder},
-    BoxConstraints, Color, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx,
-    PaintCtx, Point, Rect, RenderContext, Size, UpdateCtx, Widget, WidgetPod,
+    BoxConstraints, Color, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx,
+    Point, Rect, RenderContext, Size, UpdateCtx, Widget, WidgetPod,
 };
 
 use super::{
@@ -38,7 +38,8 @@ impl Widget<bool> for ToggleSwitch {
         }
     }
 
-    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &bool, _env: &Env) {}
+    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &bool, _env: &Env) {
+    }
 
     fn update(&mut self, ctx: &mut UpdateCtx, old_data: &bool, data: &bool, _env: &Env) {
         if old_data != data {
@@ -46,7 +47,13 @@ impl Widget<bool> for ToggleSwitch {
         }
     }
 
-    fn layout(&mut self, _ctx: &mut LayoutCtx, _bc: &BoxConstraints, _data: &bool, _env: &Env) -> Size {
+    fn layout(
+        &mut self,
+        _ctx: &mut LayoutCtx,
+        _bc: &BoxConstraints,
+        _data: &bool,
+        _env: &Env,
+    ) -> Size {
         Size::new(36.0, 20.0)
     }
 
@@ -54,12 +61,19 @@ impl Widget<bool> for ToggleSwitch {
         let size = ctx.size();
         let radius = size.height / 2.0;
         let track_rect = RoundedRect::new(0.0, 0.0, size.width, size.height, radius);
-        let track_color = if *data { GREEN } else { Color::rgb8(187, 187, 187) };
+        let track_color = if *data {
+            GREEN
+        } else {
+            Color::rgb8(187, 187, 187)
+        };
         ctx.fill(track_rect, &track_color);
 
         let knob_r = radius - 2.0;
         let knob_x = if *data { size.width - radius } else { radius };
-        ctx.fill(Circle::new(Point::new(knob_x, size.height / 2.0), knob_r), &Color::WHITE);
+        ctx.fill(
+            Circle::new(Point::new(knob_x, size.height / 2.0), knob_r),
+            &Color::WHITE,
+        );
     }
 }
 
@@ -87,7 +101,8 @@ impl Widget<bool> for StyledCheckbox {
         }
     }
 
-    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &bool, _env: &Env) {}
+    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &bool, _env: &Env) {
+    }
 
     fn update(&mut self, ctx: &mut UpdateCtx, old_data: &bool, data: &bool, _env: &Env) {
         if old_data != data {
@@ -95,7 +110,13 @@ impl Widget<bool> for StyledCheckbox {
         }
     }
 
-    fn layout(&mut self, _ctx: &mut LayoutCtx, _bc: &BoxConstraints, _data: &bool, _env: &Env) -> Size {
+    fn layout(
+        &mut self,
+        _ctx: &mut LayoutCtx,
+        _bc: &BoxConstraints,
+        _data: &bool,
+        _env: &Env,
+    ) -> Size {
         Size::new(18.0, 18.0)
     }
 
@@ -127,7 +148,10 @@ pub(super) struct SegmentedControl {
 impl SegmentedControl {
     pub(super) fn new(options: Vec<(&str, TypingMethod)>) -> Self {
         Self {
-            options: options.into_iter().map(|(s, m)| (s.to_string(), m)).collect(),
+            options: options
+                .into_iter()
+                .map(|(s, m)| (s.to_string(), m))
+                .collect(),
             rects: Vec::new(),
         }
     }
@@ -146,15 +170,34 @@ impl Widget<TypingMethod> for SegmentedControl {
         }
     }
 
-    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &TypingMethod, _env: &Env) {}
+    fn lifecycle(
+        &mut self,
+        _ctx: &mut LifeCycleCtx,
+        _event: &LifeCycle,
+        _data: &TypingMethod,
+        _env: &Env,
+    ) {
+    }
 
-    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &TypingMethod, data: &TypingMethod, _env: &Env) {
+    fn update(
+        &mut self,
+        ctx: &mut UpdateCtx,
+        old_data: &TypingMethod,
+        data: &TypingMethod,
+        _env: &Env,
+    ) {
         if old_data != data {
             ctx.request_paint();
         }
     }
 
-    fn layout(&mut self, _ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &TypingMethod, _env: &Env) -> Size {
+    fn layout(
+        &mut self,
+        _ctx: &mut LayoutCtx,
+        bc: &BoxConstraints,
+        _data: &TypingMethod,
+        _env: &Env,
+    ) -> Size {
         let w = bc.max().width;
         let h = 34.0;
         let n = self.options.len() as f64;
@@ -175,25 +218,33 @@ impl Widget<TypingMethod> for SegmentedControl {
             let is_active = method == data;
             let rr = RoundedRect::new(rect.x0, rect.y0, rect.x1, rect.y1, 8.0);
 
+            ctx.fill(rr, &Color::WHITE);
+            ctx.stroke(rr, &Color::rgb8(221, 221, 221), 1.5);
+
             if is_active {
                 ctx.fill(rr, &GREEN_BG);
                 ctx.stroke(rr, &GREEN, 1.5);
-            } else {
-                ctx.fill(rr, &Color::WHITE);
-                ctx.stroke(rr, &Color::rgb8(221, 221, 221), 0.5);
             }
 
             // Radio dot
             let dot_cx = rect.x0 + 14.0;
             let dot_cy = rect.y0 + rect.height() / 2.0;
-            let ring_color = if is_active { GREEN } else { Color::rgb8(187, 187, 187) };
+            let ring_color = if is_active {
+                GREEN
+            } else {
+                Color::rgb8(187, 187, 187)
+            };
             ctx.stroke(Circle::new((dot_cx, dot_cy), 5.0), &ring_color, 1.5);
             if is_active {
                 ctx.fill(Circle::new((dot_cx, dot_cy), 2.5), &GREEN);
             }
 
             // Label text
-            let text_color = if is_active { GREEN } else { Color::rgb8(136, 136, 136) };
+            let text_color = if is_active {
+                GREEN
+            } else {
+                Color::rgb8(136, 136, 136)
+            };
             let layout = ctx
                 .text()
                 .new_text_layout(label.clone())
@@ -218,12 +269,20 @@ pub(super) struct TabBar {
 
 impl TabBar {
     pub(super) fn new() -> Self {
-        Self { tab_rects: Vec::new() }
+        Self {
+            tab_rects: Vec::new(),
+        }
     }
 
     fn draw_icon_general(ctx: &mut PaintCtx, cx: f64, cy: f64, color: &Color) {
         for (w, y_off) in [(14.0, -4.5), (9.0, 0.0), (11.0, 4.5)] {
-            let rr = RoundedRect::new(cx - 7.0, cy + y_off - 1.5, cx - 7.0 + w, cy + y_off + 1.5, 1.5);
+            let rr = RoundedRect::new(
+                cx - 7.0,
+                cy + y_off - 1.5,
+                cx - 7.0 + w,
+                cy + y_off + 1.5,
+                1.5,
+            );
             ctx.fill(rr, color);
         }
     }
@@ -236,9 +295,19 @@ impl TabBar {
     }
 
     fn draw_icon_shortcuts(ctx: &mut PaintCtx, cx: f64, cy: f64, color: &Color) {
-        ctx.stroke(RoundedRect::new(cx - 8.0, cy - 5.0, cx + 8.0, cy + 5.0, 2.0), color, 1.5);
-        ctx.fill(RoundedRect::new(cx - 6.0, cy - 1.5, cx - 2.0, cy + 1.5, 1.0), color);
-        ctx.fill(RoundedRect::new(cx + 2.0, cy - 1.5, cx + 6.0, cy + 1.5, 1.0), color);
+        ctx.stroke(
+            RoundedRect::new(cx - 8.0, cy - 5.0, cx + 8.0, cy + 5.0, 2.0),
+            color,
+            1.5,
+        );
+        ctx.fill(
+            RoundedRect::new(cx - 6.0, cy - 1.5, cx - 2.0, cy + 1.5, 1.0),
+            color,
+        );
+        ctx.fill(
+            RoundedRect::new(cx + 2.0, cy - 1.5, cx + 6.0, cy + 1.5, 1.0),
+            color,
+        );
     }
 
     fn draw_icon_advanced(ctx: &mut PaintCtx, cx: f64, cy: f64, color: &Color) {
@@ -275,7 +344,13 @@ impl Widget<u32> for TabBar {
         }
     }
 
-    fn layout(&mut self, _ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &u32, _env: &Env) -> Size {
+    fn layout(
+        &mut self,
+        _ctx: &mut LayoutCtx,
+        bc: &BoxConstraints,
+        _data: &u32,
+        _env: &Env,
+    ) -> Size {
         let w = bc.max().width;
         let h = 58.0;
         let tab_w = w / 4.0;
@@ -304,7 +379,11 @@ impl Widget<u32> for TabBar {
 
         for (i, rect) in self.tab_rects.iter().enumerate() {
             let is_active = i as u32 == *data;
-            let color = if is_active { GREEN } else { Color::rgb8(153, 153, 153) };
+            let color = if is_active {
+                GREEN
+            } else {
+                Color::rgb8(153, 153, 153)
+            };
             let cx = rect.x0 + rect.width() / 2.0;
             let icon_cy = rect.y0 + 18.0;
 
@@ -320,7 +399,10 @@ impl Widget<u32> for TabBar {
             ctx.draw_text(&layout, (cx - layout.size().width / 2.0, icon_cy + 11.0));
 
             if is_active {
-                ctx.fill(Rect::new(rect.x0, size.height - 2.0, rect.x1, size.height), &GREEN);
+                ctx.fill(
+                    Rect::new(rect.x0, size.height - 2.0, rect.x1, size.height),
+                    &GREEN,
+                );
             }
         }
     }
@@ -336,7 +418,9 @@ pub(super) struct KeyBadge {
 
 impl KeyBadge {
     pub(super) fn new(label: impl Into<String>) -> Self {
-        Self { label: label.into() }
+        Self {
+            label: label.into(),
+        }
     }
 }
 
@@ -345,7 +429,13 @@ impl Widget<()> for KeyBadge {
     fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &(), _env: &Env) {}
     fn update(&mut self, _ctx: &mut UpdateCtx, _old: &(), _data: &(), _env: &Env) {}
 
-    fn layout(&mut self, _ctx: &mut LayoutCtx, _bc: &BoxConstraints, _data: &(), _env: &Env) -> Size {
+    fn layout(
+        &mut self,
+        _ctx: &mut LayoutCtx,
+        _bc: &BoxConstraints,
+        _data: &(),
+        _env: &Env,
+    ) -> Size {
         let char_w = self.label.chars().count() as f64 * 8.0;
         Size::new((char_w + 14.0).max(26.0), 24.0)
     }
@@ -380,7 +470,10 @@ pub(super) struct HotkeyBadgesWidget {
 
 impl HotkeyBadgesWidget {
     pub(super) fn new() -> Self {
-        Self { badges: Vec::new(), last_display: String::new() }
+        Self {
+            badges: Vec::new(),
+            last_display: String::new(),
+        }
     }
 
     fn rebuild_badges(&mut self, display: &str) {
@@ -399,7 +492,13 @@ impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
         }
     }
 
-    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &UIDataAdapter, env: &Env) {
+    fn lifecycle(
+        &mut self,
+        ctx: &mut LifeCycleCtx,
+        event: &LifeCycle,
+        data: &UIDataAdapter,
+        env: &Env,
+    ) {
         if let LifeCycle::WidgetAdded = event {
             self.rebuild_badges(&data.hotkey_display);
         }
@@ -408,7 +507,13 @@ impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
         }
     }
 
-    fn update(&mut self, ctx: &mut UpdateCtx, _old: &UIDataAdapter, data: &UIDataAdapter, env: &Env) {
+    fn update(
+        &mut self,
+        ctx: &mut UpdateCtx,
+        _old: &UIDataAdapter,
+        data: &UIDataAdapter,
+        env: &Env,
+    ) {
         if data.hotkey_display != self.last_display {
             self.rebuild_badges(&data.hotkey_display);
             ctx.children_changed();
@@ -418,7 +523,13 @@ impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
         }
     }
 
-    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &UIDataAdapter, env: &Env) -> Size {
+    fn layout(
+        &mut self,
+        ctx: &mut LayoutCtx,
+        bc: &BoxConstraints,
+        _data: &UIDataAdapter,
+        env: &Env,
+    ) -> Size {
         let gap = 4.0;
         let mut x = 0.0;
         let mut max_h = 0.0f64;
@@ -521,9 +632,22 @@ impl Widget<UIDataAdapter> for AppsListWidget {
         }
     }
 
-    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &UIDataAdapter, _env: &Env) {}
+    fn lifecycle(
+        &mut self,
+        _ctx: &mut LifeCycleCtx,
+        _event: &LifeCycle,
+        _data: &UIDataAdapter,
+        _env: &Env,
+    ) {
+    }
 
-    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &UIDataAdapter, data: &UIDataAdapter, _env: &Env) {
+    fn update(
+        &mut self,
+        ctx: &mut UpdateCtx,
+        old_data: &UIDataAdapter,
+        data: &UIDataAdapter,
+        _env: &Env,
+    ) {
         if old_data.vn_apps != data.vn_apps
             || old_data.en_apps != data.en_apps
             || old_data.selected_app_index != data.selected_app_index
@@ -532,7 +656,13 @@ impl Widget<UIDataAdapter> for AppsListWidget {
         }
     }
 
-    fn layout(&mut self, _ctx: &mut LayoutCtx, bc: &BoxConstraints, data: &UIDataAdapter, _env: &Env) -> Size {
+    fn layout(
+        &mut self,
+        _ctx: &mut LayoutCtx,
+        bc: &BoxConstraints,
+        data: &UIDataAdapter,
+        _env: &Env,
+    ) -> Size {
         let entries = Self::build_entries(data);
         let w = bc.max().width;
         self.row_rects = entries
@@ -559,14 +689,21 @@ impl Widget<UIDataAdapter> for AppsListWidget {
             }
 
             if i > 0 {
-                ctx.fill(Rect::new(54.0, rect.y0, size.width - 14.0, rect.y0 + 0.5), &DIVIDER);
+                ctx.fill(
+                    Rect::new(54.0, rect.y0, size.width - 14.0, rect.y0 + 0.5),
+                    &DIVIDER,
+                );
             }
 
             // Avatar
             let avatar_x = 14.0;
             let avatar_y = rect.y0 + (ROW_HEIGHT - 36.0) / 2.0;
-            let avatar_rect = RoundedRect::new(avatar_x, avatar_y, avatar_x + 36.0, avatar_y + 36.0, 8.0);
-            ctx.fill(avatar_rect, &self.avatar_colors[i % self.avatar_colors.len()]);
+            let avatar_rect =
+                RoundedRect::new(avatar_x, avatar_y, avatar_x + 36.0, avatar_y + 36.0, 8.0);
+            ctx.fill(
+                avatar_rect,
+                &self.avatar_colors[i % self.avatar_colors.len()],
+            );
 
             let initials = Self::initials(&entry.display_name);
             let init_layout = ctx
@@ -592,7 +729,13 @@ impl Widget<UIDataAdapter> for AppsListWidget {
                 .text_color(TEXT_PRIMARY)
                 .build()
                 .unwrap();
-            ctx.draw_text(&name_layout, (60.0, rect.y0 + (ROW_HEIGHT - name_layout.size().height) / 2.0));
+            ctx.draw_text(
+                &name_layout,
+                (
+                    60.0,
+                    rect.y0 + (ROW_HEIGHT - name_layout.size().height) / 2.0,
+                ),
+            );
 
             // Language badge
             let (badge_label, badge_bg, badge_border) = if entry.is_vn {

@@ -370,8 +370,7 @@ extern "C" {
 /// This avoids re-entering druid's RefCell borrow during event handling.
 pub fn defer_open_app_file_picker(callback: Box<dyn FnOnce(Option<String>) + Send>) {
     unsafe extern "C" fn work(ctx: *mut c_void) {
-        let callback =
-            Box::from_raw(ctx as *mut Box<dyn FnOnce(Option<String>) + Send>);
+        let callback = Box::from_raw(ctx as *mut Box<dyn FnOnce(Option<String>) + Send>);
         let name = open_app_file_picker();
         callback(name);
     }
