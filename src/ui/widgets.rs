@@ -648,10 +648,9 @@ impl Widget<UIDataAdapter> for AppsListWidget {
         data: &UIDataAdapter,
         _env: &Env,
     ) {
-        if old_data.vn_apps != data.vn_apps
-            || old_data.en_apps != data.en_apps
-            || old_data.selected_app_index != data.selected_app_index
-        {
+        if old_data.vn_apps != data.vn_apps || old_data.en_apps != data.en_apps {
+            ctx.request_layout();
+        } else if old_data.selected_app_index != data.selected_app_index {
             ctx.request_paint();
         }
     }
