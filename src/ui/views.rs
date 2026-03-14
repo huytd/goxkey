@@ -18,11 +18,11 @@ use super::{
     data::{MacroEntry, UIDataAdapter},
     selectors::{
         ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO,
-        SET_EN_APP_FROM_PICKER, SHOW_ADD_MACRO_DIALOG,
+        SET_EN_APP_FROM_PICKER, SHOW_ADD_MACRO_DIALOG, SHOW_EDIT_SHORTCUT_DIALOG,
     },
     widgets::{
-        AppsListWidget, HotkeyBadgesWidget, MacroListWidget, SegmentedControl, StyledCheckbox,
-        TabBar, ToggleSwitch,
+        AppsListWidget, HotkeyBadgesWidget, MacroListWidget, SegmentedControl, ShortcutCaptureWidget,
+        StyledCheckbox, TabBar, ToggleSwitch,
     },
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
@@ -199,6 +199,42 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         StyledCheckbox.lens(UIDataAdapter::launch_on_login),
     ));
 
+    let edit_shortcut_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let cx = size.width / 2.0;
+        let cy = size.height / 2.0;
+        // Pencil icon drawn with BezPath
+        // Body: a thin parallelogram rotated ~45°
+        let mut pencil = druid::kurbo::BezPath::new();
+        pencil.move_to((cx - 1.5, cy + 6.0)); // bottom-left tip base
+        pencil.line_to((cx - 6.0, cy + 1.5)); // top-left
+        pencil.line_to((cx + 1.5, cy - 6.0)); // top-right
+        pencil.line_to((cx + 6.0, cy - 1.5)); // bottom-right
+        pencil.close_path();
+        ctx.fill(pencil, &TEXT_SECONDARY);
+
+        // Eraser nib at top
+        let mut nib = druid::kurbo::BezPath::new();
+        nib.move_to((cx + 1.5, cy - 6.0));
+        nib.line_to((cx + 6.0, cy - 1.5));
+        nib.line_to((cx + 7.5, cy - 3.0));
+        nib.line_to((cx + 3.0, cy - 7.5));
+        nib.close_path();
+        ctx.fill(nib, &TEXT_PRIMARY);
+
+        // Tip point at bottom
+        let mut tip = druid::kurbo::BezPath::new();
+        tip.move_to((cx - 1.5, cy + 6.0));
+        tip.line_to((cx - 6.0, cy + 1.5));
+        tip.line_to((cx - 8.0, cy + 8.0));
+        tip.close_path();
+        ctx.fill(tip, &TEXT_SECONDARY);
+    })
+    .fix_size(24.0, 24.0)
+    .on_click(|ctx, _: &mut UIDataAdapter, _| {
+        ctx.submit_command(SHOW_EDIT_SHORTCUT_DIALOG.to(druid::Target::Global));
+    });
+
     let shortcut_card = settings_card(
         Flex::row()
             .with_flex_child(
@@ -235,6 +271,8 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                 1.0,
             )
             .with_child(HotkeyBadgesWidget::new())
+            .with_spacer(8.0)
+            .with_child(edit_shortcut_btn)
             .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
             .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
             .must_fill_main_axis(true)
@@ -759,6 +797,11 @@ pub fn center_window_position() -> (f64, f64) {
 pub const ADD_MACRO_DIALOG_WIDTH: f64 = 340.0;
 pub const ADD_MACRO_DIALOG_HEIGHT: f64 = 208.0;
 
+// ── Edit Shortcut Dialog ───────────────────────────────────────────────────────
+
+pub const EDIT_SHORTCUT_DIALOG_WIDTH: f64 = 340.0;
+pub const EDIT_SHORTCUT_DIALOG_HEIGHT: f64 = 200.0;
+
 fn styled_text_input(placeholder: &'static str) -> impl Widget<String> {
     use druid::theme;
     TextBox::new()
@@ -894,6 +937,131 @@ pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
                 .background(Color::WHITE)
                 .border(Color::rgb8(204, 204, 204), 1.0)
                 .rounded(8.0)
+                .expand_width(),
+        )
+        .with_flex_spacer(1.0)
+        .with_child(buttons)
+        .padding((24.0, 20.0, 24.0, 20.0))
+        .background(WIN_BG)
+        .expand()
+}
+
+pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
+    use super::{colors::TEXT_SECONDARY, selectors::SAVE_SHORTCUT};
+
+    let title_label = Painter::new(|ctx, _: &UIDataAdapter, _| {
+        let layout = ctx
+            .text()
+            .new_text_layout("New Shortcut")
+            .font(FontFamily::SYSTEM_UI, 12.0)
+            .text_color(TEXT_SECONDARY)
+            .build()
+            .unwrap();
+        ctx.draw_text(&layout, (0.0, 0.0));
+    })
+    .fix_height(16.0)
+    .expand_width();
+
+    let hint_label = Painter::new(|ctx, _: &UIDataAdapter, _| {
+        let layout = ctx
+            .text()
+            .new_text_layout("Press keys. Modifier-only combos are allowed.")
+            .font(FontFamily::SYSTEM_UI, 11.0)
+            .text_color(TEXT_SECONDARY)
+            .build()
+            .unwrap();
+        ctx.draw_text(&layout, (0.0, 0.0));
+    })
+    .fix_height(14.0)
+    .expand_width();
+
+    let cancel_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let rr = druid::kurbo::RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
+        ctx.fill(rr, &BTN_RESET_BG);
+        ctx.stroke(rr, &BTN_RESET_BORDER, 0.5);
+        let layout = ctx
+            .text()
+            .new_text_layout("Cancel")
+            .font(FontFamily::SYSTEM_UI, 13.0)
+            .text_color(Color::rgb8(51, 51, 51))
+            .build()
+            .unwrap();
+        ctx.draw_text(
+            &layout,
+            (
+                (size.width - layout.size().width) / 2.0,
+                (size.height - layout.size().height) / 2.0,
+            ),
+        );
+    })
+    .fix_size(90.0, 30.0)
+    .on_click(|ctx, _: &mut UIDataAdapter, _| {
+        ctx.window().close();
+    });
+
+    let save_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let rr = druid::kurbo::RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
+        let enabled = !data.pending_shortcut_display.is_empty();
+        let bg = if enabled {
+            GREEN
+        } else {
+            Color::rgb8(150, 150, 150)
+        };
+        ctx.fill(rr, &bg);
+        let layout = ctx
+            .text()
+            .new_text_layout("Save")
+            .font(FontFamily::SYSTEM_UI, 13.0)
+            .text_color(Color::WHITE)
+            .build()
+            .unwrap();
+        ctx.draw_text(
+            &layout,
+            (
+                (size.width - layout.size().width) / 2.0,
+                (size.height - layout.size().height) / 2.0,
+            ),
+        );
+    })
+    .fix_size(70.0, 30.0)
+    .on_click(|ctx, data: &mut UIDataAdapter, _| {
+        if !data.pending_shortcut_display.is_empty() {
+            ctx.submit_command(
+                SAVE_SHORTCUT
+                    .with((
+                        data.pending_shortcut_super,
+                        data.pending_shortcut_ctrl,
+                        data.pending_shortcut_alt,
+                        data.pending_shortcut_shift,
+                        data.pending_shortcut_letter.clone(),
+                    ))
+                    .to(Target::Global),
+            );
+            ctx.window().close();
+        }
+    });
+
+    let buttons = Flex::row()
+        .with_flex_spacer(1.0)
+        .with_child(cancel_btn)
+        .with_spacer(8.0)
+        .with_child(save_btn)
+        .expand_width();
+
+    Flex::column()
+        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+        .with_child(title_label)
+        .with_spacer(4.0)
+        .with_child(hint_label)
+        .with_spacer(16.0)
+        .with_child(
+            Container::new(ShortcutCaptureWidget::new())
+                .background(Color::WHITE)
+                .border(Color::rgb8(204, 204, 204), 1.0)
+                .rounded(8.0)
+                .fix_height(52.0)
                 .expand_width(),
         )
         .with_flex_spacer(1.0)

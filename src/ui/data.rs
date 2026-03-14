@@ -43,6 +43,13 @@ pub struct UIDataAdapter {
     pub(super) shift_key: bool,
     pub(super) capslock_key: bool,
     pub(super) letter_key: String,
+    // Pending shortcut capture (used by edit shortcut dialog)
+    pub(super) pending_shortcut_display: String,
+    pub(super) pending_shortcut_super: bool,
+    pub(super) pending_shortcut_ctrl: bool,
+    pub(super) pending_shortcut_alt: bool,
+    pub(super) pending_shortcut_shift: bool,
+    pub(super) pending_shortcut_letter: String,
     // Tab navigation (0=General, 1=Apps, 2=Shortcuts, 3=Advanced)
     pub(super) active_tab: u32,
     // Apps tab selected row (combined vn+en list, -1 = none)
@@ -74,6 +81,12 @@ impl UIDataAdapter {
             shift_key: false,
             capslock_key: false,
             letter_key: String::from("Space"),
+            pending_shortcut_display: String::new(),
+            pending_shortcut_super: false,
+            pending_shortcut_ctrl: false,
+            pending_shortcut_alt: false,
+            pending_shortcut_shift: false,
+            pending_shortcut_letter: String::new(),
             active_tab: 0,
             selected_app_index: -1,
             selected_macro_index: -1,

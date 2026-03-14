@@ -9,8 +9,9 @@ use druid::Selector;
 
 pub use data::UIDataAdapter;
 pub use views::{
-    add_macro_dialog_ui_builder, center_window_position, main_ui_builder,
-    permission_request_ui_builder, ADD_MACRO_DIALOG_HEIGHT, ADD_MACRO_DIALOG_WIDTH,
+    add_macro_dialog_ui_builder, center_window_position, edit_shortcut_dialog_ui_builder,
+    main_ui_builder, permission_request_ui_builder, ADD_MACRO_DIALOG_HEIGHT, ADD_MACRO_DIALOG_WIDTH,
+    EDIT_SHORTCUT_DIALOG_HEIGHT, EDIT_SHORTCUT_DIALOG_WIDTH,
 };
 
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");

@@ -6,14 +6,16 @@ use druid::{Env, Event, EventCtx, Screen, UpdateCtx, Widget, WindowDesc, WindowL
 use log::error;
 
 use super::{
-    add_macro_dialog_ui_builder,
+    add_macro_dialog_ui_builder, edit_shortcut_dialog_ui_builder,
     data::UIDataAdapter,
     format_letter_key, letter_key_to_char,
     selectors::{
         ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO,
-        SET_EN_APP_FROM_PICKER, SHOW_ADD_MACRO_DIALOG, TOGGLE_APP_MODE,
+        SAVE_SHORTCUT, SET_EN_APP_FROM_PICKER, SHOW_ADD_MACRO_DIALOG, SHOW_EDIT_SHORTCUT_DIALOG,
+        TOGGLE_APP_MODE,
     },
     SHOW_UI, UPDATE_UI, ADD_MACRO_DIALOG_HEIGHT, ADD_MACRO_DIALOG_WIDTH,
+    EDIT_SHORTCUT_DIALOG_HEIGHT, EDIT_SHORTCUT_DIALOG_WIDTH,
 };
 
 pub struct UIController;
@@ -66,6 +68,45 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                         .set_position((x, y))
                         .set_level(WindowLevel::Modal(ctx.window().clone()));
                     ctx.new_window(dialog);
+                    ctx.set_handled();
+                }
+                if cmd.get(SHOW_EDIT_SHORTCUT_DIALOG).is_some() {
+                    data.pending_shortcut_display = String::new();
+                    data.pending_shortcut_super = false;
+                    data.pending_shortcut_ctrl = false;
+                    data.pending_shortcut_alt = false;
+                    data.pending_shortcut_shift = false;
+                    data.pending_shortcut_letter = String::new();
+                    let screen = Screen::get_display_rect();
+                    let x = (screen.width() - EDIT_SHORTCUT_DIALOG_WIDTH) / 2.0;
+                    let y = (screen.height() - EDIT_SHORTCUT_DIALOG_HEIGHT) / 2.0;
+                    let dialog = WindowDesc::new(edit_shortcut_dialog_ui_builder())
+                        .title("Edit Shortcut")
+                        .window_size((EDIT_SHORTCUT_DIALOG_WIDTH, EDIT_SHORTCUT_DIALOG_HEIGHT))
+                        .resizable(false)
+                        .set_position((x, y))
+                        .set_level(WindowLevel::Modal(ctx.window().clone()));
+                    ctx.new_window(dialog);
+                    ctx.set_handled();
+                }
+                if let Some((is_super, is_ctrl, is_alt, is_shift, letter)) =
+                    cmd.get(SAVE_SHORTCUT)
+                {
+                    let mut new_mod = KeyModifier::new();
+                    new_mod.apply(*is_super, *is_ctrl, *is_alt, *is_shift, false);
+                    let key_code = letter_key_to_char(letter);
+                    unsafe {
+                        INPUT_STATE.set_hotkey(&format!(
+                            "{}{}",
+                            new_mod,
+                            match key_code {
+                                Some(' ') => String::from("space"),
+                                Some(c) => c.to_string(),
+                                _ => String::new(),
+                            }
+                        ));
+                    }
+                    data.update();
                     ctx.set_handled();
                 }
                 if let Some(name) = cmd.get(SET_EN_APP_FROM_PICKER) {

@@ -1149,3 +1149,242 @@ impl Widget<UIDataAdapter> for AppsListWidget {
         }
     }
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ShortcutCaptureWidget
+// ══════════════════════════════════════════════════════════════════════════════
+
+/// A widget that captures keyboard input to define a new shortcut.
+/// Modifier-only shortcuts (e.g. Ctrl+Shift) are supported: they are committed
+/// when all modifier keys are released after being held together.
+pub(super) struct ShortcutCaptureWidget {
+    focused: bool,
+    /// Modifiers captured during the last KeyDown — used when committing on KeyUp,
+    /// because by then the OS may have already cleared some modifier bits.
+    last_mods_super: bool,
+    last_mods_ctrl: bool,
+    last_mods_alt: bool,
+    last_mods_shift: bool,
+}
+
+impl ShortcutCaptureWidget {
+    pub(super) fn new() -> Self {
+        Self {
+            focused: false,
+            last_mods_super: false,
+            last_mods_ctrl: false,
+            last_mods_alt: false,
+            last_mods_shift: false,
+        }
+    }
+}
+
+impl Widget<UIDataAdapter> for ShortcutCaptureWidget {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut UIDataAdapter, _env: &Env) {
+        match event {
+            Event::MouseDown(_) => {
+                ctx.request_focus();
+                ctx.set_handled();
+            }
+            Event::KeyDown(key_event) if self.focused => {
+                use druid::KbKey;
+                // Snapshot modifiers now — they are reliably set during key-down.
+                self.last_mods_super = key_event.mods.meta();
+                self.last_mods_ctrl = key_event.mods.ctrl();
+                self.last_mods_alt = key_event.mods.alt();
+                self.last_mods_shift = key_event.mods.shift();
+
+                // Build a live display string from currently held keys
+                let mut parts: Vec<&str> = Vec::new();
+                if key_event.mods.ctrl() {
+                    parts.push("⌃");
+                }
+                if key_event.mods.shift() {
+                    parts.push("⇧");
+                }
+                if key_event.mods.alt() {
+                    parts.push("⌥");
+                }
+                if key_event.mods.meta() {
+                    parts.push("⌘");
+                }
+                let key_str = match &key_event.key {
+                    KbKey::Character(s) if s == " " => "Space".to_string(),
+                    KbKey::Character(s) => s.to_uppercase(),
+                    KbKey::Enter => "Enter".to_string(),
+                    KbKey::Tab => "Tab".to_string(),
+                    KbKey::Backspace => "Del".to_string(),
+                    KbKey::Escape => "Esc".to_string(),
+                    KbKey::Control | KbKey::Shift | KbKey::Alt | KbKey::Meta | KbKey::Super => {
+                        String::new()
+                    }
+                    _ => String::new(),
+                };
+                let display = if key_str.is_empty() {
+                    parts.join(" ")
+                } else {
+                    parts.join(" ") + if parts.is_empty() { "" } else { " " } + &key_str
+                };
+                data.pending_shortcut_display = display;
+
+                // Commit the full shortcut on KeyDown so it's ready even if Save is
+                // clicked before the key is released.
+                data.pending_shortcut_super = self.last_mods_super;
+                data.pending_shortcut_ctrl = self.last_mods_ctrl;
+                data.pending_shortcut_alt = self.last_mods_alt;
+                data.pending_shortcut_shift = self.last_mods_shift;
+                data.pending_shortcut_letter = match &key_event.key {
+                    KbKey::Character(s) => super::format_letter_key(s.chars().last()),
+                    KbKey::Enter => "Enter".to_string(),
+                    KbKey::Tab => "Tab".to_string(),
+                    KbKey::Backspace => "Delete".to_string(),
+                    KbKey::Escape => "Esc".to_string(),
+                    // Pure modifier — letter stays empty
+                    KbKey::Control
+                    | KbKey::Shift
+                    | KbKey::Alt
+                    | KbKey::Meta
+                    | KbKey::Super => String::new(),
+                    _ => String::new(),
+                };
+
+                ctx.request_paint();
+                ctx.set_handled();
+            }
+            Event::KeyUp(key_event) if self.focused => {
+                use druid::KbKey;
+                let is_modifier = matches!(
+                    &key_event.key,
+                    KbKey::Control
+                        | KbKey::Shift
+                        | KbKey::Alt
+                        | KbKey::Meta
+                        | KbKey::CapsLock
+                        | KbKey::Super
+                );
+
+                if is_modifier {
+                    // Only update modifier fields when it's a pure modifier-only shortcut
+                    // (no letter key was captured). If a letter was already committed on
+                    // KeyDown, leave everything as-is.
+                    let remaining_mods_empty = !key_event.mods.ctrl()
+                        && !key_event.mods.shift()
+                        && !key_event.mods.alt()
+                        && !key_event.mods.meta();
+                    if remaining_mods_empty
+                        && !data.pending_shortcut_display.is_empty()
+                        && data.pending_shortcut_letter.is_empty()
+                    {
+                        data.pending_shortcut_super = self.last_mods_super
+                            || matches!(&key_event.key, KbKey::Meta | KbKey::Super);
+                        data.pending_shortcut_ctrl = self.last_mods_ctrl
+                            || matches!(&key_event.key, KbKey::Control);
+                        data.pending_shortcut_alt =
+                            self.last_mods_alt || matches!(&key_event.key, KbKey::Alt);
+                        data.pending_shortcut_shift =
+                            self.last_mods_shift || matches!(&key_event.key, KbKey::Shift);
+                    }
+                } else {
+                    // Non-modifier key released → commit using snapshotted modifiers.
+                    data.pending_shortcut_super = self.last_mods_super;
+                    data.pending_shortcut_ctrl = self.last_mods_ctrl;
+                    data.pending_shortcut_alt = self.last_mods_alt;
+                    data.pending_shortcut_shift = self.last_mods_shift;
+                    data.pending_shortcut_letter = match &key_event.key {
+                        KbKey::Character(s) => super::format_letter_key(s.chars().last()),
+                        KbKey::Enter => "Enter".to_string(),
+                        KbKey::Tab => "Tab".to_string(),
+                        KbKey::Backspace => "Delete".to_string(),
+                        KbKey::Escape => "Esc".to_string(),
+                        _ => data.pending_shortcut_letter.clone(),
+                    };
+                }
+                ctx.request_paint();
+                ctx.set_handled();
+            }
+            _ => {}
+        }
+    }
+
+    fn lifecycle(
+        &mut self,
+        ctx: &mut LifeCycleCtx,
+        event: &LifeCycle,
+        _data: &UIDataAdapter,
+        _env: &Env,
+    ) {
+        match event {
+            LifeCycle::WidgetAdded => {
+                ctx.register_for_focus();
+            }
+            LifeCycle::FocusChanged(gained) => {
+                self.focused = *gained;
+                ctx.request_layout();
+            }
+            _ => {}
+        }
+    }
+
+    fn update(
+        &mut self,
+        ctx: &mut UpdateCtx,
+        old_data: &UIDataAdapter,
+        data: &UIDataAdapter,
+        _env: &Env,
+    ) {
+        if old_data.pending_shortcut_display != data.pending_shortcut_display {
+            ctx.request_paint();
+        }
+    }
+
+    fn layout(
+        &mut self,
+        _ctx: &mut LayoutCtx,
+        bc: &BoxConstraints,
+        _data: &UIDataAdapter,
+        _env: &Env,
+    ) -> Size {
+        Size::new(bc.max().width, 52.0)
+    }
+
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &UIDataAdapter, _env: &Env) {
+        let size = ctx.size();
+
+        // Focus ring
+        if self.focused {
+            let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 8.0);
+            ctx.stroke(rr, &super::colors::GREEN, 2.0);
+        }
+
+        let (label, text_color) = if data.pending_shortcut_display.is_empty() {
+            (
+                if self.focused {
+                    "Press keys…".to_string()
+                } else {
+                    "Click and press keys…".to_string()
+                },
+                Color::rgba8(0, 0, 0, 80),
+            )
+        } else {
+            (
+                data.pending_shortcut_display.clone(),
+                Color::rgb8(17, 17, 17),
+            )
+        };
+
+        let layout = ctx
+            .text()
+            .new_text_layout(label)
+            .font(FontFamily::SYSTEM_UI, 14.0)
+            .text_color(text_color)
+            .build()
+            .unwrap();
+        ctx.draw_text(
+            &layout,
+            (
+                (size.width - layout.size().width) / 2.0,
+                (size.height - layout.size().height) / 2.0,
+            ),
+        );
+    }
+}

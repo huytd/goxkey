@@ -8,3 +8,7 @@ pub(super) const SET_EN_APP_FROM_PICKER: Selector<String> =
 pub(super) const DELETE_SELECTED_APP: Selector = Selector::new("gox-ui.delete-selected-app");
 pub(super) const TOGGLE_APP_MODE: Selector<String> = Selector::new("gox-ui.toggle-app-mode");
 pub(super) const SHOW_ADD_MACRO_DIALOG: Selector = Selector::new("gox-ui.show-add-macro-dialog");
+pub(super) const SHOW_EDIT_SHORTCUT_DIALOG: Selector =
+    Selector::new("gox-ui.show-edit-shortcut-dialog");
+pub(super) const SAVE_SHORTCUT: Selector<(bool, bool, bool, bool, String)> =
+    Selector::new("gox-ui.save-shortcut");
