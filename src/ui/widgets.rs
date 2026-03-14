@@ -188,7 +188,7 @@ impl Widget<TypingMethod> for SegmentedControl {
         _env: &Env,
     ) {
         if old_data != data {
-            ctx.request_paint();
+            ctx.request_layout();
         }
     }
 
