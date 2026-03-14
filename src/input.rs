@@ -289,10 +289,7 @@ impl InputState {
     }
 
     pub fn remove_english_app(&mut self, app_name: &str) {
-        CONFIG_MANAGER
-            .lock()
-            .unwrap()
-            .remove_english_app(app_name);
+        CONFIG_MANAGER.lock().unwrap().remove_english_app(app_name);
     }
 
     pub fn get_vn_apps(&self) -> Vec<String> {
@@ -389,8 +386,7 @@ impl InputState {
                     (output, transform_result)
                 } else {
                     let mut output = String::new();
-                    let transform_result =
-                        vi::telex::transform_buffer(buffer.chars(), &mut output);
+                    let transform_result = vi::telex::transform_buffer(buffer.chars(), &mut output);
                     (output, transform_result)
                 }
             });
