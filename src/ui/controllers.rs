@@ -2,17 +2,18 @@ use crate::{
     input::{rebuild_keyboard_layout_map, INPUT_STATE},
     platform::{update_launch_on_login, KeyModifier},
 };
-use druid::{Env, Event, EventCtx, UpdateCtx, Widget};
+use druid::{Env, Event, EventCtx, Screen, UpdateCtx, Widget, WindowDesc, WindowLevel};
 use log::error;
 
 use super::{
+    add_macro_dialog_ui_builder,
     data::UIDataAdapter,
     format_letter_key, letter_key_to_char,
     selectors::{
         ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO,
-        SET_EN_APP_FROM_PICKER, TOGGLE_APP_MODE,
+        SET_EN_APP_FROM_PICKER, SHOW_ADD_MACRO_DIALOG, TOGGLE_APP_MODE,
     },
-    SHOW_UI, UPDATE_UI,
+    SHOW_UI, UPDATE_UI, ADD_MACRO_DIALOG_HEIGHT, ADD_MACRO_DIALOG_WIDTH,
 };
 
 pub struct UIController;
@@ -51,6 +52,21 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                     data.new_macro_from = String::new();
                     data.new_macro_to = String::new();
                     data.update();
+                }
+                if cmd.get(SHOW_ADD_MACRO_DIALOG).is_some() {
+                    data.new_macro_from = String::new();
+                    data.new_macro_to = String::new();
+                    let screen = Screen::get_display_rect();
+                    let x = (screen.width() - ADD_MACRO_DIALOG_WIDTH) / 2.0;
+                    let y = (screen.height() - ADD_MACRO_DIALOG_HEIGHT) / 2.0;
+                    let dialog = WindowDesc::new(add_macro_dialog_ui_builder())
+                        .title("Add Text Expansion")
+                        .window_size((ADD_MACRO_DIALOG_WIDTH, ADD_MACRO_DIALOG_HEIGHT))
+                        .resizable(false)
+                        .set_position((x, y))
+                        .set_level(WindowLevel::Modal(ctx.window().clone()));
+                    ctx.new_window(dialog);
+                    ctx.set_handled();
                 }
                 if let Some(name) = cmd.get(SET_EN_APP_FROM_PICKER) {
                     data.new_en_app = name.clone();

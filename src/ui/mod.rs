@@ -8,7 +8,10 @@ mod widgets;
 use druid::Selector;
 
 pub use data::UIDataAdapter;
-pub use views::{center_window_position, main_ui_builder, permission_request_ui_builder};
+pub use views::{
+    add_macro_dialog_ui_builder, center_window_position, main_ui_builder,
+    permission_request_ui_builder, ADD_MACRO_DIALOG_HEIGHT, ADD_MACRO_DIALOG_WIDTH,
+};
 
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
 pub const SHOW_UI: Selector = Selector::new("gox-ui.show-ui");

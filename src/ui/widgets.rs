@@ -562,6 +562,7 @@ pub(super) struct MacroListWidget {
 }
 
 const MACRO_ROW_HEIGHT: f64 = 44.0;
+const MACRO_HEADER_HEIGHT: f64 = 30.0;
 
 impl MacroListWidget {
     pub(super) fn new() -> Self {
@@ -616,14 +617,47 @@ impl Widget<UIDataAdapter> for MacroListWidget {
         let w = bc.max().width;
         self.row_rects = (0..n)
             .map(|i| {
-                Rect::new(0.0, i as f64 * MACRO_ROW_HEIGHT, w, (i + 1) as f64 * MACRO_ROW_HEIGHT)
+                let y = MACRO_HEADER_HEIGHT + i as f64 * MACRO_ROW_HEIGHT;
+                Rect::new(0.0, y, w, y + MACRO_ROW_HEIGHT)
             })
             .collect();
-        Size::new(w, (n as f64 * MACRO_ROW_HEIGHT).max(0.0))
+        Size::new(w, MACRO_HEADER_HEIGHT + (n as f64 * MACRO_ROW_HEIGHT).max(0.0))
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &UIDataAdapter, _env: &Env) {
         let size = ctx.size();
+
+        // Header row
+        let shorthand_header = ctx
+            .text()
+            .new_text_layout("Shorthand")
+            .font(FontFamily::SYSTEM_UI, 11.0)
+            .text_color(TEXT_SECONDARY)
+            .build()
+            .unwrap();
+        ctx.draw_text(
+            &shorthand_header,
+            (14.0, (MACRO_HEADER_HEIGHT - shorthand_header.size().height) / 2.0),
+        );
+
+        let replacement_header = ctx
+            .text()
+            .new_text_layout("Replacement")
+            .font(FontFamily::SYSTEM_UI, 11.0)
+            .text_color(TEXT_SECONDARY)
+            .build()
+            .unwrap();
+        let to_x = size.width / 2.0 + 20.0;
+        ctx.draw_text(
+            &replacement_header,
+            (to_x, (MACRO_HEADER_HEIGHT - replacement_header.size().height) / 2.0),
+        );
+
+        // Header bottom divider
+        ctx.fill(
+            Rect::new(0.0, MACRO_HEADER_HEIGHT - 0.5, size.width, MACRO_HEADER_HEIGHT),
+            &DIVIDER,
+        );
 
         for (i, entry) in data.macro_table.iter().enumerate() {
             let rect = self.row_rects[i];
@@ -678,7 +712,6 @@ impl Widget<UIDataAdapter> for MacroListWidget {
                 .text_color(TEXT_PRIMARY)
                 .build()
                 .unwrap();
-            let to_x = size.width / 2.0 + 20.0;
             ctx.draw_text(
                 &to_layout,
                 (to_x, rect.y0 + (MACRO_ROW_HEIGHT - to_layout.size().height) / 2.0),

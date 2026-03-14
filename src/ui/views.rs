@@ -17,7 +17,8 @@ use super::{
     controllers::UIController,
     data::{MacroEntry, UIDataAdapter},
     selectors::{
-        ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO, SET_EN_APP_FROM_PICKER,
+        ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO,
+        SET_EN_APP_FROM_PICKER, SHOW_ADD_MACRO_DIALOG,
     },
     widgets::{
         AppsListWidget, HotkeyBadgesWidget, MacroListWidget, SegmentedControl, StyledCheckbox,
@@ -544,10 +545,8 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         );
     })
     .fix_size(44.0, 44.0)
-    .on_click(|ctx, data: &mut UIDataAdapter, _| {
-        if !data.new_macro_from.is_empty() && !data.new_macro_to.is_empty() {
-            ctx.submit_command(ADD_MACRO.to(Target::Global));
-        }
+    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
+        ctx.submit_command(SHOW_ADD_MACRO_DIALOG.to(Target::Global));
     });
 
     let remove_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
@@ -581,37 +580,9 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         }
     });
 
-    let input_row = Flex::row()
-        .with_flex_child(
-            TextBox::new()
-                .with_placeholder("Shorthand")
-                .expand_width()
-                .lens(UIDataAdapter::new_macro_from),
-            1.0,
-        )
-        .with_spacer(6.0)
-        .with_flex_child(
-            TextBox::new()
-                .with_placeholder("Replacement")
-                .expand_width()
-                .lens(UIDataAdapter::new_macro_to),
-            2.0,
-        )
-        .expand_width()
-        .padding((8.0, 6.0));
-
     let card = Container::new(
         Flex::column()
             .with_flex_child(macro_list.expand(), 1.0)
-            .with_child(
-                Painter::new(|ctx, _: &UIDataAdapter, _| {
-                    let w = ctx.size().width;
-                    ctx.fill(Rect::new(0.0, 0.0, w, 0.5), &DIVIDER);
-                })
-                .fix_height(0.5)
-                .expand_width(),
-            )
-            .with_child(input_row)
             .with_child(
                 Painter::new(|ctx, _: &UIDataAdapter, _| {
                     let w = ctx.size().width;
@@ -776,13 +747,158 @@ pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
         .padding(8.0)
 }
 
-pub fn app_settings_ui_builder() -> impl Widget<UIDataAdapter> {
-    apps_tab()
-}
-
 pub fn center_window_position() -> (f64, f64) {
     let screen_rect = Screen::get_display_rect();
     let x = (screen_rect.width() - WINDOW_WIDTH) / 2.0;
     let y = (screen_rect.height() - WINDOW_HEIGHT) / 2.0;
     (x, y)
+}
+
+// ── Add Macro Dialog ───────────────────────────────────────────────────────────
+
+pub const ADD_MACRO_DIALOG_WIDTH: f64 = 340.0;
+pub const ADD_MACRO_DIALOG_HEIGHT: f64 = 208.0;
+
+fn styled_text_input(placeholder: &'static str) -> impl Widget<String> {
+    use druid::theme;
+    TextBox::new()
+        .with_placeholder(placeholder)
+        .expand_width()
+        .fix_height(32.0)
+        .env_scope(|env, _| {
+            env.set(theme::BACKGROUND_LIGHT, Color::WHITE);
+            env.set(theme::BACKGROUND_DARK, Color::WHITE);
+            env.set(theme::TEXTBOX_BORDER_WIDTH, 0.0);
+            env.set(theme::TEXTBOX_BORDER_RADIUS, 8.0);
+            env.set(theme::TEXT_COLOR, Color::rgb8(17, 17, 17));
+            env.set(theme::CURSOR_COLOR, Color::rgb8(17, 17, 17));
+            env.set(
+                theme::TEXTBOX_INSETS,
+                druid::Insets::new(6.0, 6.0, 6.0, 3.0),
+            );
+        })
+}
+
+pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
+    use super::colors::{BTN_RESET_BG, BTN_RESET_BORDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY};
+
+    let shorthand_label = Painter::new(|ctx, _: &UIDataAdapter, _| {
+        let layout = ctx
+            .text()
+            .new_text_layout("Shorthand")
+            .font(FontFamily::SYSTEM_UI, 12.0)
+            .text_color(TEXT_SECONDARY)
+            .build()
+            .unwrap();
+        ctx.draw_text(&layout, (0.0, 0.0));
+    })
+    .fix_height(16.0)
+    .expand_width();
+
+    let replacement_label = Painter::new(|ctx, _: &UIDataAdapter, _| {
+        let layout = ctx
+            .text()
+            .new_text_layout("Replacement")
+            .font(FontFamily::SYSTEM_UI, 12.0)
+            .text_color(TEXT_SECONDARY)
+            .build()
+            .unwrap();
+        ctx.draw_text(&layout, (0.0, 0.0));
+    })
+    .fix_height(16.0)
+    .expand_width();
+
+    let cancel_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
+        ctx.fill(rr, &BTN_RESET_BG);
+        ctx.stroke(rr, &BTN_RESET_BORDER, 0.5);
+        let layout = ctx
+            .text()
+            .new_text_layout("Cancel")
+            .font(FontFamily::SYSTEM_UI, 13.0)
+            .text_color(Color::rgb8(51, 51, 51))
+            .build()
+            .unwrap();
+        ctx.draw_text(
+            &layout,
+            (
+                (size.width - layout.size().width) / 2.0,
+                (size.height - layout.size().height) / 2.0,
+            ),
+        );
+    })
+    .fix_size(90.0, 30.0)
+    .on_click(|ctx, data: &mut UIDataAdapter, _| {
+        data.new_macro_from = String::new();
+        data.new_macro_to = String::new();
+        ctx.window().close();
+    });
+
+    let add_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
+        let enabled = !data.new_macro_from.is_empty() && !data.new_macro_to.is_empty();
+        let bg = if enabled {
+            GREEN
+        } else {
+            Color::rgb8(150, 150, 150)
+        };
+        ctx.fill(rr, &bg);
+        let layout = ctx
+            .text()
+            .new_text_layout("Add")
+            .font(FontFamily::SYSTEM_UI, 13.0)
+            .text_color(Color::WHITE)
+            .build()
+            .unwrap();
+        ctx.draw_text(
+            &layout,
+            (
+                (size.width - layout.size().width) / 2.0,
+                (size.height - layout.size().height) / 2.0,
+            ),
+        );
+    })
+    .fix_size(70.0, 30.0)
+    .on_click(|ctx, data: &mut UIDataAdapter, _| {
+        if !data.new_macro_from.is_empty() && !data.new_macro_to.is_empty() {
+            ctx.submit_command(ADD_MACRO.to(Target::Global));
+            ctx.window().close();
+        }
+    });
+
+    let buttons = Flex::row()
+        .with_flex_spacer(1.0)
+        .with_child(cancel_btn)
+        .with_spacer(8.0)
+        .with_child(add_btn)
+        .expand_width();
+
+    Flex::column()
+        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+        .with_child(shorthand_label)
+        .with_spacer(4.0)
+        .with_child(
+            Container::new(styled_text_input("nope").lens(UIDataAdapter::new_macro_from))
+                .background(Color::WHITE)
+                .border(Color::rgb8(204, 204, 204), 1.0)
+                .rounded(8.0)
+                .expand_width(),
+        )
+        .with_spacer(12.0)
+        .with_child(replacement_label)
+        .with_spacer(4.0)
+        .with_child(
+            Container::new(styled_text_input("dạ, thưa sếp").lens(UIDataAdapter::new_macro_to))
+                .background(Color::WHITE)
+                .border(Color::rgb8(204, 204, 204), 1.0)
+                .rounded(8.0)
+                .expand_width(),
+        )
+        .with_flex_spacer(1.0)
+        .with_child(buttons)
+        .padding((24.0, 20.0, 24.0, 20.0))
+        .background(WIN_BG)
+        .expand()
 }
