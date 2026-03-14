@@ -12,6 +12,7 @@ use super::{
         DIVIDER, GREEN, GREEN_BG, TEXT_PRIMARY,
     },
     data::UIDataAdapter,
+    selectors::TOGGLE_APP_MODE,
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -562,6 +563,7 @@ pub(super) struct CombinedAppEntry {
 
 pub(super) struct AppsListWidget {
     row_rects: Vec<Rect>,
+    badge_rects: Vec<Rect>,
     avatar_colors: Vec<Color>,
 }
 
@@ -571,6 +573,7 @@ impl AppsListWidget {
     pub(super) fn new() -> Self {
         Self {
             row_rects: Vec::new(),
+            badge_rects: Vec::new(),
             avatar_colors: vec![
                 Color::rgb8(196, 60, 48),
                 Color::rgb8(72, 163, 101),
@@ -582,30 +585,22 @@ impl AppsListWidget {
     }
 
     pub(super) fn build_entries(data: &UIDataAdapter) -> Vec<CombinedAppEntry> {
+        let to_entry = |e: &crate::ui::data::AppEntry, is_vn: bool| CombinedAppEntry {
+            display_name: std::path::Path::new(&e.name)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or(&e.name)
+                .to_string(),
+            full_name: e.name.clone(),
+            is_vn,
+        };
         let mut entries: Vec<CombinedAppEntry> = data
             .vn_apps
             .iter()
-            .map(|e| CombinedAppEntry {
-                display_name: std::path::Path::new(&e.name)
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or(&e.name)
-                    .to_string(),
-                full_name: e.name.clone(),
-                is_vn: true,
-            })
+            .map(|e| to_entry(e, true))
+            .chain(data.en_apps.iter().map(|e| to_entry(e, false)))
             .collect();
-        for e in data.en_apps.iter() {
-            entries.push(CombinedAppEntry {
-                display_name: std::path::Path::new(&e.name)
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or(&e.name)
-                    .to_string(),
-                full_name: e.name.clone(),
-                is_vn: false,
-            });
-        }
+        entries.sort_by(|a, b| a.display_name.to_lowercase().cmp(&b.display_name.to_lowercase()));
         entries
     }
 
@@ -622,6 +617,28 @@ impl AppsListWidget {
 impl Widget<UIDataAdapter> for AppsListWidget {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut UIDataAdapter, _env: &Env) {
         if let Event::MouseDown(mouse) = event {
+            // Check badge option clicks first (badge_rects has 2 entries per row: [vi, en])
+            let entries = Self::build_entries(data);
+            for i in 0..entries.len() {
+                let vi_rect = self.badge_rects.get(i * 2);
+                let en_rect = self.badge_rects.get(i * 2 + 1);
+                let clicked_vi = vi_rect.map_or(false, |r| r.contains(mouse.pos));
+                let clicked_en = en_rect.map_or(false, |r| r.contains(mouse.pos));
+                if clicked_vi || clicked_en {
+                    let entry = &entries[i];
+                    let want_vn = clicked_vi;
+                    let already_correct = entry.is_vn == want_vn;
+                    if !already_correct {
+                        ctx.submit_command(
+                            TOGGLE_APP_MODE
+                                .with(entry.full_name.clone())
+                                .to(druid::Target::Global),
+                        );
+                    }
+                    return;
+                }
+            }
+            // Row selection
             for (i, rect) in self.row_rects.iter().enumerate() {
                 if rect.contains(mouse.pos) {
                     data.selected_app_index = i as i32;
@@ -664,10 +681,27 @@ impl Widget<UIDataAdapter> for AppsListWidget {
     ) -> Size {
         let entries = Self::build_entries(data);
         let w = bc.max().width;
+        // Segmented VI | EN toggle: each option ~28px wide, 22px tall, 2px gap, right-padded 14px
+        let opt_w = 28.0_f64;
+        let bh = 22.0_f64;
+        let gap = 2.0_f64;
         self.row_rects = entries
             .iter()
             .enumerate()
             .map(|(i, _)| Rect::new(0.0, i as f64 * ROW_HEIGHT, w, (i + 1) as f64 * ROW_HEIGHT))
+            .collect();
+        self.badge_rects = entries
+            .iter()
+            .enumerate()
+            .flat_map(|(i, _)| {
+                let toggle_w = opt_w * 2.0 + gap;
+                let toggle_x = w - toggle_w - 14.0;
+                let toggle_y = i as f64 * ROW_HEIGHT + (ROW_HEIGHT - bh) / 2.0;
+                [
+                    Rect::new(toggle_x, toggle_y, toggle_x + opt_w, toggle_y + bh),
+                    Rect::new(toggle_x + opt_w + gap, toggle_y, toggle_x + toggle_w, toggle_y + bh),
+                ]
+            })
             .collect();
         Size::new(w, (entries.len() as f64 * ROW_HEIGHT).max(0.0))
     }
@@ -736,33 +770,61 @@ impl Widget<UIDataAdapter> for AppsListWidget {
                 ),
             );
 
-            // Language badge
-            let (badge_label, badge_bg, badge_border) = if entry.is_vn {
-                ("VI", BADGE_VI_BG, BADGE_VI_BORDER)
-            } else {
-                ("EN", BADGE_EN_BG, BADGE_EN_BORDER)
-            };
-            let badge_layout = ctx
-                .text()
-                .new_text_layout(badge_label)
-                .font(FontFamily::SYSTEM_UI, 11.0)
-                .text_color(badge_border)
-                .build()
-                .unwrap();
-            let bw = badge_layout.size().width + 14.0;
-            let bh = 22.0;
-            let badge_x = size.width - bw - 14.0;
-            let badge_y = rect.y0 + (ROW_HEIGHT - bh) / 2.0;
-            let badge_rr = RoundedRect::new(badge_x, badge_y, badge_x + bw, badge_y + bh, 5.0);
-            ctx.fill(badge_rr, &badge_bg);
-            ctx.stroke(badge_rr, &badge_border, 1.0);
-            ctx.draw_text(
-                &badge_layout,
-                (
-                    badge_x + (bw - badge_layout.size().width) / 2.0,
-                    badge_y + (bh - badge_layout.size().height) / 2.0,
-                ),
-            );
+            // Segmented VI | EN toggle
+            let opt_w = 28.0_f64;
+            let bh = 22.0_f64;
+            let gap = 2.0_f64;
+            let toggle_w = opt_w * 2.0 + gap;
+            let toggle_x = size.width - toggle_w - 14.0;
+            let toggle_y = rect.y0 + (ROW_HEIGHT - bh) / 2.0;
+
+            for (j, (label, is_active, active_bg, active_border)) in [
+                ("VI", entry.is_vn, BADGE_VI_BG, BADGE_VI_BORDER),
+                ("EN", !entry.is_vn, BADGE_EN_BG, BADGE_EN_BORDER),
+            ]
+            .iter()
+            .enumerate()
+            {
+                let opt_x = toggle_x + j as f64 * (opt_w + gap);
+                let corners = if j == 0 {
+                    [5.0, 0.0, 0.0, 5.0]
+                } else {
+                    [0.0, 5.0, 5.0, 0.0]
+                };
+                let opt_rr = druid::kurbo::RoundedRectRadii::new(
+                    corners[0], corners[1], corners[2], corners[3],
+                );
+                let opt_rect =
+                    RoundedRect::from_rect(Rect::new(opt_x, toggle_y, opt_x + opt_w, toggle_y + bh), opt_rr);
+
+                if *is_active {
+                    ctx.fill(opt_rect, active_bg);
+                    ctx.stroke(opt_rect, active_border, 1.0);
+                } else {
+                    ctx.fill(opt_rect, &Color::rgba8(0, 0, 0, 0));
+                    ctx.stroke(opt_rect, &Color::rgb8(210, 210, 210), 1.0);
+                }
+
+                let text_color = if *is_active {
+                    *active_border
+                } else {
+                    Color::rgb8(170, 170, 170)
+                };
+                let opt_layout = ctx
+                    .text()
+                    .new_text_layout(*label)
+                    .font(FontFamily::SYSTEM_UI, 11.0)
+                    .text_color(text_color)
+                    .build()
+                    .unwrap();
+                ctx.draw_text(
+                    &opt_layout,
+                    (
+                        opt_x + (opt_w - opt_layout.size().width) / 2.0,
+                        toggle_y + (bh - opt_layout.size().height) / 2.0,
+                    ),
+                );
+            }
         }
     }
 }

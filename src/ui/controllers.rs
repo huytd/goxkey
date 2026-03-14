@@ -10,7 +10,7 @@ use super::{
     format_letter_key, letter_key_to_char,
     selectors::{
         ADD_EN_APP, ADD_MACRO, ADD_VN_APP, DELETE_EN_APP, DELETE_MACRO, DELETE_SELECTED_APP,
-        DELETE_VN_APP, SET_EN_APP_FROM_PICKER, SET_VN_APP_FROM_PICKER,
+        DELETE_VN_APP, SET_EN_APP_FROM_PICKER, SET_VN_APP_FROM_PICKER, TOGGLE_APP_MODE,
     },
     SHOW_UI, UPDATE_UI,
 };
@@ -78,6 +78,21 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                     // In the new Apps tab design, adding via picker immediately commits
                     unsafe { INPUT_STATE.add_english_app(&data.new_en_app.clone()) };
                     data.new_en_app = String::new();
+                    data.update();
+                }
+                if let Some(app_name) = cmd.get(TOGGLE_APP_MODE) {
+                    let is_vn = data.vn_apps.iter().any(|e| &e.name == app_name);
+                    if is_vn {
+                        unsafe {
+                            INPUT_STATE.remove_vietnamese_app(app_name);
+                            INPUT_STATE.add_english_app(app_name);
+                        }
+                    } else {
+                        unsafe {
+                            INPUT_STATE.remove_english_app(app_name);
+                            INPUT_STATE.add_vietnamese_app(app_name);
+                        }
+                    }
                     data.update();
                 }
                 if cmd.get(DELETE_SELECTED_APP).is_some() {
