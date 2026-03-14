@@ -469,6 +469,8 @@ impl Widget<()> for KeyBadge {
 pub(super) struct HotkeyBadgesWidget {
     badges: Vec<WidgetPod<(), KeyBadge>>,
     last_display: String,
+    recording: bool,
+    pending_display: String,
 }
 
 impl HotkeyBadgesWidget {
@@ -476,6 +478,8 @@ impl HotkeyBadgesWidget {
         Self {
             badges: Vec::new(),
             last_display: String::new(),
+            recording: false,
+            pending_display: String::new(),
         }
     }
 
@@ -489,7 +493,87 @@ impl HotkeyBadgesWidget {
 }
 
 impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
-    fn event(&mut self, ctx: &mut EventCtx, event: &Event, _data: &mut UIDataAdapter, env: &Env) {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut UIDataAdapter, env: &Env) {
+        if self.recording {
+            match event {
+                Event::KeyDown(key_event) => {
+                    use druid::KbKey;
+                    let mut parts: Vec<&str> = Vec::new();
+                    if key_event.mods.ctrl() {
+                        parts.push("⌃");
+                    }
+                    if key_event.mods.shift() {
+                        parts.push("⇧");
+                    }
+                    if key_event.mods.alt() {
+                        parts.push("⌥");
+                    }
+                    if key_event.mods.meta() {
+                        parts.push("⌘");
+                    }
+                    let key_str = match &key_event.key {
+                        KbKey::Character(s) if s == " " => "Space".to_string(),
+                        KbKey::Character(s) => s.to_uppercase(),
+                        KbKey::Enter => "Enter".to_string(),
+                        KbKey::Tab => "Tab".to_string(),
+                        KbKey::Backspace => "Del".to_string(),
+                        KbKey::Escape => "Esc".to_string(),
+                        _ => String::new(),
+                    };
+                    if !key_str.is_empty() {
+                        self.pending_display =
+                            parts.join(" ") + if parts.is_empty() { "" } else { " " } + &key_str;
+                    }
+                    ctx.request_paint();
+                    ctx.set_handled();
+                }
+                Event::KeyUp(key_event) => {
+                    use druid::KbKey;
+                    let is_modifier_only = matches!(
+                        &key_event.key,
+                        KbKey::Control
+                            | KbKey::Shift
+                            | KbKey::Alt
+                            | KbKey::Meta
+                            | KbKey::CapsLock
+                            | KbKey::Super
+                    );
+                    if !is_modifier_only && !self.pending_display.is_empty() {
+                        data.super_key = key_event.mods.meta();
+                        data.ctrl_key = key_event.mods.ctrl();
+                        data.alt_key = key_event.mods.alt();
+                        data.shift_key = key_event.mods.shift();
+                        data.letter_key = match &key_event.key {
+                            KbKey::Character(s) => super::format_letter_key(s.chars().last()),
+                            KbKey::Enter => "Enter".to_string(),
+                            KbKey::Tab => "Tab".to_string(),
+                            KbKey::Backspace => "Delete".to_string(),
+                            KbKey::Escape => "Esc".to_string(),
+                            _ => data.letter_key.clone(),
+                        };
+                        self.recording = false;
+                        ctx.resign_focus();
+                        ctx.request_layout();
+                    }
+                    ctx.set_handled();
+                }
+                _ => {}
+            }
+            return;
+        }
+
+        // Detect double-click to enter recording mode
+        if let Event::MouseDown(mouse) = event {
+            if mouse.count == 2 {
+                self.recording = true;
+                self.pending_display = String::new();
+                ctx.request_focus();
+                ctx.request_layout();
+                ctx.set_handled();
+                return;
+            }
+        }
+
         for badge in &mut self.badges {
             badge.event(ctx, event, &mut (), env);
         }
@@ -520,6 +604,7 @@ impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
         if data.hotkey_display != self.last_display {
             self.rebuild_badges(&data.hotkey_display);
             ctx.children_changed();
+            return;
         }
         for badge in &mut self.badges {
             badge.update(ctx, &(), env);
@@ -533,6 +618,9 @@ impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
         _data: &UIDataAdapter,
         env: &Env,
     ) -> Size {
+        if self.recording {
+            return Size::new(150.0, 28.0);
+        }
         let gap = 4.0;
         let mut x = 0.0;
         let mut max_h = 0.0f64;
@@ -546,7 +634,35 @@ impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
         Size::new((x - gap).max(0.0), max_h.max(24.0))
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, _data: &UIDataAdapter, env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &UIDataAdapter, env: &Env) {
+        if self.recording {
+            let size = ctx.size();
+            let label = if self.pending_display.is_empty() {
+                "Type a shortcut…".to_string()
+            } else {
+                self.pending_display.clone()
+            };
+            let text_color = if self.pending_display.is_empty() {
+                Color::rgba8(0, 0, 0, 80)
+            } else {
+                Color::rgb8(85, 85, 85)
+            };
+            let layout = ctx
+                .text()
+                .new_text_layout(label)
+                .font(druid::piet::FontFamily::SYSTEM_UI, 12.0)
+                .text_color(text_color)
+                .build()
+                .unwrap();
+            ctx.draw_text(
+                &layout,
+                (
+                    (size.width - layout.size().width) / 2.0,
+                    (size.height - layout.size().height) / 2.0,
+                ),
+            );
+            return;
+        }
         for badge in &mut self.badges {
             badge.paint(ctx, &(), env);
         }
@@ -566,7 +682,9 @@ const MACRO_HEADER_HEIGHT: f64 = 30.0;
 
 impl MacroListWidget {
     pub(super) fn new() -> Self {
-        Self { row_rects: Vec::new() }
+        Self {
+            row_rects: Vec::new(),
+        }
     }
 }
 
@@ -621,7 +739,10 @@ impl Widget<UIDataAdapter> for MacroListWidget {
                 Rect::new(0.0, y, w, y + MACRO_ROW_HEIGHT)
             })
             .collect();
-        Size::new(w, MACRO_HEADER_HEIGHT + (n as f64 * MACRO_ROW_HEIGHT).max(0.0))
+        Size::new(
+            w,
+            MACRO_HEADER_HEIGHT + (n as f64 * MACRO_ROW_HEIGHT).max(0.0),
+        )
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &UIDataAdapter, _env: &Env) {
@@ -637,7 +758,10 @@ impl Widget<UIDataAdapter> for MacroListWidget {
             .unwrap();
         ctx.draw_text(
             &shorthand_header,
-            (14.0, (MACRO_HEADER_HEIGHT - shorthand_header.size().height) / 2.0),
+            (
+                14.0,
+                (MACRO_HEADER_HEIGHT - shorthand_header.size().height) / 2.0,
+            ),
         );
 
         let replacement_header = ctx
@@ -650,12 +774,20 @@ impl Widget<UIDataAdapter> for MacroListWidget {
         let to_x = size.width / 2.0 + 20.0;
         ctx.draw_text(
             &replacement_header,
-            (to_x, (MACRO_HEADER_HEIGHT - replacement_header.size().height) / 2.0),
+            (
+                to_x,
+                (MACRO_HEADER_HEIGHT - replacement_header.size().height) / 2.0,
+            ),
         );
 
         // Header bottom divider
         ctx.fill(
-            Rect::new(0.0, MACRO_HEADER_HEIGHT - 0.5, size.width, MACRO_HEADER_HEIGHT),
+            Rect::new(
+                0.0,
+                MACRO_HEADER_HEIGHT - 0.5,
+                size.width,
+                MACRO_HEADER_HEIGHT,
+            ),
             &DIVIDER,
         );
 
@@ -687,7 +819,10 @@ impl Widget<UIDataAdapter> for MacroListWidget {
                 .unwrap();
             ctx.draw_text(
                 &from_layout,
-                (14.0, rect.y0 + (MACRO_ROW_HEIGHT - from_layout.size().height) / 2.0),
+                (
+                    14.0,
+                    rect.y0 + (MACRO_ROW_HEIGHT - from_layout.size().height) / 2.0,
+                ),
             );
 
             // Arrow "→" separator
@@ -701,7 +836,10 @@ impl Widget<UIDataAdapter> for MacroListWidget {
             let arrow_x = size.width / 2.0 - arrow_layout.size().width / 2.0;
             ctx.draw_text(
                 &arrow_layout,
-                (arrow_x, rect.y0 + (MACRO_ROW_HEIGHT - arrow_layout.size().height) / 2.0),
+                (
+                    arrow_x,
+                    rect.y0 + (MACRO_ROW_HEIGHT - arrow_layout.size().height) / 2.0,
+                ),
             );
 
             // "To" label (replacement)
@@ -714,7 +852,10 @@ impl Widget<UIDataAdapter> for MacroListWidget {
                 .unwrap();
             ctx.draw_text(
                 &to_layout,
-                (to_x, rect.y0 + (MACRO_ROW_HEIGHT - to_layout.size().height) / 2.0),
+                (
+                    to_x,
+                    rect.y0 + (MACRO_ROW_HEIGHT - to_layout.size().height) / 2.0,
+                ),
             );
         }
     }
