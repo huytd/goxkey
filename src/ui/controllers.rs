@@ -1,6 +1,6 @@
 use crate::{
     input::{rebuild_keyboard_layout_map, INPUT_STATE},
-    platform::{update_launch_on_login, KeyModifier},
+    platform::{defer_open_text_file_picker, defer_save_text_file_picker, update_launch_on_login, KeyModifier},
 };
 use druid::{Env, Event, EventCtx, Screen, UpdateCtx, Widget, WindowDesc, WindowLevel};
 use log::error;
@@ -10,9 +10,9 @@ use super::{
     data::UIDataAdapter,
     format_letter_key, letter_key_to_char,
     selectors::{
-        ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO,
-        RESET_DEFAULTS, SAVE_SHORTCUT, SET_EN_APP_FROM_PICKER, SHOW_ADD_MACRO_DIALOG,
-        SHOW_EDIT_SHORTCUT_DIALOG, TOGGLE_APP_MODE,
+        ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO, EXPORT_MACROS_TO_FILE,
+        LOAD_MACROS_FROM_FILE, RESET_DEFAULTS, SAVE_SHORTCUT, SET_EN_APP_FROM_PICKER,
+        SHOW_ADD_MACRO_DIALOG, SHOW_EDIT_SHORTCUT_DIALOG, TOGGLE_APP_MODE,
     },
     SHOW_UI, UPDATE_UI, ADD_MACRO_DIALOG_HEIGHT, ADD_MACRO_DIALOG_WIDTH,
     EDIT_SHORTCUT_DIALOG_HEIGHT, EDIT_SHORTCUT_DIALOG_WIDTH,
@@ -142,6 +142,34 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                         data.update();
                     }
                 }
+                if cmd.get(LOAD_MACROS_FROM_FILE).is_some() {
+                    ctx.set_handled();
+                    let event_sink = unsafe { crate::UI_EVENT_SINK.get().cloned() };
+                    defer_open_text_file_picker(Box::new(move |path| {
+                        if let Some(path) = path {
+                            unsafe {
+                                let _ = INPUT_STATE.import_macros_from_file(&path);
+                            }
+                            if let Some(sink) = event_sink {
+                                let _ = sink.submit_command(crate::ui::UPDATE_UI, (), druid::Target::Global);
+                            }
+                        }
+                    }));
+                }
+                if cmd.get(EXPORT_MACROS_TO_FILE).is_some() {
+                    ctx.set_handled();
+                    let event_sink = unsafe { crate::UI_EVENT_SINK.get().cloned() };
+                    defer_save_text_file_picker(Box::new(move |path| {
+                        if let Some(path) = path {
+                            unsafe {
+                                let _ = INPUT_STATE.export_macros_to_file(&path);
+                            }
+                            if let Some(sink) = event_sink {
+                                let _ = sink.submit_command(crate::ui::UPDATE_UI, (), druid::Target::Global);
+                            }
+                        }
+                    }));
+                }
                 if cmd.get(DELETE_SELECTED_APP).is_some() {
                     let idx = data.selected_app_index;
                     if idx >= 0 {
@@ -231,6 +259,10 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
 
             if old_data.is_macro_enabled != data.is_macro_enabled {
                 INPUT_STATE.toggle_macro_enabled();
+            }
+
+            if old_data.is_macro_autocap_enabled != data.is_macro_autocap_enabled {
+                INPUT_STATE.toggle_macro_autocap();
             }
 
             if old_data.is_auto_toggle_enabled != data.is_auto_toggle_enabled {

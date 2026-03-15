@@ -40,6 +40,40 @@ pub const STOP_TRACKING_WORDS: [&str; 4] = [";", "'", "?", "/"];
 /// engine ignores (falls through to `_ => Transformation::Ignored`), then restore them
 /// after transformation. A 'w' is "standalone" when NOT preceded by a Horn/Breve-eligible
 /// vowel — those cases (uw→ư, ow→ơ, aw→ă) should still be handled by telex normally.
+enum CapPattern {
+    Lower,
+    TitleCase,
+    AllCaps,
+}
+
+fn detect_cap_pattern(s: &str) -> CapPattern {
+    let mut chars = s.chars().filter(|c| c.is_alphabetic());
+    match chars.next() {
+        Some(first) if first.is_uppercase() => {
+            if chars.all(|c| c.is_uppercase()) {
+                CapPattern::AllCaps
+            } else {
+                CapPattern::TitleCase
+            }
+        }
+        _ => CapPattern::Lower,
+    }
+}
+
+fn apply_cap_pattern(s: &str, pattern: CapPattern) -> String {
+    match pattern {
+        CapPattern::Lower => s.to_string(),
+        CapPattern::AllCaps => s.to_uppercase(),
+        CapPattern::TitleCase => {
+            let mut chars = s.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(first) => first.to_uppercase().to_string() + chars.as_str(),
+            }
+        }
+    }
+}
+
 fn mask_standalone_w(buffer: &str) -> String {
     // Characters that can accept Horn (w) modification: u, o and all their toned forms.
     // Characters that can accept Breve (w) modification: a and all its toned forms.
@@ -195,6 +229,7 @@ pub struct InputState {
     previous_word: String,
     active_app: String,
     is_macro_enabled: bool,
+    is_macro_autocap_enabled: bool,
     macro_table: BTreeMap<String, String>,
     temporary_disabled: bool,
     previous_modifiers: KeyModifier,
@@ -216,6 +251,7 @@ impl InputState {
             previous_word: String::new(),
             active_app: String::new(),
             is_macro_enabled: config.is_macro_enabled(),
+            is_macro_autocap_enabled: config.is_macro_autocap_enabled(),
             macro_table: config.get_macro_table().clone(),
             temporary_disabled: false,
             previous_modifiers: KeyModifier::empty(),
@@ -285,11 +321,35 @@ impl InputState {
         self.should_track = true;
     }
 
-    pub fn get_macro_target(&self) -> Option<&String> {
+    pub fn get_macro_target(&self) -> Option<String> {
         if !self.is_macro_enabled {
             return None;
         }
-        self.macro_table.get(&self.display_buffer)
+        // Exact match
+        if let Some(target) = self.macro_table.get(&self.display_buffer) {
+            return Some(target.clone());
+        }
+        // Auto-capitalize: try lowercase lookup, then apply cap pattern
+        if self.is_macro_autocap_enabled {
+            let lower = self.display_buffer.to_lowercase();
+            if let Some(target) = self.macro_table.get(&lower) {
+                let pattern = detect_cap_pattern(&self.display_buffer);
+                return Some(apply_cap_pattern(target, pattern));
+            }
+        }
+        None
+    }
+
+    pub fn is_macro_autocap_enabled(&self) -> bool {
+        self.is_macro_autocap_enabled
+    }
+
+    pub fn toggle_macro_autocap(&mut self) {
+        self.is_macro_autocap_enabled = !self.is_macro_autocap_enabled;
+        CONFIG_MANAGER
+            .lock()
+            .unwrap()
+            .set_macro_autocap_enabled(self.is_macro_autocap_enabled);
     }
 
     pub fn get_typing_buffer(&self) -> &str {
@@ -411,6 +471,38 @@ impl InputState {
             .unwrap()
             .add_macro(from.clone(), to.clone());
         self.macro_table.insert(from, to);
+    }
+
+    pub fn export_macros_to_file(&self, path: &str) -> std::io::Result<()> {
+        use crate::config::build_kv_string;
+        use std::fs::File;
+        use std::io::Write;
+        let mut file = File::create(path)?;
+        for (k, v) in &self.macro_table {
+            writeln!(file, "{}", build_kv_string(k, v))?;
+        }
+        Ok(())
+    }
+
+    pub fn import_macros_from_file(&mut self, path: &str) -> std::io::Result<usize> {
+        use crate::config::parse_kv_string;
+        use std::fs::File;
+        use std::io::{BufRead, BufReader};
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        let mut count = 0;
+        for line in reader.lines() {
+            let line = line?;
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            if let Some((from, to)) = parse_kv_string(line) {
+                self.add_macro(from, to);
+                count += 1;
+            }
+        }
+        Ok(count)
     }
 
     pub fn should_transform_keys(&self, c: &char) -> bool {

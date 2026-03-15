@@ -219,7 +219,7 @@ fn event_handler(
                                     if keycode == KEY_TAB || keycode == KEY_SPACE {
                                         if let Some(macro_target) = INPUT_STATE.get_macro_target() {
                                             debug!("Macro: {}", macro_target);
-                                            do_macro_replace(handle, macro_target)
+                                            do_macro_replace(handle, &macro_target)
                                         }
                                     }
 

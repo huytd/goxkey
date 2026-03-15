@@ -1,4 +1,8 @@
-use crate::{input::TypingMethod, platform::defer_open_app_file_picker, UI_EVENT_SINK};
+use crate::{
+    input::TypingMethod,
+    platform::{defer_open_app_file_picker, defer_open_text_file_picker, defer_save_text_file_picker},
+    UI_EVENT_SINK,
+};
 use druid::{
     kurbo::RoundedRect,
     piet::{FontFamily, Text, TextLayout, TextLayoutBuilder},
@@ -18,11 +22,12 @@ use super::{
     data::{MacroEntry, UIDataAdapter},
     selectors::{
         ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO,
-        SET_EN_APP_FROM_PICKER, SHOW_ADD_MACRO_DIALOG, SHOW_EDIT_SHORTCUT_DIALOG,
+        EXPORT_MACROS_TO_FILE, LOAD_MACROS_FROM_FILE, SET_EN_APP_FROM_PICKER,
+        SHOW_ADD_MACRO_DIALOG, SHOW_EDIT_SHORTCUT_DIALOG,
     },
     widgets::{
-        AppsListWidget, HotkeyBadgesWidget, MacroListWidget, SegmentedControl, ShortcutCaptureWidget,
-        StyledCheckbox, TabBar, ToggleSwitch,
+        AppsListWidget, HotkeyBadgesWidget, InfoTooltip, MacroListWidget, SegmentedControl,
+        ShortcutCaptureWidget, StyledCheckbox, TabBar, ToggleSwitch,
     },
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
@@ -569,6 +574,53 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         ToggleSwitch.lens(UIDataAdapter::is_macro_enabled),
     ));
 
+    let autocap_row = settings_card(
+        Flex::row()
+            .with_flex_child(
+                Flex::column()
+                    .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+                    .with_child(
+                        Painter::new(|ctx, _: &UIDataAdapter, _| {
+                            let layout = ctx
+                                .text()
+                                .new_text_layout("Auto capitalize")
+                                .font(FontFamily::SYSTEM_UI, 13.0)
+                                .text_color(TEXT_PRIMARY)
+                                .build()
+                                .unwrap();
+                            ctx.draw_text(&layout, (0.0, 0.0));
+                        })
+                        .fix_height(18.0)
+                        .expand_width(),
+                    )
+                    .with_child(
+                        Painter::new(|ctx, _: &UIDataAdapter, _| {
+                            let layout = ctx
+                                .text()
+                                .new_text_layout("Apply capitalization from typed shorthand")
+                                .font(FontFamily::SYSTEM_UI, 12.0)
+                                .text_color(TEXT_SECONDARY)
+                                .build()
+                                .unwrap();
+                            ctx.draw_text(&layout, (0.0, 0.0));
+                        })
+                        .fix_height(16.0)
+                        .expand_width(),
+                    ),
+                1.0,
+            )
+            .with_child(
+                InfoTooltip::new("ko → không\nKo → Không\nKO → KHÔNG")
+                    .padding((0.0, 0.0, 8.0, 0.0)),
+            )
+            .with_child(StyledCheckbox.lens(UIDataAdapter::is_macro_autocap_enabled))
+            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
+            .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
+            .must_fill_main_axis(true)
+            .expand_width()
+            .padding((14.0, 10.0)),
+    );
+
     let macro_list = {
         let mut scroll = Scroll::new(MacroListWidget::new().expand_width());
         scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
@@ -629,6 +681,51 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         }
     });
 
+    let load_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
+        let size = ctx.size();
+        ctx.fill(Rect::new(size.width - 0.5, 10.0, size.width, size.height - 10.0), &DIVIDER);
+        let layout = ctx
+            .text()
+            .new_text_layout("Load")
+            .font(FontFamily::SYSTEM_UI, 12.0)
+            .text_color(TEXT_PRIMARY)
+            .build()
+            .unwrap();
+        ctx.draw_text(
+            &layout,
+            (
+                (size.width - layout.size().width) / 2.0,
+                (size.height - layout.size().height) / 2.0,
+            ),
+        );
+    })
+    .fix_size(60.0, 44.0)
+    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
+        ctx.submit_command(LOAD_MACROS_FROM_FILE.to(Target::Global));
+    });
+
+    let export_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let layout = ctx
+            .text()
+            .new_text_layout("Export")
+            .font(FontFamily::SYSTEM_UI, 12.0)
+            .text_color(TEXT_PRIMARY)
+            .build()
+            .unwrap();
+        ctx.draw_text(
+            &layout,
+            (
+                (size.width - layout.size().width) / 2.0,
+                (size.height - layout.size().height) / 2.0,
+            ),
+        );
+    })
+    .fix_size(60.0, 44.0)
+    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
+        ctx.submit_command(EXPORT_MACROS_TO_FILE.to(Target::Global));
+    });
+
     let card = Container::new(
         Flex::column()
             .with_flex_child(macro_list.expand(), 1.0)
@@ -645,6 +742,15 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
                     .with_child(add_btn)
                     .with_child(remove_btn)
                     .with_flex_spacer(1.0)
+                    .with_child(
+                        Painter::new(|ctx, _: &UIDataAdapter, _| {
+                            let h = ctx.size().height;
+                            ctx.fill(Rect::new(0.0, 10.0, 0.5, h - 10.0), &DIVIDER);
+                        })
+                        .fix_size(0.5, 44.0),
+                    )
+                    .with_child(load_btn)
+                    .with_child(export_btn)
                     .expand_width(),
             ),
     )
@@ -657,6 +763,8 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         .with_child(description)
         .with_spacer(12.0)
         .with_child(enable_row)
+        .with_spacer(8.0)
+        .with_child(autocap_row)
         .with_spacer(16.0)
         .with_flex_child(card.expand_height(), 1.0)
         .must_fill_main_axis(true)

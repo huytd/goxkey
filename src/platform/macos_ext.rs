@@ -419,6 +419,83 @@ pub fn open_app_file_picker() -> Option<String> {
     }
 }
 
+pub fn open_text_file_picker() -> Option<String> {
+    unsafe {
+        let panel: id = msg_send![class!(NSOpenPanel), openPanel];
+        let _: () = msg_send![panel, setCanChooseFiles: YES];
+        let _: () = msg_send![panel, setCanChooseDirectories: NO];
+        let _: () = msg_send![panel, setAllowsMultipleSelection: NO as BOOL];
+
+        let response: i64 = msg_send![panel, runModal];
+        if response == 1 {
+            let url: id = msg_send![panel, URL];
+            let path: id = msg_send![url, path];
+            let utf8: *const std::ffi::c_char = msg_send![path, UTF8String];
+            if !utf8.is_null() {
+                return Some(
+                    std::ffi::CStr::from_ptr(utf8)
+                        .to_string_lossy()
+                        .into_owned(),
+                );
+            }
+        }
+        None
+    }
+}
+
+pub fn save_text_file_picker() -> Option<String> {
+    unsafe {
+        let panel: id = msg_send![class!(NSSavePanel), savePanel];
+        let suggested_name = NSString::alloc(nil).init_str("expansions.txt");
+        let _: () = msg_send![panel, setNameFieldStringValue: suggested_name];
+
+        let response: i64 = msg_send![panel, runModal];
+        if response == 1 {
+            let url: id = msg_send![panel, URL];
+            let path: id = msg_send![url, path];
+            let utf8: *const std::ffi::c_char = msg_send![path, UTF8String];
+            if !utf8.is_null() {
+                return Some(
+                    std::ffi::CStr::from_ptr(utf8)
+                        .to_string_lossy()
+                        .into_owned(),
+                );
+            }
+        }
+        None
+    }
+}
+
+pub fn defer_open_text_file_picker(callback: Box<dyn FnOnce(Option<String>) + Send>) {
+    unsafe extern "C" fn work(ctx: *mut c_void) {
+        let callback = Box::from_raw(ctx as *mut Box<dyn FnOnce(Option<String>) + Send>);
+        let path = open_text_file_picker();
+        callback(path);
+    }
+
+    let boxed: Box<Box<dyn FnOnce(Option<String>) + Send>> = Box::new(callback);
+    let ctx_ptr = Box::into_raw(boxed) as *mut c_void;
+
+    unsafe {
+        dispatch_async_f(&_dispatch_main_q, ctx_ptr, work);
+    }
+}
+
+pub fn defer_save_text_file_picker(callback: Box<dyn FnOnce(Option<String>) + Send>) {
+    unsafe extern "C" fn work(ctx: *mut c_void) {
+        let callback = Box::from_raw(ctx as *mut Box<dyn FnOnce(Option<String>) + Send>);
+        let path = save_text_file_picker();
+        callback(path);
+    }
+
+    let boxed: Box<Box<dyn FnOnce(Option<String>) + Send>> = Box::new(callback);
+    let ctx_ptr = Box::into_raw(boxed) as *mut c_void;
+
+    unsafe {
+        dispatch_async_f(&_dispatch_main_q, ctx_ptr, work);
+    }
+}
+
 pub fn add_app_change_callback<F>(cb: F)
 where
     F: Fn() + Send + 'static,

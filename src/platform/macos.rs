@@ -19,6 +19,8 @@ use core_graphics::{
 use objc::{class, msg_send, sel, sel_impl};
 
 pub use macos_ext::defer_open_app_file_picker;
+pub use macos_ext::defer_open_text_file_picker;
+pub use macos_ext::defer_save_text_file_picker;
 pub use macos_ext::SystemTray;
 pub use macos_ext::SystemTrayMenuItemKey;
 use once_cell::sync::Lazy;
