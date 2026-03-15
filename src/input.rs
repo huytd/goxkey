@@ -450,15 +450,15 @@ impl InputState {
             return result.map_err(|_| ());
         }
 
-        let transform_method = match self.method {
-            TypingMethod::VNI => vi::vni::transform_buffer,
-            TypingMethod::Telex | TypingMethod::TelexVNI => vi::telex::transform_buffer,
-        };
+        let method = self.method;
         let buffer = effective_buffer;
         let is_w_literal = self.is_w_literal_enabled;
         let result = std::panic::catch_unwind(move || {
             let mut output = String::new();
-            let transform_result = transform_method(buffer.chars(), &mut output);
+            let transform_result = match method {
+                TypingMethod::VNI => vi::vni::transform_buffer(buffer.chars(), &mut output),
+                TypingMethod::Telex | TypingMethod::TelexVNI => vi::telex::transform_buffer(buffer.chars(), &mut output),
+            };
             // Restore masked standalone w's back to literal 'w'/'W'
             let output = if is_w_literal {
                 output.replace('\x01', "w").replace('\x02', "W")
