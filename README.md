@@ -2,9 +2,8 @@
 	<img src="./icons/icon.png" width="90px">
 </p>
 
----
 
-<img width="855" height="569" alt="image" src="https://github.com/user-attachments/assets/fb96c284-1c7b-42e4-87b2-42fe0053fa01" />
+<img width="1590" height="789" alt="Group 17" src="https://github.com/user-attachments/assets/209e9af3-d7d6-41b3-a54f-7c1d0b31c726" />
 
 
 **Gõkey** - A Vietnamese input method editor.
