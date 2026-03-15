@@ -3,7 +3,7 @@
 </p>
 
 
-<img width="1590" height="789" alt="Group 17" src="https://github.com/user-attachments/assets/209e9af3-d7d6-41b3-a54f-7c1d0b31c726" />
+<img width="1585" height="797" alt="screenshots" src="https://github.com/user-attachments/assets/42930e8a-77fb-4493-aa90-3c0bb9f1ab40" />
 
 
 **Gõkey** - A Vietnamese input method editor.
