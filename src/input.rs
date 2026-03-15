@@ -36,6 +36,36 @@ pub const PREDEFINED_CHARS: [char; 47] = [
 ];
 
 pub const STOP_TRACKING_WORDS: [&str; 4] = [";", "'", "?", "/"];
+/// In w-literal mode, replace standalone 'w' with placeholder bytes that the telex
+/// engine ignores (falls through to `_ => Transformation::Ignored`), then restore them
+/// after transformation. A 'w' is "standalone" when NOT preceded by a Horn/Breve-eligible
+/// vowel — those cases (uw→ư, ow→ơ, aw→ă) should still be handled by telex normally.
+fn mask_standalone_w(buffer: &str) -> String {
+    // Characters that can accept Horn (w) modification: u, o and all their toned forms.
+    // Characters that can accept Breve (w) modification: a and all its toned forms.
+    const HORN_BREVE_ELIGIBLE: &str =
+        "uoaUOA\u{01b0}\u{01a1}\u{0103}\
+         \u{00fa}\u{00f3}\u{00e1}\u{00f9}\u{00f2}\u{00e0}\
+         \u{1ee7}\u{1ecf}\u{1ea3}\u{0169}\u{00f5}\u{00e3}\u{1ecd}\u{1ea1}\
+         \u{00da}\u{00d3}\u{00c1}\u{00d9}\u{00d2}\u{00c0}\
+         \u{1ee6}\u{1ece}\u{1ea2}\u{0168}\u{00d5}\u{00c3}\u{1ecc}\u{1ea0}";
+    let chars: Vec<char> = buffer.chars().collect();
+    let mut result = String::with_capacity(buffer.len() + 4);
+    for (i, &ch) in chars.iter().enumerate() {
+        if ch == 'w' || ch == 'W' {
+            let preceded_by_eligible = i > 0 && HORN_BREVE_ELIGIBLE.contains(chars[i - 1]);
+            if preceded_by_eligible {
+                result.push(ch); // let telex transform it: uw→ư, ow→ơ, aw→ă
+            } else {
+                // Mask it — telex ignores \x01/\x02, we restore them after transform
+                result.push(if ch == 'w' { '\x01' } else { '\x02' });
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+    result
+}
 
 pub fn get_key_from_char(c: char) -> rdev::Key {
     use rdev::Key::*;
@@ -170,6 +200,7 @@ pub struct InputState {
     previous_modifiers: KeyModifier,
     is_auto_toggle_enabled: bool,
     is_gox_mode_enabled: bool,
+    is_w_literal_enabled: bool,
 }
 
 impl InputState {
@@ -190,6 +221,7 @@ impl InputState {
             previous_modifiers: KeyModifier::empty(),
             is_auto_toggle_enabled: config.is_auto_toggle_enabled(),
             is_gox_mode_enabled: config.is_gox_mode_enabled(),
+            is_w_literal_enabled: config.is_w_literal_enabled(),
         }
     }
 
@@ -217,6 +249,18 @@ impl InputState {
 
     pub fn is_gox_mode_enabled(&self) -> bool {
         self.is_gox_mode_enabled
+    }
+
+    pub fn is_w_literal_enabled(&self) -> bool {
+        self.is_w_literal_enabled
+    }
+
+    pub fn toggle_w_literal(&mut self) {
+        self.is_w_literal_enabled = !self.is_w_literal_enabled;
+        CONFIG_MANAGER
+            .lock()
+            .unwrap()
+            .set_w_literal_enabled(self.is_w_literal_enabled);
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -374,10 +418,22 @@ impl InputState {
     }
 
     pub fn transform_keys(&self) -> Result<(String, TransformResult), ()> {
+        // In w-literal mode (Telex only), replace standalone 'w' with a placeholder
+        // before feeding to the telex engine, then restore it in the output.
+        // A 'w' is considered standalone if NOT preceded by a Horn/Breve-eligible vowel
+        // (u, o for Horn; a for Breve). This preserves uw→ư, ow→ơ, aw→ă etc.
+        let effective_buffer = if self.is_w_literal_enabled
+            && matches!(self.method, TypingMethod::Telex | TypingMethod::TelexVNI)
+        {
+            mask_standalone_w(&self.buffer)
+        } else {
+            self.buffer.clone()
+        };
+
         if self.method == TypingMethod::TelexVNI {
             // Try both methods; prefer VNI when the buffer contains digits
             // (VNI's key differentiator), otherwise fall back to Telex.
-            let buffer = self.buffer.clone();
+            let buffer = effective_buffer;
             let result = std::panic::catch_unwind(move || {
                 let has_digits = buffer.chars().any(|c| c.is_ascii_digit());
                 if has_digits {
@@ -387,19 +443,28 @@ impl InputState {
                 } else {
                     let mut output = String::new();
                     let transform_result = vi::telex::transform_buffer(buffer.chars(), &mut output);
+                    let output = output.replace('\x01', "w").replace('\x02', "W");
                     (output, transform_result)
                 }
             });
             return result.map_err(|_| ());
         }
 
-        let transform_method = match self.method {
-            TypingMethod::VNI => vi::vni::transform_buffer,
-            TypingMethod::Telex | TypingMethod::TelexVNI => vi::telex::transform_buffer,
-        };
-        let result = std::panic::catch_unwind(|| {
+        let method = self.method;
+        let buffer = effective_buffer;
+        let is_w_literal = self.is_w_literal_enabled;
+        let result = std::panic::catch_unwind(move || {
             let mut output = String::new();
-            let transform_result = transform_method(self.buffer.chars(), &mut output);
+            let transform_result = match method {
+                TypingMethod::VNI => vi::vni::transform_buffer(buffer.chars(), &mut output),
+                TypingMethod::Telex | TypingMethod::TelexVNI => vi::telex::transform_buffer(buffer.chars(), &mut output),
+            };
+            // Restore masked standalone w's back to literal 'w'/'W'
+            let output = if is_w_literal {
+                output.replace('\x01', "w").replace('\x02', "W")
+            } else {
+                output
+            };
             (output, transform_result)
         });
         if let Ok((output, transform_result)) = result {

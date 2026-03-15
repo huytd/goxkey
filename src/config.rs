@@ -23,6 +23,7 @@ pub struct ConfigStore {
     macro_table: BTreeMap<String, String>,
     is_auto_toggle_enabled: bool,
     is_gox_mode_enabled: bool,
+    is_w_literal_enabled: bool,
     allowed_words: Vec<String>,
 }
 
@@ -88,6 +89,11 @@ impl ConfigStore {
             "{} = {}",
             GOX_MODE_CONFIG_KEY, self.is_gox_mode_enabled
         )?;
+        writeln!(
+            file,
+            "{} = {}",
+            W_LITERAL_CONFIG_KEY, self.is_w_literal_enabled
+        )?;
         Ok(())
     }
 
@@ -101,6 +107,7 @@ impl ConfigStore {
             macro_table: BTreeMap::new(),
             is_auto_toggle_enabled: false,
             is_gox_mode_enabled: false,
+            is_w_literal_enabled: false,
             allowed_words: vec!["đc".to_string()],
         };
 
@@ -131,6 +138,9 @@ impl ConfigStore {
                         }
                         GOX_MODE_CONFIG_KEY => {
                             config.is_gox_mode_enabled = matches!(right.trim(), "true")
+                        }
+                        W_LITERAL_CONFIG_KEY => {
+                            config.is_w_literal_enabled = matches!(right.trim(), "true")
                         }
                         _ => {}
                     }
@@ -229,6 +239,15 @@ impl ConfigStore {
         self.save();
     }
 
+    pub fn is_w_literal_enabled(&self) -> bool {
+        self.is_w_literal_enabled
+    }
+
+    pub fn set_w_literal_enabled(&mut self, flag: bool) {
+        self.is_w_literal_enabled = flag;
+        self.save();
+    }
+
     pub fn is_macro_enabled(&self) -> bool {
         self.is_macro_enabled
     }
@@ -266,4 +285,5 @@ const MACRO_ENABLED_CONFIG_KEY: &str = "is_macro_enabled";
 const AUTOS_TOGGLE_ENABLED_CONFIG_KEY: &str = "is_auto_toggle_enabled";
 const MACROS_CONFIG_KEY: &str = "macros";
 const GOX_MODE_CONFIG_KEY: &str = "is_gox_mode_enabled";
+const W_LITERAL_CONFIG_KEY: &str = "is_w_literal_enabled";
 const ALLOWED_WORDS_CONFIG_KEY: &str = "allowed_words";
