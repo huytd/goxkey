@@ -27,6 +27,7 @@ pub struct UIDataAdapter {
     pub(super) hotkey_display: String,
     pub(super) launch_on_login: bool,
     pub(super) is_auto_toggle_enabled: bool,
+    pub(super) is_w_literal_enabled: bool,
     // Macro config
     pub(super) is_macro_enabled: bool,
     pub(super) macro_table: Arc<Vec<MacroEntry>>,
@@ -68,6 +69,7 @@ impl UIDataAdapter {
             hotkey_display: String::new(),
             launch_on_login: false,
             is_auto_toggle_enabled: false,
+            is_w_literal_enabled: false,
             is_macro_enabled: false,
             macro_table: Arc::new(Vec::new()),
             new_macro_from: String::new(),
@@ -104,6 +106,7 @@ impl UIDataAdapter {
             self.hotkey_display = INPUT_STATE.get_hotkey().to_string();
             self.is_macro_enabled = INPUT_STATE.is_macro_enabled();
             self.is_auto_toggle_enabled = INPUT_STATE.is_auto_toggle_enabled();
+            self.is_w_literal_enabled = INPUT_STATE.is_w_literal_enabled();
             self.launch_on_login = is_launch_on_login();
             self.macro_table = Arc::new(
                 INPUT_STATE

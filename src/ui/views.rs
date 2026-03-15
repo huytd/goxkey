@@ -193,6 +193,12 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
             ),
     );
 
+    let w_literal_card = settings_card(settings_row(
+        "W literal mode",
+        "Type w for w; use uw, ow, aw for ư, ơ, ă",
+        ToggleSwitch.lens(UIDataAdapter::is_w_literal_enabled),
+    ));
+
     let system_card = settings_card(settings_row(
         "Launch at login",
         "Start gõkey when you log in",
@@ -340,6 +346,8 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
         .with_child(section_label("Input mode"))
         .with_child(input_mode_card)
+        .with_spacer(8.0)
+        .with_child(w_literal_card)
         .with_spacer(20.0)
         .with_child(section_label("System"))
         .with_child(system_card)

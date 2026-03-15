@@ -236,6 +236,10 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
             if old_data.is_auto_toggle_enabled != data.is_auto_toggle_enabled {
                 INPUT_STATE.toggle_auto_toggle();
             }
+
+            if old_data.is_w_literal_enabled != data.is_w_literal_enabled {
+                INPUT_STATE.toggle_w_literal();
+            }
         }
         child.update(ctx, old_data, data, env);
     }
