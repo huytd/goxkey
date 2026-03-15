@@ -20,6 +20,7 @@ pub struct ConfigStore {
     vn_apps: Vec<String>,
     en_apps: Vec<String>,
     is_macro_enabled: bool,
+    is_macro_autocap_enabled: bool,
     macro_table: BTreeMap<String, String>,
     is_auto_toggle_enabled: bool,
     is_gox_mode_enabled: bool,
@@ -34,7 +35,7 @@ fn parse_vec_string(line: String) -> Vec<String> {
         .collect()
 }
 
-fn parse_kv_string(line: &str) -> Option<(String, String)> {
+pub(crate) fn parse_kv_string(line: &str) -> Option<(String, String)> {
     if let Some((left, right)) = line.split_once("\"=\"") {
         let left = left.strip_prefix("\"").map(|s| s.replace("\\\"", "\""));
         let right = right.strip_suffix("\"").map(|s| s.replace("\\\"", "\""));
@@ -43,7 +44,7 @@ fn parse_kv_string(line: &str) -> Option<(String, String)> {
     return None;
 }
 
-fn build_kv_string(k: &str, v: &str) -> String {
+pub(crate) fn build_kv_string(k: &str, v: &str) -> String {
     format!(
         "\"{}\"=\"{}\"",
         k.replace("\"", "\\\""),
@@ -81,6 +82,11 @@ impl ConfigStore {
             "{} = {}",
             MACRO_ENABLED_CONFIG_KEY, self.is_macro_enabled
         )?;
+        writeln!(
+            file,
+            "{} = {}",
+            MACRO_AUTOCAP_ENABLED_CONFIG_KEY, self.is_macro_autocap_enabled
+        )?;
         for (k, v) in self.macro_table.iter() {
             writeln!(file, "{} = {}", MACROS_CONFIG_KEY, build_kv_string(k, &v))?;
         }
@@ -104,6 +110,7 @@ impl ConfigStore {
             vn_apps: Vec::new(),
             en_apps: Vec::new(),
             is_macro_enabled: false,
+            is_macro_autocap_enabled: false,
             macro_table: BTreeMap::new(),
             is_auto_toggle_enabled: false,
             is_gox_mode_enabled: false,
@@ -130,6 +137,9 @@ impl ConfigStore {
                         }
                         MACRO_ENABLED_CONFIG_KEY => {
                             config.is_macro_enabled = matches!(right.trim(), "true")
+                        }
+                        MACRO_AUTOCAP_ENABLED_CONFIG_KEY => {
+                            config.is_macro_autocap_enabled = matches!(right.trim(), "true")
                         }
                         MACROS_CONFIG_KEY => {
                             if let Some((k, v)) = parse_kv_string(right) {
@@ -257,6 +267,15 @@ impl ConfigStore {
         self.save();
     }
 
+    pub fn is_macro_autocap_enabled(&self) -> bool {
+        self.is_macro_autocap_enabled
+    }
+
+    pub fn set_macro_autocap_enabled(&mut self, flag: bool) {
+        self.is_macro_autocap_enabled = flag;
+        self.save();
+    }
+
     pub fn get_macro_table(&self) -> &BTreeMap<String, String> {
         &self.macro_table
     }
@@ -282,6 +301,7 @@ const TYPING_METHOD_CONFIG_KEY: &str = "method";
 const VN_APPS_CONFIG_KEY: &str = "vn-apps";
 const EN_APPS_CONFIG_KEY: &str = "en-apps";
 const MACRO_ENABLED_CONFIG_KEY: &str = "is_macro_enabled";
+const MACRO_AUTOCAP_ENABLED_CONFIG_KEY: &str = "is_macro_autocap_enabled";
 const AUTOS_TOGGLE_ENABLED_CONFIG_KEY: &str = "is_auto_toggle_enabled";
 const MACROS_CONFIG_KEY: &str = "macros";
 const GOX_MODE_CONFIG_KEY: &str = "is_gox_mode_enabled";

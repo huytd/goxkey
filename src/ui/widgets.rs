@@ -138,6 +138,91 @@ impl Widget<bool> for StyledCheckbox {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// InfoTooltip
+// ══════════════════════════════════════════════════════════════════════════════
+
+pub(super) struct InfoTooltip {
+    text: &'static str,
+    is_hovered: bool,
+}
+
+impl InfoTooltip {
+    pub fn new(text: &'static str) -> Self {
+        Self { text, is_hovered: false }
+    }
+}
+
+impl<T: druid::Data> Widget<T> for InfoTooltip {
+    fn event(&mut self, _ctx: &mut EventCtx, _event: &Event, _data: &mut T, _env: &Env) {}
+
+    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, _data: &T, _env: &Env) {
+        if let LifeCycle::HotChanged(hot) = event {
+            self.is_hovered = *hot;
+            // Invalidate both the widget rect and the tooltip area above it.
+            // Tooltip is rendered at negative y (above the widget) via paint_with_z_index,
+            // so the repaint region must cover that area or it won't be cleared.
+            ctx.request_paint_rect(Rect::new(-260.0, -100.0, 20.0, 20.0));
+        }
+    }
+
+    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &T, _data: &T, _env: &Env) {}
+
+    fn layout(&mut self, ctx: &mut LayoutCtx, _bc: &BoxConstraints, _data: &T, _env: &Env) -> Size {
+        // Tell Druid this widget paints outside its layout bounds (tooltip above/left).
+        // This propagates up through parent widgets (Padding, Flex, Container) so
+        // the parent's paint_insets expand to include the tooltip area, allowing
+        // request_paint_rect with negative coords to survive merge_up clipping.
+        ctx.set_paint_insets(druid::Insets::new(260.0, 100.0, 0.0, 0.0));
+        Size::new(18.0, 18.0)
+    }
+
+    fn paint(&mut self, ctx: &mut PaintCtx, _data: &T, _env: &Env) {
+        let size = ctx.size();
+        let cx = size.width / 2.0;
+        let cy = size.height / 2.0;
+        let circle = Circle::new((cx, cy), 8.0);
+        ctx.stroke(circle, &TEXT_SECONDARY, 1.0);
+        let layout = ctx
+            .text()
+            .new_text_layout("?")
+            .font(FontFamily::SYSTEM_UI, 11.0)
+            .text_color(TEXT_SECONDARY)
+            .build()
+            .unwrap();
+        ctx.draw_text(
+            &layout,
+            (cx - layout.size().width / 2.0, cy - layout.size().height / 2.0),
+        );
+
+        if self.is_hovered {
+            let tooltip_text = self.text;
+            ctx.paint_with_z_index(10, move |ctx| {
+                let text_layout = ctx
+                    .text()
+                    .new_text_layout(tooltip_text)
+                    .font(FontFamily::SYSTEM_UI, 12.0)
+                    .text_color(Color::WHITE)
+                    .max_width(240.0)
+                    .build()
+                    .unwrap();
+                let text_size = text_layout.size();
+                let padding = 8.0;
+                let box_w = text_size.width + padding * 2.0;
+                let box_h = text_size.height + padding * 2.0;
+                // Widget-local coords: (0,0) is this widget's top-left.
+                // Right-align tooltip to the icon's right edge (18px wide),
+                // and place it above the icon with a small gap.
+                let box_x = 18.0 - box_w;
+                let box_y = -box_h - 4.0;
+                let bg_rect = RoundedRect::new(box_x, box_y, box_x + box_w, box_y + box_h, 6.0);
+                ctx.fill(bg_rect, &Color::rgb8(40, 40, 40));
+                ctx.draw_text(&text_layout, (box_x + padding, box_y + padding));
+            });
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // SegmentedControl
 // ══════════════════════════════════════════════════════════════════════════════
 

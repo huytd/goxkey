@@ -30,6 +30,7 @@ pub struct UIDataAdapter {
     pub(super) is_w_literal_enabled: bool,
     // Macro config
     pub(super) is_macro_enabled: bool,
+    pub(super) is_macro_autocap_enabled: bool,
     pub(super) macro_table: Arc<Vec<MacroEntry>>,
     pub(super) new_macro_from: String,
     pub(super) new_macro_to: String,
@@ -71,6 +72,7 @@ impl UIDataAdapter {
             is_auto_toggle_enabled: false,
             is_w_literal_enabled: false,
             is_macro_enabled: false,
+            is_macro_autocap_enabled: false,
             macro_table: Arc::new(Vec::new()),
             new_macro_from: String::new(),
             new_macro_to: String::new(),
@@ -105,6 +107,7 @@ impl UIDataAdapter {
             self.typing_method = INPUT_STATE.get_method();
             self.hotkey_display = INPUT_STATE.get_hotkey().to_string();
             self.is_macro_enabled = INPUT_STATE.is_macro_enabled();
+            self.is_macro_autocap_enabled = INPUT_STATE.is_macro_autocap_enabled();
             self.is_auto_toggle_enabled = INPUT_STATE.is_auto_toggle_enabled();
             self.is_w_literal_enabled = INPUT_STATE.is_w_literal_enabled();
             self.launch_on_login = is_launch_on_login();
