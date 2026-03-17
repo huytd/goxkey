@@ -78,7 +78,16 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
                     // Clone the display buffer so we hold no borrow into INPUT_STATE
                     // while calling get_diff_parts, which borrows `output`.
                     let displaying = INPUT_STATE.get_displaying_word().to_owned();
-                    let (bs, sfx) = get_diff_parts(&displaying, &output);
+                    // `push(c)` was called just before this function, appending the
+                    // typed char to display_buffer.  That char has NOT yet appeared on
+                    // screen because we are about to block the key event and replace it
+                    // ourselves.  Strip it so `old` reflects the true on-screen state.
+                    let screen_end = displaying
+                        .char_indices()
+                        .next_back()
+                        .map(|(i, _)| i)
+                        .unwrap_or(displaying.len());
+                    let (bs, sfx) = get_diff_parts(&displaying[..screen_end], &output);
                     let offset = output.len() - sfx.len();
                     (bs, offset)
                 };
