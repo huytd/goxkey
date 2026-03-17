@@ -219,6 +219,66 @@ impl Display for TypingMethod {
     }
 }
 
+/// Compute the minimal edit needed to transform what is currently displayed (`old`)
+/// into the desired output (`new`) by finding their longest common prefix.
+///
+/// Returns `(backspace_count, suffix)` where:
+/// - `backspace_count` is the number of backspaces to send (to erase only the
+///   diverging tail of `old`)
+/// - `suffix` is the slice of `new` that must be typed after those backspaces
+///
+/// Both counts are in **Unicode scalar values** (chars), not bytes, because
+/// each backspace deletes one displayed character regardless of its byte width.
+/// The returned `suffix` is a byte slice of `new` starting at the first
+/// diverging char — no allocation, no `.collect()`.
+///
+/// # Example
+/// ```
+/// // old = "mô"  (on screen after typing "moo")
+/// // new = "mộ"  (engine output after pressing 'j' for nặng tone)
+/// // common prefix = "m"  → only "ô" needs deleting, only "ộ" needs typing
+/// let (bs, suffix) = get_diff_parts("mô", "mộ");
+/// assert_eq!(bs, 1);
+/// assert_eq!(suffix, "ộ");
+/// ```
+pub fn get_diff_parts<'a>(old: &str, new: &'a str) -> (usize, &'a str) {
+    // Walk both strings char-by-char simultaneously.
+    // We track the byte offset into `new` so we can return a zero-copy suffix slice.
+    let mut old_chars = old.chars();
+    let mut new_chars = new.char_indices();
+
+    // Number of chars that are identical from the start.
+    let mut common = 0usize;
+    // Byte offset in `new` where divergence begins (used for the suffix slice).
+    let mut diverge_byte = new.len(); // default: full match, empty suffix
+
+    loop {
+        match (old_chars.next(), new_chars.next()) {
+            (Some(a), Some((byte_pos, b))) if a == b => {
+                common += 1;
+                diverge_byte = byte_pos + b.len_utf8();
+            }
+            (_, Some((byte_pos, _))) => {
+                // Diverged — note byte position of the first differing char in `new`.
+                diverge_byte = byte_pos;
+                break;
+            }
+            (_, None) => {
+                // `new` is a prefix of (or equal to) `old` — no suffix to type.
+                diverge_byte = new.len();
+                break;
+            }
+        }
+    }
+
+    // old_tail_len = number of chars in old that are NOT part of the common prefix.
+    let old_len = old.chars().count();
+    let backspace_count = old_len.saturating_sub(common);
+    let suffix = &new[diverge_byte..];
+
+    (backspace_count, suffix)
+}
+
 pub struct InputState {
     buffer: String,
     display_buffer: String,
@@ -675,5 +735,169 @@ impl InputState {
     pub fn is_allowed_word(&self, word: &str) -> bool {
         let config = CONFIG_MANAGER.lock().unwrap();
         return config.is_allowed_word(word);
+    }
+}
+
+#[cfg(test)]
+mod diff_tests {
+    use super::get_diff_parts;
+
+    // ── Basic tone application ────────────────────────────────────────────────
+
+    /// "mô" → "mộ": only the vowel+tone char is replaced, "m" stays.
+    #[test]
+    fn tone_on_vowel_preserves_consonant_prefix() {
+        let (bs, sfx) = get_diff_parts("mô", "mộ");
+        assert_eq!(bs, 1, "should delete only 'ô'");
+        assert_eq!(sfx, "ộ");
+    }
+
+    /// "mo" → "mô": typing 'o' again applies the circumflex.
+    #[test]
+    fn circumflex_application() {
+        let (bs, sfx) = get_diff_parts("mo", "mô");
+        assert_eq!(bs, 1);
+        assert_eq!(sfx, "ô");
+    }
+
+    /// "tieng" → "tiếng": "ti" preserved, vowel+tone suffix replaced.
+    #[test]
+    fn multi_char_prefix_preserved() {
+        let (bs, sfx) = get_diff_parts("tieng", "tiếng");
+        assert_eq!(bs, 3); // "eng" deleted
+        assert_eq!(sfx, "ếng");
+    }
+
+    /// "nguyen" → "nguyên": "nguy" is common.
+    #[test]
+    fn longer_common_prefix() {
+        let (bs, sfx) = get_diff_parts("nguyen", "nguyên");
+        assert_eq!(bs, 2); // "en" deleted
+        assert_eq!(sfx, "ên");
+    }
+
+    // ── No-op / identical strings ─────────────────────────────────────────────
+
+    /// Identical strings → 0 backspaces, empty suffix.
+    #[test]
+    fn identical_strings_no_op() {
+        let (bs, sfx) = get_diff_parts("mộ", "mộ");
+        assert_eq!(bs, 0);
+        assert_eq!(sfx, "");
+    }
+
+    // ── Empty edge cases ──────────────────────────────────────────────────────
+
+    #[test]
+    fn both_empty() {
+        let (bs, sfx) = get_diff_parts("", "");
+        assert_eq!(bs, 0);
+        assert_eq!(sfx, "");
+    }
+
+    #[test]
+    fn old_empty_new_nonempty() {
+        let (bs, sfx) = get_diff_parts("", "mộ");
+        assert_eq!(bs, 0);
+        assert_eq!(sfx, "mộ");
+    }
+
+    #[test]
+    fn old_nonempty_new_empty() {
+        let (bs, sfx) = get_diff_parts("mô", "");
+        assert_eq!(bs, 2);
+        assert_eq!(sfx, "");
+    }
+
+    // ── Prefix / suffix relationships ─────────────────────────────────────────
+
+    /// new is a strict prefix of old: delete tail, type nothing.
+    #[test]
+    fn new_is_prefix_of_old() {
+        let (bs, sfx) = get_diff_parts("mộng", "mộ");
+        assert_eq!(bs, 2); // delete "ng"
+        assert_eq!(sfx, "");
+    }
+
+    /// old is a strict prefix of new: 0 backspaces, append tail.
+    #[test]
+    fn old_is_prefix_of_new() {
+        let (bs, sfx) = get_diff_parts("mộ", "mộng");
+        assert_eq!(bs, 0);
+        assert_eq!(sfx, "ng");
+    }
+
+    // ── Completely different strings ──────────────────────────────────────────
+
+    #[test]
+    fn no_common_prefix() {
+        let (bs, sfx) = get_diff_parts("abc", "xyz");
+        assert_eq!(bs, 3);
+        assert_eq!(sfx, "xyz");
+    }
+
+    // ── Multi-byte / Unicode correctness ─────────────────────────────────────
+
+    /// Each Vietnamese toned vowel is 1 char, possibly 3 bytes.
+    /// backspace_count must be in chars, not bytes.
+    #[test]
+    fn char_count_not_byte_count() {
+        let (bs, sfx) = get_diff_parts("ộ", "ô");
+        assert_eq!(bs, 1, "one char deleted, not three bytes");
+        assert_eq!(sfx, "ô");
+    }
+
+    #[test]
+    fn all_multibyte_no_common_prefix() {
+        let (bs, sfx) = get_diff_parts("ộ", "ể");
+        assert_eq!(bs, 1);
+        assert_eq!(sfx, "ể");
+    }
+
+    // ── Realistic Telex sequences ─────────────────────────────────────────────
+
+    /// "moo" (buffer) → "mô" (engine output).
+    #[test]
+    fn telex_moo_to_mo_hat() {
+        let (bs, sfx) = get_diff_parts("moo", "mô");
+        assert_eq!(bs, 2);
+        assert_eq!(sfx, "ô");
+    }
+
+    /// "cas" → "cá": "c" preserved.
+    #[test]
+    fn telex_cas_to_ca_sac() {
+        let (bs, sfx) = get_diff_parts("cas", "cá");
+        assert_eq!(bs, 2);
+        assert_eq!(sfx, "á");
+    }
+
+    /// "viet" → "việt"
+    #[test]
+    fn telex_viet_transform() {
+        let (bs, sfx) = get_diff_parts("viet", "việt");
+        assert_eq!(bs, 3); // common = "v"
+        assert_eq!(sfx, "iệt");
+    }
+
+    /// Tone cycling: "tiến" → "tiền" (sắc → huyền), "ti" preserved.
+    #[test]
+    fn tone_cycling_preserves_prefix() {
+        let (bs, sfx) = get_diff_parts("tiến", "tiền");
+        assert_eq!(bs, 2);
+        assert_eq!(sfx, "ền");
+    }
+
+    // ── Suffix slice is a zero-copy view into `new` ───────────────────────────
+
+    #[test]
+    fn suffix_is_valid_utf8_slice_of_new() {
+        let new = "nguyên";
+        let (_, sfx) = get_diff_parts("nguyen", new);
+        let new_start = new.as_ptr() as usize;
+        let sfx_start = sfx.as_ptr() as usize;
+        assert!(sfx_start >= new_start);
+        assert!(sfx_start + sfx.len() <= new_start + new.len());
+        assert_eq!(sfx, "ên");
     }
 }
