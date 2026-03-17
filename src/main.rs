@@ -9,7 +9,8 @@ use std::thread;
 
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
 use input::{
-    rebuild_keyboard_layout_map, TypingMethod, HOTKEY_MATCHING_CIRCUIT_BREAK, INPUT_STATE,
+    get_diff_parts, rebuild_keyboard_layout_map, TypingMethod, HOTKEY_MATCHING_CIRCUIT_BREAK,
+    INPUT_STATE,
 };
 use log::debug;
 use once_cell::sync::OnceCell;
@@ -60,11 +61,43 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
                     _ = send_backspace(handle, 1);
                 }
 
-                let backspace_count = INPUT_STATE.get_backspace_count(is_delete);
+                // Compute the minimal diff between what is currently displayed
+                // and the new output.  Only delete and retype the diverging
+                // suffix — the common prefix stays on screen untouched, which
+                // eliminates flicker in Chromium/Electron apps (e.g. Messenger)
+                // caused by a VSync frame landing between the backspace burst
+                // and the reinsertion of the full word.
+                //
+                // Exception: when `is_delete` is true the caller wants the
+                // entire word erased (e.g. the user pressed Delete/Backspace),
+                // so we fall back to full-replace in that case.
+                let (backspace_count, suffix_offset) = if is_delete {
+                    let bs = INPUT_STATE.get_backspace_count(is_delete);
+                    (bs, 0usize)
+                } else {
+                    // Clone the display buffer so we hold no borrow into INPUT_STATE
+                    // while calling get_diff_parts, which borrows `output`.
+                    let displaying = INPUT_STATE.get_displaying_word().to_owned();
+                    // `push(c)` was called just before this function, appending the
+                    // typed char to display_buffer.  That char has NOT yet appeared on
+                    // screen because we are about to block the key event and replace it
+                    // ourselves.  Strip it so `old` reflects the true on-screen state.
+                    let screen_end = displaying
+                        .char_indices()
+                        .next_back()
+                        .map(|(i, _)| i)
+                        .unwrap_or(displaying.len());
+                    let (bs, sfx) = get_diff_parts(&displaying[..screen_end], &output);
+                    let offset = output.len() - sfx.len();
+                    (bs, offset)
+                };
+                let suffix = &output[suffix_offset..];
                 debug!("Backspace count: {}", backspace_count);
                 _ = send_backspace(handle, backspace_count);
-                _ = send_string(handle, &output);
-                debug!("Sent: {:?}", output);
+                if !suffix.is_empty() {
+                    _ = send_string(handle, suffix);
+                }
+                debug!("Sent suffix: {:?}", suffix);
                 INPUT_STATE.replace(output);
                 if transform_result.letter_modification_removed
                     || transform_result.tone_mark_removed
