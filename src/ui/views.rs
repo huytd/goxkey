@@ -206,7 +206,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
 
     let send_keys_one_by_one_card = settings_card(settings_row(
         "Send keys one by one",
-        "Send each character individually (auto-on in terminals)",
+        "Fix Vietnamese input in terminal apps (e.g. Claude Code)",
         ToggleSwitch.lens(UIDataAdapter::is_send_keys_one_by_one_enabled),
     ));
 

@@ -9,7 +9,7 @@ use vi::TransformResult;
 
 use crate::platform::{get_active_app_name, KeyModifier};
 use crate::{
-    config::{CONFIG_MANAGER, TERMINAL_APP_PATTERNS}, hotkey::Hotkey, platform::is_in_text_selection, ui::UPDATE_UI,
+    config::CONFIG_MANAGER, hotkey::Hotkey, platform::is_in_text_selection, ui::UPDATE_UI,
     UI_EVENT_SINK,
 };
 
@@ -297,9 +297,6 @@ pub struct InputState {
     is_gox_mode_enabled: bool,
     is_w_literal_enabled: bool,
     is_send_keys_one_by_one_enabled: bool,
-    /// True when the current active app is a terminal emulator.
-    /// Updated each time `update_active_app` detects an app switch.
-    is_in_terminal_app: bool,
 }
 
 impl InputState {
@@ -323,7 +320,6 @@ impl InputState {
             is_gox_mode_enabled: config.is_gox_mode_enabled(),
             is_w_literal_enabled: config.is_w_literal_enabled(),
             is_send_keys_one_by_one_enabled: config.is_send_keys_one_by_one_enabled(),
-            is_in_terminal_app: false,
         }
     }
 
@@ -334,10 +330,6 @@ impl InputState {
             return None;
         }
         self.active_app = current_active_app;
-        // Detect terminal emulator apps for "send keys one by one" auto-activation
-        self.is_in_terminal_app = TERMINAL_APP_PATTERNS
-            .iter()
-            .any(|p| self.active_app.contains(p));
         let config = CONFIG_MANAGER.lock().unwrap();
         // Only switch the input mode if we found the app in the config
         if config.is_vietnamese_app(&self.active_app) {
@@ -369,12 +361,8 @@ impl InputState {
             .set_w_literal_enabled(self.is_w_literal_enabled);
     }
 
-    /// Returns true when the "send keys one by one" mode should be active.
-    /// The mode is active when:
-    ///   - the user has enabled the setting globally, OR
-    ///   - the current app is a recognised terminal emulator (auto-activation).
     pub fn is_send_keys_one_by_one(&self) -> bool {
-        self.is_send_keys_one_by_one_enabled || self.is_in_terminal_app
+        self.is_send_keys_one_by_one_enabled
     }
 
     pub fn is_send_keys_one_by_one_enabled(&self) -> bool {

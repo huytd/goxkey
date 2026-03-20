@@ -14,22 +14,6 @@ use crate::platform::get_home_dir;
 
 pub static CONFIG_MANAGER: Lazy<Mutex<ConfigStore>> = Lazy::new(|| Mutex::new(ConfigStore::new()));
 
-/// Bundle ID substrings / app name substrings for known terminal emulators.
-/// When the active app matches any of these, "Send keys one by one" is
-/// activated automatically (if the feature is enabled).
-pub const TERMINAL_APP_PATTERNS: [&str; 10] = [
-    "Terminal",
-    "iTerm",
-    "WezTerm",
-    "Alacritty",
-    "Ghostty",
-    "Warp",
-    "Hyper",
-    "kitty",
-    "tabby",
-    "Terminus",
-];
-
 pub struct ConfigStore {
     hotkey: String,
     method: String,
