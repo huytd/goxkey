@@ -14,6 +14,22 @@ use crate::platform::get_home_dir;
 
 pub static CONFIG_MANAGER: Lazy<Mutex<ConfigStore>> = Lazy::new(|| Mutex::new(ConfigStore::new()));
 
+/// Bundle ID substrings / app name substrings for known terminal emulators.
+/// When the active app matches any of these, "Send keys one by one" is
+/// activated automatically (if the feature is enabled).
+pub const TERMINAL_APP_PATTERNS: [&str; 10] = [
+    "Terminal",
+    "iTerm",
+    "WezTerm",
+    "Alacritty",
+    "Ghostty",
+    "Warp",
+    "Hyper",
+    "kitty",
+    "tabby",
+    "Terminus",
+];
+
 pub struct ConfigStore {
     hotkey: String,
     method: String,
@@ -25,6 +41,7 @@ pub struct ConfigStore {
     is_auto_toggle_enabled: bool,
     is_gox_mode_enabled: bool,
     is_w_literal_enabled: bool,
+    is_send_keys_one_by_one_enabled: bool,
     allowed_words: Vec<String>,
 }
 
@@ -100,6 +117,11 @@ impl ConfigStore {
             "{} = {}",
             W_LITERAL_CONFIG_KEY, self.is_w_literal_enabled
         )?;
+        writeln!(
+            file,
+            "{} = {}",
+            SEND_KEYS_ONE_BY_ONE_CONFIG_KEY, self.is_send_keys_one_by_one_enabled
+        )?;
         Ok(())
     }
 
@@ -115,6 +137,7 @@ impl ConfigStore {
             is_auto_toggle_enabled: false,
             is_gox_mode_enabled: false,
             is_w_literal_enabled: false,
+            is_send_keys_one_by_one_enabled: false,
             allowed_words: vec!["đc".to_string()],
         };
 
@@ -151,6 +174,9 @@ impl ConfigStore {
                         }
                         W_LITERAL_CONFIG_KEY => {
                             config.is_w_literal_enabled = matches!(right.trim(), "true")
+                        }
+                        SEND_KEYS_ONE_BY_ONE_CONFIG_KEY => {
+                            config.is_send_keys_one_by_one_enabled = matches!(right.trim(), "true")
                         }
                         _ => {}
                     }
@@ -258,6 +284,15 @@ impl ConfigStore {
         self.save();
     }
 
+    pub fn is_send_keys_one_by_one_enabled(&self) -> bool {
+        self.is_send_keys_one_by_one_enabled
+    }
+
+    pub fn set_send_keys_one_by_one_enabled(&mut self, flag: bool) {
+        self.is_send_keys_one_by_one_enabled = flag;
+        self.save();
+    }
+
     pub fn is_macro_enabled(&self) -> bool {
         self.is_macro_enabled
     }
@@ -306,4 +341,5 @@ const AUTOS_TOGGLE_ENABLED_CONFIG_KEY: &str = "is_auto_toggle_enabled";
 const MACROS_CONFIG_KEY: &str = "macros";
 const GOX_MODE_CONFIG_KEY: &str = "is_gox_mode_enabled";
 const W_LITERAL_CONFIG_KEY: &str = "is_w_literal_enabled";
+const SEND_KEYS_ONE_BY_ONE_CONFIG_KEY: &str = "is_send_keys_one_by_one_enabled";
 const ALLOWED_WORDS_CONFIG_KEY: &str = "allowed_words";

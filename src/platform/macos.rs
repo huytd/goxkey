@@ -224,6 +224,28 @@ pub fn send_string(handle: Handle, string: &str) -> Result<(), ()> {
     Ok(())
 }
 
+/// Send `string` one Unicode scalar value at a time.
+/// Used in terminal emulators which process input character-by-character and
+/// may mishandle a multi-character UTF-16 payload delivered in a single
+/// CGEvent (e.g. composed Vietnamese characters appearing out of order or
+/// getting dropped).
+pub fn send_string_char_by_char(handle: Handle, string: &str) -> Result<(), ()> {
+    let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
+    for ch in string.chars() {
+        // Encode each char to UTF-16 (1 or 2 code units for supplementary chars)
+        let mut buf = [0u16; 2];
+        let encoded = ch.encode_utf16(&mut buf);
+        unsafe {
+            let event_str = CGEventCreateKeyboardEvent(null_event_source, 0, true);
+            let buflen = encoded.len() as libc::c_ulong;
+            let bufptr = encoded.as_ptr();
+            CGEventKeyboardSetUnicodeString(event_str, buflen, bufptr);
+            CGEventTapPostEvent(handle, event_str);
+        }
+    }
+    Ok(())
+}
+
 pub fn add_app_change_callback<F>(cb: F)
 where
     F: Fn() + Send + 'static,

@@ -26,6 +26,10 @@ pub fn send_string(string: &str) -> Result<(), ()> {
     todo!()
 }
 
+pub fn send_string_char_by_char(string: &str) -> Result<(), ()> {
+    todo!()
+}
+
 pub fn run_event_listener(callback: &CallbackFn) {
     todo!()
 }

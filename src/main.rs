@@ -16,7 +16,8 @@ use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
     add_app_change_callback, ensure_accessibility_permission, run_event_listener, send_backspace,
-    send_string, EventTapType, Handle, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE,
+    send_string, send_string_char_by_char, EventTapType, Handle, KeyModifier, PressedKey,
+    KEY_DELETE, KEY_ENTER, KEY_ESCAPE,
     KEY_SPACE, KEY_TAB, RAW_KEY_GLOBE,
 };
 
@@ -95,7 +96,11 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
                 debug!("Backspace count: {}", backspace_count);
                 _ = send_backspace(handle, backspace_count);
                 if !suffix.is_empty() {
-                    _ = send_string(handle, suffix);
+                    if INPUT_STATE.is_send_keys_one_by_one() {
+                        _ = send_string_char_by_char(handle, suffix);
+                    } else {
+                        _ = send_string(handle, suffix);
+                    }
                 }
                 debug!("Sent suffix: {:?}", suffix);
                 INPUT_STATE.replace(output);
@@ -118,7 +123,11 @@ fn do_restore_word(handle: Handle, is_capslock: bool) {
         _ = send_backspace(handle, backspace_count);
         let typing_buffer = INPUT_STATE.get_typing_buffer();
         let output = apply_capslock_to_output(typing_buffer.to_owned(), is_capslock);
-        _ = send_string(handle, &output);
+        if INPUT_STATE.is_send_keys_one_by_one() {
+            _ = send_string_char_by_char(handle, &output);
+        } else {
+            _ = send_string(handle, &output);
+        }
         debug!("Sent: {:?}", output);
         INPUT_STATE.replace(output);
     }
@@ -147,7 +156,11 @@ fn do_macro_replace(handle: Handle, target: &String) {
         let backspace_count = INPUT_STATE.get_backspace_count(true);
         debug!("Backspace count: {}", backspace_count);
         _ = send_backspace(handle, backspace_count);
-        _ = send_string(handle, target);
+        if INPUT_STATE.is_send_keys_one_by_one() {
+            _ = send_string_char_by_char(handle, target);
+        } else {
+            _ = send_string(handle, target);
+        }
         debug!("Sent: {:?}", target);
         INPUT_STATE.replace(target.to_owned());
     }

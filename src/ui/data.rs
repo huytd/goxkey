@@ -28,6 +28,7 @@ pub struct UIDataAdapter {
     pub(super) launch_on_login: bool,
     pub(super) is_auto_toggle_enabled: bool,
     pub(super) is_w_literal_enabled: bool,
+    pub(super) is_send_keys_one_by_one_enabled: bool,
     // Macro config
     pub(super) is_macro_enabled: bool,
     pub(super) is_macro_autocap_enabled: bool,
@@ -71,6 +72,7 @@ impl UIDataAdapter {
             launch_on_login: false,
             is_auto_toggle_enabled: false,
             is_w_literal_enabled: false,
+            is_send_keys_one_by_one_enabled: false,
             is_macro_enabled: false,
             is_macro_autocap_enabled: false,
             macro_table: Arc::new(Vec::new()),
@@ -110,6 +112,7 @@ impl UIDataAdapter {
             self.is_macro_autocap_enabled = INPUT_STATE.is_macro_autocap_enabled();
             self.is_auto_toggle_enabled = INPUT_STATE.is_auto_toggle_enabled();
             self.is_w_literal_enabled = INPUT_STATE.is_w_literal_enabled();
+            self.is_send_keys_one_by_one_enabled = INPUT_STATE.is_send_keys_one_by_one_enabled();
             self.launch_on_login = is_launch_on_login();
             self.macro_table = Arc::new(
                 INPUT_STATE

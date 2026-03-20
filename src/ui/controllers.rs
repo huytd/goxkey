@@ -272,6 +272,10 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
             if old_data.is_w_literal_enabled != data.is_w_literal_enabled {
                 INPUT_STATE.toggle_w_literal();
             }
+
+            if old_data.is_send_keys_one_by_one_enabled != data.is_send_keys_one_by_one_enabled {
+                INPUT_STATE.toggle_send_keys_one_by_one();
+            }
         }
         child.update(ctx, old_data, data, env);
     }
