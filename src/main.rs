@@ -3,6 +3,9 @@ mod hotkey;
 mod input;
 mod platform;
 mod scripting;
+mod smart;
+mod smart_model;
+mod smart_predict;
 mod ui;
 
 use std::thread;
@@ -10,7 +13,7 @@ use std::thread;
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
 use input::{
     get_diff_parts, rebuild_keyboard_layout_map, TypingMethod, HOTKEY_MATCHING_CIRCUIT_BREAK,
-    INPUT_STATE,
+    INPUT_STATE, SMART_STATE,
 };
 use log::debug;
 use once_cell::sync::OnceCell;
@@ -229,6 +232,109 @@ fn event_handler(
                     }
                     PressedKey::Char(keycode) => {
                         if INPUT_STATE.is_enabled() {
+                            // ── Smart mode: intercept before Telex/VNI logic ──────────────
+                            if INPUT_STATE.get_method() == TypingMethod::Smart {
+                                // Poll load status and update tray title while loading
+                                {
+                                    use crate::smart_model::{LoadStatus, SMART_LOAD_STATUS};
+                                    let status = SMART_LOAD_STATUS.lock().unwrap().clone();
+                                    match status {
+                                        LoadStatus::Downloading { pct } => {
+                                            // Status is visible via tray title set in ensure_model_loaded.
+                                            // Just pass keys through while downloading.
+                                            return false;
+                                        }
+                                        LoadStatus::Loading => {
+                                            return false;
+                                        }
+                                        _ => {}
+                                    }
+                                }
+
+                                match keycode {
+                                    KEY_ENTER | KEY_TAB | KEY_ESCAPE => {
+                                        SMART_STATE.reset();
+                                        INPUT_STATE.new_word();
+                                        return false;
+                                    }
+                                    KEY_SPACE => {
+                                        if !SMART_STATE.has_word() {
+                                            // nothing buffered — pass space through normally
+                                            INPUT_STATE.new_word();
+                                            return false;
+                                        }
+
+                                        if SMART_STATE.should_skip_prediction() {
+                                            // Too long or non-alpha — commit raw
+                                            SMART_STATE.commit_raw();
+                                            INPUT_STATE.new_word();
+                                            return false;
+                                        }
+
+                                        let raw_word = SMART_STATE.current_word.clone();
+                                        let context = SMART_STATE.committed_context.clone();
+
+                                        let predicted = {
+                                            use crate::smart_model::SMART_WORKER;
+                                            use std::time::Duration;
+                                            let slot = SMART_WORKER.lock().unwrap();
+                                            slot.as_ref().and_then(|w| {
+                                                w.predict_blocking(
+                                                    &raw_word,
+                                                    &context,
+                                                    Duration::from_millis(800),
+                                                )
+                                            })
+                                        };
+
+                                        match predicted {
+                                            Some(word) => {
+                                                let erase_count =
+                                                    SMART_STATE.commit_word(&word);
+                                                // Erase the raw chars the user typed
+                                                _ = send_backspace(handle, erase_count);
+                                                // Insert the accented word + space
+                                                _ = send_string(
+                                                    handle,
+                                                    &format!("{word} "),
+                                                );
+                                            }
+                                            None => {
+                                                // Timeout or model not ready — pass raw + space
+                                                SMART_STATE.commit_raw();
+                                            }
+                                        }
+
+                                        INPUT_STATE.new_word();
+                                        return true;
+                                    }
+                                    KEY_DELETE => {
+                                        SMART_STATE.pop_char();
+                                        INPUT_STATE.new_word();
+                                        return false;
+                                    }
+                                    c => {
+                                        if c.is_ascii_alphabetic() && !modifiers.is_super() && !modifiers.is_alt() {
+                                            // Accumulate raw char (lowercase)
+                                            SMART_STATE.push_char(
+                                                c.to_ascii_lowercase(),
+                                            );
+                                            // Let the keypress go through — user sees raw chars as they type
+                                            return false;
+                                        } else {
+                                            // Non-alpha (digits, punctuation, shortcuts) —
+                                            // commit any partial context and reset
+                                            if SMART_STATE.has_word() {
+                                                SMART_STATE.commit_raw();
+                                            }
+                                            SMART_STATE.reset();
+                                            INPUT_STATE.new_word();
+                                            return false;
+                                        }
+                                    }
+                                }
+                            }
+                            // ── End Smart mode ────────────────────────────────────────────
                             match keycode {
                                 KEY_ENTER | KEY_TAB | KEY_SPACE | KEY_ESCAPE => {
                                     let typing_buffer = INPUT_STATE.get_typing_buffer();

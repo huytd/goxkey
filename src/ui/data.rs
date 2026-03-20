@@ -160,6 +160,7 @@ impl UIDataAdapter {
                             TypingMethod::Telex => "gox",
                             TypingMethod::VNI => "go4",
                             TypingMethod::TelexVNI => "go+",
+                            TypingMethod::Smart => "go🤖",
                         }
                     } else {
                         "EN"
@@ -179,6 +180,8 @@ impl UIDataAdapter {
                         SystemTrayMenuItemKey::TypingMethodTelexVNI,
                         "Telex+VNI",
                     );
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodSmart, "Smart");
                 }
                 TypingMethod::Telex => {
                     self.systray
@@ -189,6 +192,8 @@ impl UIDataAdapter {
                         SystemTrayMenuItemKey::TypingMethodTelexVNI,
                         "Telex+VNI",
                     );
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodSmart, "Smart");
                 }
                 TypingMethod::TelexVNI => {
                     self.systray
@@ -199,6 +204,20 @@ impl UIDataAdapter {
                         SystemTrayMenuItemKey::TypingMethodTelexVNI,
                         "Telex+VNI ✓",
                     );
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodSmart, "Smart");
+                }
+                TypingMethod::Smart => {
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodTelex, "Telex");
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodVNI, "VNI");
+                    self.systray.set_menu_item_title(
+                        SystemTrayMenuItemKey::TypingMethodTelexVNI,
+                        "Telex+VNI",
+                    );
+                    self.systray
+                        .set_menu_item_title(SystemTrayMenuItemKey::TypingMethodSmart, "Smart ✓");
                 }
             }
         }
@@ -242,6 +261,16 @@ impl UIDataAdapter {
             .set_menu_item_callback(SystemTrayMenuItemKey::TypingMethodTelexVNI, || {
                 unsafe {
                     INPUT_STATE.set_method(TypingMethod::TelexVNI);
+                }
+                UI_EVENT_SINK
+                    .get()
+                    .map(|event| Some(event.submit_command(UPDATE_UI, (), Target::Auto)));
+            });
+        self.systray
+            .set_menu_item_callback(SystemTrayMenuItemKey::TypingMethodSmart, || {
+                unsafe {
+                    INPUT_STATE.set_method(TypingMethod::Smart);
+                    crate::smart_model::ensure_model_loaded(4);
                 }
                 UI_EVENT_SINK
                     .get()

@@ -25,6 +25,8 @@ const TONE_DUPLICATE_PATTERNS: [&str; 17] = [
 ];
 
 pub static mut INPUT_STATE: Lazy<InputState> = Lazy::new(InputState::new);
+pub static mut SMART_STATE: Lazy<crate::smart::SmartState> =
+    Lazy::new(crate::smart::SmartState::new);
 pub static mut HOTKEY_MODIFIERS: KeyModifier = KeyModifier::MODIFIER_NONE;
 pub static mut HOTKEY_MATCHING: bool = false;
 pub static mut HOTKEY_MATCHING_CIRCUIT_BREAK: bool = false;
@@ -191,6 +193,7 @@ pub enum TypingMethod {
     VNI,
     Telex,
     TelexVNI,
+    Smart,
 }
 
 impl FromStr for TypingMethod {
@@ -200,6 +203,7 @@ impl FromStr for TypingMethod {
         Ok(match s.to_ascii_lowercase().as_str() {
             "vni" => TypingMethod::VNI,
             "telexvni" => TypingMethod::TelexVNI,
+            "smart" => TypingMethod::Smart,
             _ => TypingMethod::Telex,
         })
     }
@@ -214,6 +218,7 @@ impl Display for TypingMethod {
                 Self::VNI => "vni",
                 Self::Telex => "telex",
                 Self::TelexVNI => "telexvni",
+                Self::Smart => "smart",
             }
         )
     }
