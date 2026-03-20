@@ -210,6 +210,27 @@ pub fn send_backspace(handle: Handle, count: usize) -> Result<(), ()> {
     Ok(())
 }
 
+/// Like `send_backspace` but with a small delay between each keystroke.
+/// Used in terminal/CLI mode so the target process's stdin reader has time
+/// to consume each backspace before the next event arrives.
+pub fn send_backspace_one_by_one(handle: Handle, count: usize) -> Result<(), ()> {
+    let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
+    for _ in 0..count {
+        let event_bs_down = unsafe {
+            CGEventCreateKeyboardEvent(null_event_source, KeyCode::DELETE, true)
+        };
+        let event_bs_up = unsafe {
+            CGEventCreateKeyboardEvent(null_event_source, KeyCode::DELETE, false)
+        };
+        unsafe {
+            CGEventTapPostEvent(handle, event_bs_down);
+            CGEventTapPostEvent(handle, event_bs_up);
+        }
+        std::thread::sleep(std::time::Duration::from_micros(1000));
+    }
+    Ok(())
+}
+
 pub fn send_string(handle: Handle, string: &str) -> Result<(), ()> {
     let utf_16_str: Vec<u16> = string.encode_utf16().collect();
     let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
@@ -225,14 +246,16 @@ pub fn send_string(handle: Handle, string: &str) -> Result<(), ()> {
 }
 
 /// Send `string` one Unicode scalar value at a time.
-/// Used in terminal emulators which process input character-by-character and
-/// may mishandle a multi-character UTF-16 payload delivered in a single
-/// CGEvent (e.g. composed Vietnamese characters appearing out of order or
-/// getting dropped).
+/// Used in terminal emulators (e.g. Claude Code / Ink-based CLIs) which read
+/// stdin character-by-character. Posting all characters in a single
+/// CGEventKeyboardSetUnicodeString call causes them to coalesce into one
+/// `read()` burst, which Ink's input parser mishandles.
+///
+/// A brief sleep between events lets the receiving process's event loop drain
+/// each character before the next one arrives, exactly like a human typing.
 pub fn send_string_char_by_char(handle: Handle, string: &str) -> Result<(), ()> {
     let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
     for ch in string.chars() {
-        // Encode each char to UTF-16 (1 or 2 code units for supplementary chars)
         let mut buf = [0u16; 2];
         let encoded = ch.encode_utf16(&mut buf);
         unsafe {
@@ -242,6 +265,9 @@ pub fn send_string_char_by_char(handle: Handle, string: &str) -> Result<(), ()> 
             CGEventKeyboardSetUnicodeString(event_str, buflen, bufptr);
             CGEventTapPostEvent(handle, event_str);
         }
+        // ~1ms gap — enough for the target process's stdin reader to consume
+        // this character before the next event arrives.
+        std::thread::sleep(std::time::Duration::from_micros(1000));
     }
     Ok(())
 }

@@ -25,6 +25,10 @@ pub fn send_string_char_by_char(string: &str) -> Result<(), ()> {
     todo!()
 }
 
+pub fn send_backspace_one_by_one(count: usize) -> Result<(), ()> {
+    todo!()
+}
+
 pub fn run_event_listener(callback: &CallbackFn) {
     todo!()
 }

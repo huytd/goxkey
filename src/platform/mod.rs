@@ -9,9 +9,9 @@ use bitflags::bitflags;
 pub use os::{
     add_app_change_callback, defer_open_app_file_picker, defer_open_text_file_picker,
     defer_save_text_file_picker, ensure_accessibility_permission, get_active_app_name, get_home_dir,
-    is_in_text_selection, is_launch_on_login, run_event_listener, send_backspace, send_string,
-    send_string_char_by_char, update_launch_on_login, Handle, SYMBOL_ALT, SYMBOL_CTRL,
-    SYMBOL_SHIFT, SYMBOL_SUPER,
+    is_in_text_selection, is_launch_on_login, run_event_listener, send_backspace,
+    send_backspace_one_by_one, send_string, send_string_char_by_char, update_launch_on_login,
+    Handle, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
 };
 
 #[cfg(target_os = "macos")]
