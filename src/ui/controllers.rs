@@ -145,12 +145,12 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                 if cmd.get(LOAD_MACROS_FROM_FILE).is_some() {
                     ctx.set_handled();
                     let event_sink = unsafe { crate::UI_EVENT_SINK.get().cloned() };
-                    defer_open_text_file_picker(Box::new(move |path| {
+                    defer_open_text_file_picker(Box::new(move |path: Option<String>| {
                         if let Some(path) = path {
                             unsafe {
                                 let _ = INPUT_STATE.import_macros_from_file(&path);
                             }
-                            if let Some(sink) = event_sink {
+                            if let Some(sink) = &event_sink {
                                 let _ = sink.submit_command(crate::ui::UPDATE_UI, (), druid::Target::Global);
                             }
                         }
@@ -159,12 +159,12 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                 if cmd.get(EXPORT_MACROS_TO_FILE).is_some() {
                     ctx.set_handled();
                     let event_sink = unsafe { crate::UI_EVENT_SINK.get().cloned() };
-                    defer_save_text_file_picker(Box::new(move |path| {
+                    defer_save_text_file_picker(Box::new(move |path: Option<String>| {
                         if let Some(path) = path {
                             unsafe {
                                 let _ = INPUT_STATE.export_macros_to_file(&path);
                             }
-                            if let Some(sink) = event_sink {
+                            if let Some(sink) = &event_sink {
                                 let _ = sink.submit_command(crate::ui::UPDATE_UI, (), druid::Target::Global);
                             }
                         }
@@ -199,7 +199,7 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                         INPUT_STATE.set_hotkey("ctrl+space");
                     }
                     if let Err(err) = update_launch_on_login(true) {
-                        error!("{}", err);
+                        error!("{:?}", err);
                     }
                     data.update();
                     ctx.set_handled();
@@ -229,7 +229,7 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
 
             if old_data.launch_on_login != data.launch_on_login {
                 if let Err(err) = update_launch_on_login(data.launch_on_login) {
-                    error!("{}", err);
+                    error!("{:?}", err);
                 }
             }
 

@@ -426,9 +426,9 @@ fn main() {
         thread::spawn(|| {
             run_event_listener(&event_handler);
         });
-        add_app_change_callback(|| {
+        add_app_change_callback(Box::new(|| {
             unsafe { auto_toggle_vietnamese() };
-        });
+        }));
         _ = app.launch(UIDataAdapter::new());
     }
 }

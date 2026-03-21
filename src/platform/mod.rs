@@ -1,21 +1,20 @@
 #[cfg_attr(target_os = "macos", path = "macos.rs")]
 #[cfg_attr(target_os = "linux", path = "linux.rs")]
-#[cfg_attr(target_os = "window", path = "window.rs")]
+#[cfg_attr(target_os = "windows", path = "windows.rs")]
 mod os;
 
 use std::fmt::Display;
-
 use bitflags::bitflags;
+
 pub use os::{
     add_app_change_callback, defer_open_app_file_picker, defer_open_text_file_picker,
     defer_save_text_file_picker, ensure_accessibility_permission, get_active_app_name, get_home_dir,
     is_in_text_selection, is_launch_on_login, run_event_listener, send_backspace, send_string,
     update_launch_on_login, Handle, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
+    SystemTray, SystemTrayMenuItemKey,
 };
-
-#[cfg(target_os = "macos")]
-pub use os::SystemTray;
-pub use os::SystemTrayMenuItemKey;
+// Removed the OS-specific blocks for SystemTray as they were causing 
+// "defined multiple times" or "not found" errors in the build log.
 
 pub const RAW_KEY_GLOBE: u16 = 0xb3;
 pub const RAW_ARROW_DOWN: u16 = 0x7d;
