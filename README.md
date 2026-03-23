@@ -3,7 +3,8 @@ The code in this fork is created entirely by Gemini (3 Flash).
 
 # Status
 Compiles, runs to UI but IME stack is broken. Yet to be implemented.
-- [ ] IME stack rewrite/implement for Windows
+- [x] IME stack rewrite/implement for Windows
+Somewhat works. Athough not without errors. Currently fixing.
 - [ ] Tray icon
 - [ ] Further implementation due to dev's abandonment of the Windows' version plan
 
