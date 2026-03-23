@@ -114,30 +114,39 @@ unsafe extern "system" fn keyboard_hook_proc(
                     if let Some(callback_ptr) = state.borrow().callback {
                         let mut modifiers = KeyModifier::new();
                         
-                        // Check modifier keys
-                        let key_state: [u8; 256] = std::mem::zeroed();
-                        let mut key_state = key_state;
-                        if GetKeyboardState(&mut key_state[0] as *mut u8) != FALSE {
-                            if key_state[VK_SHIFT as usize] & 0x80 != 0 {
-                                modifiers.add_shift();
-                            }
-                            if key_state[VK_CONTROL as usize] & 0x80 != 0 {
-                                modifiers.add_control();
-                            }
-                            if key_state[VK_LWIN as usize] & 0x80 != 0 || 
-                               key_state[VK_RWIN as usize] & 0x80 != 0 {
-                                modifiers.add_super();
-                            }
-                            if key_state[VK_MENU as usize] & 0x80 != 0 {
-                                modifiers.add_alt();
-                            }
-                            if key_state[VK_CAPITAL as usize] & 0x01 != 0 {
-                                modifiers.add_capslock();
-                            }
+                        // Properly populate key_state using GetAsync/GetKeyState
+                        // GetKeyboardState is unreliable in LL hook for other threads
+                        let mut key_state = [0u8; 256];
+
+                        if (GetAsyncKeyState(VK_SHIFT) as u16 & 0x8000) != 0 {
+                            key_state[VK_SHIFT as usize] = 0x80;
+                            modifiers.add_shift();
+                        }
+                        if (GetAsyncKeyState(VK_CONTROL) as u16 & 0x8000) != 0 {
+                            key_state[VK_CONTROL as usize] = 0x80;
+                            modifiers.add_control();
+                        }
+                        if (GetAsyncKeyState(VK_MENU) as u16 & 0x8000) != 0 {
+                            key_state[VK_MENU as usize] = 0x80;
+                            modifiers.add_alt();
+                        }
+                        if (GetAsyncKeyState(VK_LWIN) as u16 & 0x8000) != 0
+                            || (GetAsyncKeyState(VK_RWIN) as u16 & 0x8000) != 0
+                        {
+                            key_state[VK_LWIN as usize] = 0x80;
+                            key_state[VK_RWIN as usize] = 0x80;
+                            modifiers.add_super();
+                        }
+                        if (GetKeyState(VK_CAPITAL) & 1) != 0 {
+                            key_state[VK_CAPITAL as usize] = 1;
+                            modifiers.add_capslock();
                         }
                         
                         let virtual_key = kbd_struct.vkCode as u16;
-                        let pressed_key = virtual_key_to_pressed_key(virtual_key);
+                        let scan_code = kbd_struct.scanCode as u16;
+                        
+                        // Pass key_state and scan_code to virtual_key_to_pressed_key
+                        let pressed_key = virtual_key_to_pressed_key(virtual_key, scan_code, &key_state);
                         
                         // Call the callback - if it returns true, block the key
                         let cb = &*callback_ptr;
@@ -155,16 +164,33 @@ unsafe extern "system" fn keyboard_hook_proc(
     CallNextHookEx(ptr::null_mut(), n_code, w_param, l_param)
 }
 
-/// Convert Windows virtual key code to PressedKey
-fn virtual_key_to_pressed_key(vk: u16) -> Option<PressedKey> {
-    match vk as i32 {
-        65..=90 | 48..=57 => Some(PressedKey::Char((vk as u8) as char)),
-        VK_RETURN => Some(PressedKey::Char(KEY_ENTER)),
-        VK_SPACE => Some(PressedKey::Char(KEY_SPACE)),
-        VK_TAB => Some(PressedKey::Char(KEY_TAB)),
-        VK_BACK => Some(PressedKey::Char(KEY_DELETE)),
-        VK_ESCAPE => Some(PressedKey::Char(KEY_ESCAPE)),
-        _ => Some(PressedKey::Raw(vk)),
+/// Convert Windows virtual key code to PressedKey, taking keyboard state into account for actual character
+fn virtual_key_to_pressed_key(vk: u16, scan_code: u16, key_state: &[u8; 256]) -> Option<PressedKey> {
+    let mut w_char_buf = [0u16; 2];
+    let result = unsafe {
+        ToUnicode(
+            vk as u32,
+            scan_code as u32,
+            key_state.as_ptr(),
+            w_char_buf.as_mut_ptr(),
+            w_char_buf.len() as i32,
+            0,
+        )
+    };
+
+    if result > 0 {
+        // A character was produced
+        std::char::from_u32(w_char_buf[0] as u32).map(PressedKey::Char)
+    } else {
+        // No character (e.g., modifier key, function key, or key that doesn't produce a char)
+        match vk as i32 {
+            VK_RETURN => Some(PressedKey::Char(KEY_ENTER)),
+            VK_SPACE => Some(PressedKey::Char(KEY_SPACE)),
+            VK_TAB => Some(PressedKey::Char(KEY_TAB)),
+            VK_BACK => Some(PressedKey::Char(KEY_DELETE)),
+            VK_ESCAPE => Some(PressedKey::Char(KEY_ESCAPE)),
+            _ => Some(PressedKey::Raw(vk)),
+        }
     }
 }
 

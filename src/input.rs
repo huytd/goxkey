@@ -40,13 +40,13 @@ pub const STOP_TRACKING_WORDS: [&str; 4] = [";", "'", "?", "/"];
 /// engine ignores (falls through to `_ => Transformation::Ignored`), then restore them
 /// after transformation. A 'w' is "standalone" when NOT preceded by a Horn/Breve-eligible
 /// vowel — those cases (uw→ư, ow→ơ, aw→ă) should still be handled by telex normally.
-enum CapPattern {
+pub enum CapPattern {
     Lower,
     TitleCase,
     AllCaps,
 }
 
-fn detect_cap_pattern(s: &str) -> CapPattern {
+pub fn detect_cap_pattern(s: &str) -> CapPattern {
     let mut chars = s.chars().filter(|c| c.is_alphabetic());
     match chars.next() {
         Some(first) if first.is_uppercase() => {
@@ -60,7 +60,7 @@ fn detect_cap_pattern(s: &str) -> CapPattern {
     }
 }
 
-fn apply_cap_pattern(s: &str, pattern: CapPattern) -> String {
+pub fn apply_cap_pattern(s: &str, pattern: CapPattern) -> String {
     match pattern {
         CapPattern::Lower => s.to_string(),
         CapPattern::AllCaps => s.to_uppercase(),
@@ -72,6 +72,21 @@ fn apply_cap_pattern(s: &str, pattern: CapPattern) -> String {
             }
         }
     }
+}
+
+pub fn apply_case_from_original(original: &str, transformed: &str) -> String {
+    let orig_chars: Vec<char> = original.chars().collect();
+    let trans_chars: Vec<char> = transformed.chars().collect();
+    
+    let mut result = String::new();
+    for (i, &trans) in trans_chars.iter().enumerate() {
+        if i < orig_chars.len() && orig_chars[i].is_uppercase() {
+            result.extend(trans.to_uppercase());
+        } else {
+            result.push(trans);
+        }
+    }
+    result
 }
 
 fn mask_standalone_w(buffer: &str) -> String {
@@ -282,6 +297,7 @@ pub fn get_diff_parts<'a>(old: &str, new: &'a str) -> (usize, &'a str) {
 pub struct InputState {
     buffer: String,
     display_buffer: String,
+    previous_display_buffer: String, // Added to store the display buffer before the last push
     method: TypingMethod,
     hotkey: Hotkey,
     enabled: bool,
@@ -304,6 +320,7 @@ impl InputState {
         Self {
             buffer: String::new(),
             display_buffer: String::new(),
+            previous_display_buffer: String::new(), // Initialize the new field
             method: TypingMethod::from_str(config.get_method()).unwrap(),
             hotkey: Hotkey::from_str(config.get_hotkey()),
             enabled: true,
@@ -582,10 +599,13 @@ impl InputState {
             self.buffer.clone()
         };
 
+        // Transform on lowercase to ensure proper Vietnamese IME behavior
+        let lowercase_buffer = effective_buffer.to_lowercase();
+
         if self.method == TypingMethod::TelexVNI {
             // Try both methods; prefer VNI when the buffer contains digits
             // (VNI's key differentiator), otherwise fall back to Telex.
-            let buffer = effective_buffer;
+            let buffer = lowercase_buffer;
             let result = std::panic::catch_unwind(move || {
                 let has_digits = buffer.chars().any(|c| c.is_ascii_digit());
                 if has_digits {
@@ -603,7 +623,7 @@ impl InputState {
         }
 
         let method = self.method;
-        let buffer = effective_buffer;
+        let buffer = lowercase_buffer;
         let is_w_literal = self.is_w_literal_enabled;
         let result = std::panic::catch_unwind(move || {
             let mut output = String::new();
@@ -661,18 +681,19 @@ impl InputState {
             }
         }
         if self.buffer.len() <= MAX_POSSIBLE_WORD_LENGTH {
-            self.buffer.push(c);
-            self.display_buffer.push(c);
+            self.previous_display_buffer = self.display_buffer.clone(); // Store current display_buffer before modification
+            self.buffer.push(c.to_lowercase().next().unwrap_or(c)); // Store lowercase in buffer for vi-rs
+            self.display_buffer.push(c); // Store original case in display_buffer
             debug!(
-                "Input buffer: {:?} - Display buffer: {:?}",
-                self.buffer, self.display_buffer
+                "Input buffer: {:?} - Display buffer: {:?}, pushed char: {}",
+                self.buffer, self.display_buffer, c
             );
         }
     }
 
     pub fn pop(&mut self) {
         self.display_buffer.pop();
-        self.buffer = self.display_buffer.clone();
+        self.buffer = self.display_buffer.to_lowercase();
         if self.buffer.is_empty() {
             self.new_word();
         }
@@ -726,6 +747,10 @@ impl InputState {
 
     pub fn get_previous_modifiers(&self) -> KeyModifier {
         self.previous_modifiers
+    }
+
+    pub fn get_previous_display_buffer(&self) -> &str {
+        &self.previous_display_buffer
     }
 
     pub fn save_previous_modifiers(&mut self, modifiers: KeyModifier) {

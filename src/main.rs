@@ -9,7 +9,7 @@ use std::thread;
 
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
 use input::{
-    get_diff_parts, rebuild_keyboard_layout_map, TypingMethod, HOTKEY_MATCHING_CIRCUIT_BREAK,
+    apply_cap_pattern, apply_case_from_original, detect_cap_pattern, get_diff_parts, rebuild_keyboard_layout_map, TypingMethod, HOTKEY_MATCHING_CIRCUIT_BREAK,
     INPUT_STATE,
 };
 use log::debug;
@@ -37,19 +37,21 @@ fn apply_capslock_to_output(output: String, is_capslock: bool) -> String {
     }
 }
 
-fn normalize_input_char(c: char, is_shift: bool) -> char {
-    if is_shift {
-        c.to_ascii_uppercase()
-    } else {
-        c
-    }
-}
+// Removed: fn normalize_input_char(c: char, is_shift: bool) -> char {
+// Removed:     if is_shift {
+// Removed:         c.to_ascii_uppercase()
+// Removed:     } else {
+// Removed:         c
+// Removed:     }
+// Removed: }
 
 fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool {
     unsafe {
         if let Ok((raw_output, transform_result)) = INPUT_STATE.transform_keys() {
-            let should_send_event = INPUT_STATE.should_send_keyboard_event(&raw_output);
-            let output = apply_capslock_to_output(raw_output, is_capslock);
+            // Apply case from the original input to the transformed output
+            let output_with_case = apply_case_from_original(INPUT_STATE.get_displaying_word(), &raw_output);
+            let should_send_event = INPUT_STATE.should_send_keyboard_event(&output_with_case);
+            let output = output_with_case;
             debug!("Transformed: {:?}", output);
             if should_send_event || is_delete {
                 // This is a workaround for Firefox-based browsers, where macOS's Accessibility API cannot work.
@@ -75,23 +77,22 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
                     let bs = INPUT_STATE.get_backspace_count(is_delete);
                     (bs, 0usize)
                 } else {
-                    // Clone the display buffer so we hold no borrow into INPUT_STATE
-                    // while calling get_diff_parts, which borrows `output`.
-                    let displaying = INPUT_STATE.get_displaying_word().to_owned();
-                    // `push(c)` was called just before this function, appending the
-                    // typed char to display_buffer.  That char has NOT yet appeared on
-                    // screen because we are about to block the key event and replace it
-                    // ourselves.  Strip it so `old` reflects the true on-screen state.
-                    let screen_end = displaying
-                        .char_indices()
-                        .next_back()
-                        .map(|(i, _)| i)
-                        .unwrap_or(displaying.len());
-                    let (bs, sfx) = get_diff_parts(&displaying[..screen_end], &output);
-                    let offset = output.len() - sfx.len();
+                    let (bs, sfx) = get_diff_parts(INPUT_STATE.get_previous_display_buffer(), &raw_output);
+                    let offset = raw_output.len() - sfx.len();
                     (bs, offset)
                 };
-                let suffix = &output[suffix_offset..];
+                
+                // Apply case to the suffix that will be typed
+                let raw_suffix = &raw_output[suffix_offset..];
+                // The original string for casing should be the part of the previous display buffer
+                // that corresponds to the raw_suffix.
+                let original_for_casing = &INPUT_STATE.get_previous_display_buffer()[suffix_offset..];
+                let cased_suffix = apply_case_from_original(
+                    original_for_casing,
+                    raw_suffix
+                );
+                let suffix = &cased_suffix;
+                
                 debug!("Backspace count: {}", backspace_count);
                 _ = send_backspace(handle, backspace_count);
                 if !suffix.is_empty() {
@@ -279,10 +280,7 @@ fn event_handler(
                                         if modifiers.is_super() || modifiers.is_alt() {
                                             INPUT_STATE.new_word();
                                         } else if INPUT_STATE.is_tracking() {
-                                            INPUT_STATE.push(normalize_input_char(
-                                                c,
-                                                modifiers.is_shift(),
-                                            ));
+                                            INPUT_STATE.push(c);
                                             let ret = do_transform_keys(
                                                 handle,
                                                 false,
