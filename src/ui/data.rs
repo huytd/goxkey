@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::{
     input::{TypingMethod, INPUT_STATE},
     platform::{is_launch_on_login, SystemTray, SystemTrayMenuItemKey},
-    UI_EVENT_SINK,
+    update_systray_title_immediately, UI_EVENT_SINK,
 };
 use druid::{commands::QUIT_APP, Data, Lens, Target};
 
@@ -215,6 +215,7 @@ impl UIDataAdapter {
             .set_menu_item_callback(SystemTrayMenuItemKey::Enable, || {
                 unsafe {
                     INPUT_STATE.toggle_vietnamese();
+                    update_systray_title_immediately();
                 }
                 UI_EVENT_SINK
                     .get()
