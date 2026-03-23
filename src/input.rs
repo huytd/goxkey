@@ -287,6 +287,8 @@ pub struct InputState {
     enabled: bool,
     should_track: bool,
     previous_word: String,
+    previous_display: String,
+    can_resume_previous_word: bool,
     active_app: String,
     is_macro_enabled: bool,
     is_macro_autocap_enabled: bool,
@@ -309,6 +311,8 @@ impl InputState {
             enabled: true,
             should_track: true,
             previous_word: String::new(),
+            previous_display: String::new(),
+            can_resume_previous_word: false,
             active_app: String::new(),
             is_macro_enabled: config.is_macro_enabled(),
             is_macro_autocap_enabled: config.is_macro_autocap_enabled(),
@@ -379,6 +383,26 @@ impl InputState {
             self.temporary_disabled = false;
         }
         self.should_track = true;
+        self.can_resume_previous_word = false;
+    }
+
+    /// Mark that the previous word can be resumed if the user presses
+    /// backspace immediately (i.e. the word was ended by space/tab/enter).
+    pub fn mark_resumable(&mut self) {
+        self.can_resume_previous_word = true;
+    }
+
+    /// Try to restore the previous word's buffers so editing can continue.
+    /// Returns true if the word was resumed, false otherwise.
+    pub fn try_resume_previous_word(&mut self) -> bool {
+        if !self.can_resume_previous_word || self.previous_word.is_empty() {
+            return false;
+        }
+        self.buffer = self.previous_word.clone();
+        self.display_buffer = self.previous_display.clone();
+        self.should_track = true;
+        self.can_resume_previous_word = false;
+        true
     }
 
     pub fn get_macro_target(&self) -> Option<String> {
@@ -680,6 +704,7 @@ impl InputState {
 
     pub fn clear(&mut self) {
         self.previous_word = self.buffer.to_owned();
+        self.previous_display = self.display_buffer.to_owned();
         self.buffer.clear();
         self.display_buffer.clear();
     }
