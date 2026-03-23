@@ -211,6 +211,12 @@ fn event_handler(
         }
         HOTKEY_MATCHING = is_hotkey_matched;
 
+        // If the hotkey matched on a key press, suppress the event so
+        // macOS does not insert the character (e.g. Option+Z → Ω).
+        if is_hotkey_matched && pressed_key_code.is_some() {
+            return true;
+        }
+
         match pressed_key {
             Some(pressed_key) => {
                 match pressed_key {
