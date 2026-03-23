@@ -58,10 +58,8 @@ The source code can be compiled easily:
 4. Run the build command:
 
    ```
-   cargo build
+   cargo build --release
    ```
-
-Go to 'build' and you'll see goxkey.exe. Run it.
 
 ## Dependencies
 - [core-foundation](https://crates.io/crates/core-foundation), [core-graphics](https://crates.io/crates/core-graphics): for event handling on macOS
