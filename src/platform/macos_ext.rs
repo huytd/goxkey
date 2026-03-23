@@ -80,7 +80,7 @@ impl SystemTray {
     }
 
     pub fn init_menu_items(&self) {
-        self.add_menu_item("Bật bảng điều khiển", || ());
+        self.add_menu_item("Mở bảng điều khiển", || ());
         self.add_menu_separator();
         self.add_menu_item("Tắt gõ tiếng việt", || ());
         self.add_menu_separator();
