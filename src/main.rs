@@ -15,9 +15,9 @@ use input::{
 use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
-    add_app_change_callback, ensure_accessibility_permission, run_event_listener, send_backspace,
-    send_string, EventTapType, Handle, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE,
-    KEY_SPACE, KEY_TAB, RAW_KEY_GLOBE,
+    add_app_change_callback, dispatch_set_systray_title, ensure_accessibility_permission,
+    run_event_listener, send_backspace, send_string, EventTapType, Handle, KeyModifier,
+    PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, RAW_KEY_GLOBE,
 };
 
 use crate::{
@@ -153,8 +153,28 @@ fn do_macro_replace(handle: Handle, target: &String) {
     }
 }
 
+/// Compute the tray title from the current INPUT_STATE and dispatch it
+/// directly to the main queue, so the status bar updates instantly.
+pub unsafe fn update_systray_title_immediately() {
+    let is_enabled = INPUT_STATE.is_enabled();
+    let is_gox = INPUT_STATE.is_gox_mode_enabled();
+    let title = if is_enabled {
+        if is_gox { "gõ" } else { "VN" }
+    } else if is_gox {
+        match INPUT_STATE.get_method() {
+            TypingMethod::Telex => "gox",
+            TypingMethod::VNI => "go4",
+            TypingMethod::TelexVNI => "go+",
+        }
+    } else {
+        "EN"
+    };
+    dispatch_set_systray_title(title);
+}
+
 unsafe fn toggle_vietnamese() {
     INPUT_STATE.toggle_vietnamese();
+    update_systray_title_immediately();
     if let Some(event_sink) = UI_EVENT_SINK.get() {
         if let Err(e) = event_sink.submit_command(UPDATE_UI, (), Target::Auto) {
             debug!("Failed to submit UPDATE_UI command: {:?}", e);
@@ -170,6 +190,7 @@ unsafe fn auto_toggle_vietnamese() {
     if !has_change {
         return;
     }
+    update_systray_title_immediately();
     if let Some(event_sink) = UI_EVENT_SINK.get() {
         if let Err(e) = event_sink.submit_command(UPDATE_UI, (), Target::Auto) {
             debug!("Failed to submit UPDATE_UI command: {:?}", e);
@@ -211,9 +232,13 @@ fn event_handler(
         }
         HOTKEY_MATCHING = is_hotkey_matched;
 
-        // If the hotkey matched on a key press, suppress the event so
-        // macOS does not insert the character (e.g. Option+Z → Ω).
+        // If the hotkey matched on a key press, toggle immediately and
+        // suppress the event so macOS does not insert the character
+        // (e.g. Option+Z → Ω).  Set HOTKEY_MATCHING_CIRCUIT_BREAK so
+        // the FlagsChanged handler does not toggle again on key release.
         if is_hotkey_matched && pressed_key_code.is_some() {
+            toggle_vietnamese();
+            HOTKEY_MATCHING_CIRCUIT_BREAK = true;
             return true;
         }
 

@@ -20,7 +20,13 @@ use objc::{
 };
 use objc_foundation::{INSObject, NSObject};
 use objc_id::Id;
+use once_cell::sync::OnceCell;
 use std::mem;
+
+/// Global reference to the NSStatusItem pointer so we can update the tray
+/// title directly from any thread (via dispatch_async to the main queue),
+/// bypassing Druid's event loop which can lag ~1 s when the window is hidden.
+static SYSTRAY_ITEM: OnceCell<usize> = OnceCell::new();
 
 #[derive(Clone, PartialEq, Eq)]
 struct Wrapper(*mut objc::runtime::Object);
@@ -59,6 +65,10 @@ impl SystemTray {
             let button: id = msg_send![item, button];
             let _: () = msg_send![button, setTitle: title];
             item.setMenu_(menu);
+
+            // Store the raw pointer globally so dispatch_set_systray_title
+            // can update the title without going through Druid's event loop.
+            let _ = SYSTRAY_ITEM.set(item as usize);
 
             let s = Self {
                 _pool: Wrapper(pool),
@@ -145,6 +155,40 @@ impl SystemTray {
             let index = self.get_menu_item_index_by_key(key);
             let _: () = msg_send![self.menu.0.itemAtIndex_(index), setTarget: cb_obj];
         }
+    }
+}
+
+/// Update the system tray title immediately by dispatching to the main queue.
+/// This bypasses Druid's event loop, which can be slow when the window is hidden.
+/// Safe to call from any thread.
+pub fn dispatch_set_systray_title(title: &str) {
+    let Some(&item_ptr) = SYSTRAY_ITEM.get() else {
+        return;
+    };
+    let title_owned = title.to_owned();
+
+    struct Context {
+        item: usize,
+        title: String,
+    }
+
+    unsafe extern "C" fn work(ctx: *mut c_void) {
+        let ctx = Box::from_raw(ctx as *mut Context);
+        let item = ctx.item as id;
+        let title_str = NSString::alloc(nil).init_str(&ctx.title);
+        let button: id = msg_send![item, button];
+        let _: () = msg_send![button, setTitle: title_str];
+        let _: () = msg_send![title_str, release];
+    }
+
+    let ctx = Box::new(Context {
+        item: item_ptr,
+        title: title_owned,
+    });
+    let ctx_ptr = Box::into_raw(ctx) as *mut c_void;
+
+    unsafe {
+        dispatch_async_f(&_dispatch_main_q, ctx_ptr, work);
     }
 }
 

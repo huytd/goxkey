@@ -8,9 +8,10 @@ use std::fmt::Display;
 use bitflags::bitflags;
 pub use os::{
     add_app_change_callback, defer_open_app_file_picker, defer_open_text_file_picker,
-    defer_save_text_file_picker, ensure_accessibility_permission, get_active_app_name, get_home_dir,
-    is_in_text_selection, is_launch_on_login, run_event_listener, send_backspace, send_string,
-    update_launch_on_login, Handle, SYMBOL_ALT, SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
+    defer_save_text_file_picker, dispatch_set_systray_title, ensure_accessibility_permission,
+    get_active_app_name, get_home_dir, is_in_text_selection, is_launch_on_login,
+    run_event_listener, send_backspace, send_string, update_launch_on_login, Handle, SYMBOL_ALT,
+    SYMBOL_CTRL, SYMBOL_SHIFT, SYMBOL_SUPER,
 };
 
 #[cfg(target_os = "macos")]
