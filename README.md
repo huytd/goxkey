@@ -1,10 +1,11 @@
 # Attention
-The code in this fork is created entirely by Gemini (3 Flash).
+The code in this fork is created entirely by Gemini (3 Flash) and GH Copilot (whatever model it deems fit).
 
 # Status
-Compiles, runs to UI but IME stack is broken. Yet to be implemented.
+Compiles, runs to UI. Have quirks while typing. Yet to be implemented.
 - [x] IME stack rewrite/implement for Windows
-Somewhat works. Athough not without errors. Currently fixing.
+
+Works, but have some errors. Probably won't fix those since I've seen EVKey making the same error on my Windows installation.
 - [ ] Tray icon
 - [ ] Further implementation due to dev's abandonment of the Windows' version plan
 
