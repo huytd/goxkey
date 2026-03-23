@@ -1,3 +1,12 @@
+# Attention
+The code in this fork is created entirely by Gemini (3 Flash).
+
+# Status
+Compiles, runs to UI but IME stack is broken. Yet to be implemented.
+- [ ] IME stack rewrite/implement for Windows
+- [ ] Tray icon
+- [ ] Further implementation due to dev's abandonment of the Windows' version plan
+
 <p align="center">
 	<img src="./icons/icon.png" width="90px">
 </p>
@@ -44,26 +53,15 @@ The source code can be compiled easily:
    ```
    git clone https://github.com/huytd/goxkey && cd goxkey
    ```
-4. Run the bundle command:
+4. Run the build command:
 
    ```
-   cargo bundle
+   cargo build
    ```
 
-After that, you'll find the `Gõ Key.app` file in the `target/debug/bundle` folder. Copy it to your `/Applications` folder.
-
-5. **(Important!):** Before you run the app, make you you already allowed Accessibility access for the app. Follow the [guide in the Wiki](https://github.com/huytd/goxkey/wiki/H%C6%B0%E1%BB%9Bng-d%E1%BA%ABn-s%E1%BB%ADa-l%E1%BB%97i-kh%C3%B4ng-g%C3%B5-%C4%91%C6%B0%E1%BB%A3c-ti%E1%BA%BFng-Vi%E1%BB%87t-tr%C3%AAn-macOS) to do so.
-
-Without this step, the app will crash and can't be use.
+Go to 'build' and you'll see goxkey.exe. Run it.
 
 ## Dependencies
-
 - [core-foundation](https://crates.io/crates/core-foundation), [core-graphics](https://crates.io/crates/core-graphics): for event handling on macOS
 - [vi-rs](https://github.com/zerox-dg/vi-rs): the Vietnamese Input Engine
-
-## Fun fact
-
-Do you know how to type gõkey in Telex?
-
-Do this: `gox<cmd>key`
 
