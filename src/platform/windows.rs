@@ -107,6 +107,11 @@ unsafe extern "system" fn keyboard_hook_proc(
         if !p_kbd.is_null() {
             let kbd_struct = *p_kbd;
             
+            // Ignore injected events (from SendInput) to prevent feedback loops
+            if (kbd_struct.flags & LLKHF_INJECTED) != 0 {
+                return CallNextHookEx(ptr::null_mut(), n_code, w_param, l_param);
+            }
+            
             // Only process key down events
             if w_param as u32 == WM_KEYDOWN || w_param as u32 == WM_SYSKEYDOWN {
                 let mut block_key = false;
