@@ -32,6 +32,10 @@ objc_id = "0.1"
 accessibility = "0.1.6"
 accessibility-sys = "0.1.3"
 
+[target.'cfg(target_os="windows")'.dependencies]
+winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "winbase", "shellapi", "winnt", "fileapi", "commdlg", "impl-default"] }
+windows = { version = "0.51", features = ["Win32_Foundation", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_WindowsAndMessaging", "Win32_System_Memory"] }
+
 [package.metadata.bundle]
 copyright = "Copyright (c) Huy Tran 2023. All rights reserved."
 icon = ["icons/icon.icns", "icons/icon.png"]
