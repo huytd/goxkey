@@ -256,11 +256,20 @@ fn event_handler(
                                         }
                                     }
 
+                                    let had_content = !INPUT_STATE.is_buffer_empty();
                                     INPUT_STATE.new_word();
+                                    if had_content && (keycode == KEY_SPACE || keycode == KEY_TAB) {
+                                        INPUT_STATE.mark_resumable();
+                                    }
                                 }
                                 KEY_DELETE => {
                                     if !modifiers.is_empty() && !modifiers.is_shift() {
                                         INPUT_STATE.new_word();
+                                    } else if INPUT_STATE.is_buffer_empty() {
+                                        // Buffer is empty — the user just started a new
+                                        // word (e.g. after space).  Try to resume editing
+                                        // the previous word so backspace + retype works.
+                                        INPUT_STATE.try_resume_previous_word();
                                     } else {
                                         INPUT_STATE.pop();
                                     }
