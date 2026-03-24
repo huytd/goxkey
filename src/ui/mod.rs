@@ -1,7 +1,7 @@
 mod colors;
 mod controllers;
 mod data;
-mod selectors;
+pub mod selectors;
 mod views;
 mod widgets;
 

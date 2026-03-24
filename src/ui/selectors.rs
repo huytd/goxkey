@@ -15,3 +15,4 @@ pub(super) const SAVE_SHORTCUT: Selector<(bool, bool, bool, bool, String)> =
 pub(super) const RESET_DEFAULTS: Selector = Selector::new("gox-ui.reset-defaults");
 pub(super) const LOAD_MACROS_FROM_FILE: Selector = Selector::new("gox-ui.load-macros-from-file");
 pub(super) const EXPORT_MACROS_TO_FILE: Selector = Selector::new("gox-ui.export-macros-to-file");
+pub const TOGGLE_IME: Selector = Selector::new("gox-ui.toggle-ime");

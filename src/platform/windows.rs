@@ -6,13 +6,16 @@ use std::os::windows::ffi::OsStrExt;
 use std::os::raw::c_void;
 use std::ptr;
 use std::cell::RefCell;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
+use once_cell::sync::Lazy;
 use winapi::um::winuser::*;
 use winapi::um::winreg::*;
 use winapi::um::winnt::{KEY_WRITE, KEY_READ, REG_SZ};
 use winapi::shared::winerror::ERROR_SUCCESS;
 use winapi::shared::windef::HHOOK;
-use winapi::shared::minwindef::{LPARAM, WPARAM, LRESULT, FALSE};
+use winapi::shared::minwindef::{LPARAM, WPARAM, LRESULT};
 
 use super::{CallbackFn, EventTapType, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB};
 use druid::Data;
@@ -407,8 +410,79 @@ pub fn defer_save_text_file_picker(_callback: Box<dyn Fn(Option<String>) + Send 
     println!("DEBUG: defer_save_text_file_picker called (stub)");
 }
 
+use std::thread;
+use winapi::um::shellapi::{
+    Shell_NotifyIconW, NOTIFYICONDATAW, NIM_ADD, NIM_DELETE, NIM_MODIFY, NIF_ICON, NIF_MESSAGE, NIF_TIP,
+};
+use winapi::um::winuser::{
+    CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW,
+    GetCursorPos, GetMessageW, LoadIconW, PostQuitMessage, RegisterClassW, SetForegroundWindow,
+    TrackPopupMenu, TranslateMessage, AppendMenuW, CW_USEDEFAULT, IDI_APPLICATION, MF_SEPARATOR, MF_STRING,
+    TPM_LEFTALIGN, TPM_RIGHTBUTTON, WM_APP, WM_COMMAND, WM_DESTROY, WM_RBUTTONUP, WNDCLASSW,
+    WS_OVERLAPPEDWINDOW,
+};
+
+// Unique message for tray icon
+const WM_TRAYICON: u32 = WM_APP + 1;
+
+// Menu item IDs
+const ID_MENU_EXIT: u16 = 1001;
+const ID_MENU_SHOW: u16 = 1002;
+const ID_MENU_ENABLE_TOGGLE: u16 = 1003;
+const ID_MENU_TYPING_METHOD_TELEX: u16 = 1004;
+const ID_MENU_TYPING_METHOD_VNI: u16 = 1005;
+const ID_MENU_TYPING_METHOD_TELEX_VNI: u16 = 1006;
+
 #[derive(Clone, PartialEq, Eq)]
 pub struct SystemTray;
+
+struct SystemTrayState {
+    title: String,
+    labels: HashMap<SystemTrayMenuItemKey, String>,
+    callbacks: HashMap<SystemTrayMenuItemKey, Box<dyn Fn() + Send + Sync>>,
+}
+
+impl SystemTrayState {
+    fn new() -> Self {
+        let mut labels = HashMap::new();
+        labels.insert(SystemTrayMenuItemKey::ShowUI, "Show GoxKey".to_string());
+        labels.insert(SystemTrayMenuItemKey::Enable, "Toggle Vietnamese".to_string());
+        labels.insert(SystemTrayMenuItemKey::TypingMethodTelex, "Telex".to_string());
+        labels.insert(SystemTrayMenuItemKey::TypingMethodVNI, "VNI".to_string());
+        labels.insert(SystemTrayMenuItemKey::TypingMethodTelexVNI, "Telex+VNI".to_string());
+        labels.insert(SystemTrayMenuItemKey::Exit, "Exit".to_string());
+
+        Self {
+            title: "goxkey".to_string(),
+            labels,
+            callbacks: HashMap::new(),
+        }
+    }
+
+    fn set_label(&mut self, key: SystemTrayMenuItemKey, label: &str) {
+        self.labels.insert(key, label.to_string());
+    }
+
+    fn get_label(&self, key: SystemTrayMenuItemKey) -> String {
+        self.labels
+            .get(&key)
+            .cloned()
+            .unwrap_or_else(|| "".to_string())
+    }
+
+    fn set_callback(&mut self, key: SystemTrayMenuItemKey, callback: Box<dyn Fn() + Send + Sync>) {
+        self.callbacks.insert(key, callback);
+    }
+
+    fn invoke_callback(&self, key: SystemTrayMenuItemKey) {
+        if let Some(cb) = self.callbacks.get(&key) {
+            cb();
+        }
+    }
+}
+
+static SYSTEM_TRAY_STATE: Lazy<Mutex<SystemTrayState>> = Lazy::new(|| Mutex::new(SystemTrayState::new()));
+static SYSTEM_TRAY_HWND: Lazy<Mutex<Option<usize>>> = Lazy::new(|| Mutex::new(None));
 
 impl Data for SystemTray {
     fn same(&self, _other: &Self) -> bool {
@@ -418,23 +492,225 @@ impl Data for SystemTray {
 
 impl SystemTray {
     pub fn new() -> Self {
+        thread::spawn(move || unsafe {
+            let class_name = to_wstring("goxkey_tray_window");
+            let h_instance = winapi::um::libloaderapi::GetModuleHandleW(ptr::null());
+
+            let wnd_class = WNDCLASSW {
+                style: 0,
+                lpfnWndProc: Some(wnd_proc),
+                cbClsExtra: 0,
+                cbWndExtra: 0,
+                hInstance: h_instance,
+                hIcon: LoadIconW(ptr::null_mut(), IDI_APPLICATION),
+                hCursor: ptr::null_mut(),
+                hbrBackground: ptr::null_mut(),
+                lpszMenuName: ptr::null(),
+                lpszClassName: class_name.as_ptr(),
+            };
+
+            if RegisterClassW(&wnd_class) == 0 {
+                // Log error
+                return;
+            }
+
+            let hwnd = CreateWindowExW(
+                0,
+                class_name.as_ptr(),
+                to_wstring("goxkey tray").as_ptr(),
+                WS_OVERLAPPEDWINDOW,
+                CW_USEDEFAULT,
+                CW_USEDEFAULT,
+                CW_USEDEFAULT,
+                CW_USEDEFAULT,
+                ptr::null_mut(),
+                ptr::null_mut(),
+                h_instance,
+                ptr::null_mut(),
+            );
+
+            if hwnd.is_null() {
+                // Log error
+                return;
+            }
+
+            {
+                let mut hwnd_lock = SYSTEM_TRAY_HWND.lock().unwrap();
+                *hwnd_lock = Some(hwnd as usize);
+            }
+
+            {
+                let mut state = SYSTEM_TRAY_STATE.lock().unwrap();
+                state.title = "goxkey".to_string();
+            }
+
+            let mut nid = NOTIFYICONDATAW {
+                cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
+                hWnd: hwnd,
+                uID: 1,
+                uFlags: NIF_ICON | NIF_MESSAGE | NIF_TIP,
+                uCallbackMessage: WM_TRAYICON,
+                hIcon: LoadIconW(ptr::null_mut(), IDI_APPLICATION),
+                ..std::mem::zeroed()
+            };
+
+            let tip = to_wstring("gõkey");
+            nid.szTip[..tip.len()].copy_from_slice(&tip);
+
+            Shell_NotifyIconW(NIM_ADD, &mut nid);
+
+            let mut msg: MSG = std::mem::zeroed();
+            while GetMessageW(&mut msg, ptr::null_mut(), 0, 0) > 0 {
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+
+            Shell_NotifyIconW(NIM_DELETE, &mut nid);
+        });
+
         Self
     }
-    
-    pub fn set_title(&self, _title: &str) {
-        // Windows system tray title management
+
+    pub fn set_title(&self, title: &str) {
+        {
+            let mut state = SYSTEM_TRAY_STATE.lock().unwrap();
+            state.title = title.to_string();
+        }
+
+        let hwnd_opt = *SYSTEM_TRAY_HWND.lock().unwrap();
+        if let Some(hwnd_val) = hwnd_opt {
+            let hwnd = hwnd_val as winapi::shared::windef::HWND;
+            unsafe {
+                let mut nid: NOTIFYICONDATAW = std::mem::zeroed();
+                nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
+                nid.hWnd = hwnd;
+                nid.uID = 1;
+                nid.uFlags = NIF_TIP | NIF_MESSAGE | NIF_ICON;
+                nid.uCallbackMessage = WM_TRAYICON;
+                nid.hIcon = LoadIconW(ptr::null_mut(), IDI_APPLICATION);
+
+                let title_wide = to_wstring(title);
+                let len = title_wide.len().min(nid.szTip.len());
+                nid.szTip[..len].copy_from_slice(&title_wide[..len]);
+
+                Shell_NotifyIconW(NIM_MODIFY, &mut nid);
+            }
+        }
     }
-    
-    pub fn set_menu_item_title(&self, _key: SystemTrayMenuItemKey, _title: &str) {
-        // Update system tray menu item title
+
+    pub fn set_menu_item_title(&self, key: SystemTrayMenuItemKey, title: &str) {
+        let mut state = SYSTEM_TRAY_STATE.lock().unwrap();
+        state.set_label(key, title);
     }
-    
-    pub fn set_menu_item_callback(&self, _key: SystemTrayMenuItemKey, _callback: impl Fn() + 'static) {
-        // Set callback for system tray menu item
+
+    pub fn set_menu_item_callback(
+        &self,
+        key: SystemTrayMenuItemKey,
+        callback: impl Fn() + Send + Sync + 'static,
+    ) {
+        let mut state = SYSTEM_TRAY_STATE.lock().unwrap();
+        state.set_callback(key, Box::new(callback));
     }
 }
 
-#[derive(Clone, PartialEq, Eq)]
+fn to_wstring(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(std::iter::once(0)).collect()
+}
+
+unsafe extern "system" fn wnd_proc(
+    hwnd: winapi::shared::windef::HWND,
+    msg: u32,
+    w_param: WPARAM,
+    l_param: LPARAM,
+) -> LRESULT {
+    match msg {
+        WM_TRAYICON => {
+            if l_param as u32 == WM_RBUTTONUP {
+                let mut point: winapi::shared::windef::POINT = std::mem::zeroed();
+                GetCursorPos(&mut point);
+
+                let state = SYSTEM_TRAY_STATE.lock().unwrap();
+                let hmenu = CreatePopupMenu();
+
+                AppendMenuW(
+                    hmenu,
+                    MF_STRING,
+                    system_tray_menu_key_to_id(SystemTrayMenuItemKey::ShowUI) as usize,
+                    to_wstring(&state.get_label(SystemTrayMenuItemKey::ShowUI)).as_ptr(),
+                );
+                AppendMenuW(
+                    hmenu,
+                    MF_STRING,
+                    system_tray_menu_key_to_id(SystemTrayMenuItemKey::Enable) as usize,
+                    to_wstring(&state.get_label(SystemTrayMenuItemKey::Enable)).as_ptr(),
+                );
+                AppendMenuW(hmenu, MF_SEPARATOR, 0, ptr::null());
+                AppendMenuW(
+                    hmenu,
+                    MF_STRING,
+                    system_tray_menu_key_to_id(SystemTrayMenuItemKey::TypingMethodTelex) as usize,
+                    to_wstring(&state.get_label(SystemTrayMenuItemKey::TypingMethodTelex)).as_ptr(),
+                );
+                AppendMenuW(
+                    hmenu,
+                    MF_STRING,
+                    system_tray_menu_key_to_id(SystemTrayMenuItemKey::TypingMethodVNI) as usize,
+                    to_wstring(&state.get_label(SystemTrayMenuItemKey::TypingMethodVNI)).as_ptr(),
+                );
+                AppendMenuW(
+                    hmenu,
+                    MF_STRING,
+                    system_tray_menu_key_to_id(SystemTrayMenuItemKey::TypingMethodTelexVNI) as usize,
+                    to_wstring(&state.get_label(SystemTrayMenuItemKey::TypingMethodTelexVNI)).as_ptr(),
+                );
+                AppendMenuW(hmenu, MF_SEPARATOR, 0, ptr::null());
+                AppendMenuW(
+                    hmenu,
+                    MF_STRING,
+                    system_tray_menu_key_to_id(SystemTrayMenuItemKey::Exit) as usize,
+                    to_wstring(&state.get_label(SystemTrayMenuItemKey::Exit)).as_ptr(),
+                );
+
+                SetForegroundWindow(hwnd);
+                TrackPopupMenu(
+                    hmenu,
+                    TPM_LEFTALIGN | TPM_RIGHTBUTTON,
+                    point.x,
+                    point.y,
+                    0,
+                    hwnd,
+                    ptr::null_mut(),
+                );
+            }
+        }
+        WM_COMMAND => {
+            let msg_id = w_param as u16;
+            if let Some(key) = system_tray_menu_id_to_key(msg_id) {
+                let state = SYSTEM_TRAY_STATE.lock().unwrap();
+                if let Some(cb) = state.callbacks.get(&key) {
+                    cb();
+                    return 0;
+                }
+
+                // Fallback for critical items if no callback is registered yet.
+                match key {
+                    SystemTrayMenuItemKey::Exit => {
+                        DestroyWindow(hwnd);
+                        return 0;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        WM_DESTROY => {
+            PostQuitMessage(0);
+        }
+        _ => return DefWindowProcW(hwnd, msg, w_param, l_param),
+    }
+    0
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SystemTrayMenuItemKey {
     Enable,
     ShowUI,
@@ -443,3 +719,27 @@ pub enum SystemTrayMenuItemKey {
     TypingMethodTelexVNI,
     Exit,
 }
+
+fn system_tray_menu_key_to_id(key: SystemTrayMenuItemKey) -> u16 {
+    match key {
+        SystemTrayMenuItemKey::ShowUI => ID_MENU_SHOW,
+        SystemTrayMenuItemKey::Enable => ID_MENU_ENABLE_TOGGLE,
+        SystemTrayMenuItemKey::TypingMethodTelex => ID_MENU_TYPING_METHOD_TELEX,
+        SystemTrayMenuItemKey::TypingMethodVNI => ID_MENU_TYPING_METHOD_VNI,
+        SystemTrayMenuItemKey::TypingMethodTelexVNI => ID_MENU_TYPING_METHOD_TELEX_VNI,
+        SystemTrayMenuItemKey::Exit => ID_MENU_EXIT,
+    }
+}
+
+fn system_tray_menu_id_to_key(id: u16) -> Option<SystemTrayMenuItemKey> {
+    match id {
+        ID_MENU_SHOW => Some(SystemTrayMenuItemKey::ShowUI),
+        ID_MENU_ENABLE_TOGGLE => Some(SystemTrayMenuItemKey::Enable),
+        ID_MENU_TYPING_METHOD_TELEX => Some(SystemTrayMenuItemKey::TypingMethodTelex),
+        ID_MENU_TYPING_METHOD_VNI => Some(SystemTrayMenuItemKey::TypingMethodVNI),
+        ID_MENU_TYPING_METHOD_TELEX_VNI => Some(SystemTrayMenuItemKey::TypingMethodTelexVNI),
+        ID_MENU_EXIT => Some(SystemTrayMenuItemKey::Exit),
+        _ => None,
+    }
+}
+

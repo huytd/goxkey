@@ -1,3 +1,4 @@
+#![cfg_attr(all(target_os = "windows", not(debug_assertions)), windows_subsystem = "windows")]
 mod config;
 mod hotkey;
 mod input;
@@ -37,13 +38,13 @@ fn apply_capslock_to_output(output: String, is_capslock: bool) -> String {
     }
 }
 
-// Removed: fn normalize_input_char(c: char, is_shift: bool) -> char {
-// Removed:     if is_shift {
-// Removed:         c.to_ascii_uppercase()
-// Removed:     } else {
-// Removed:         c
-// Removed:     }
-// Removed: }
+fn normalize_input_char(c: char, is_shift: bool) -> char {
+    if is_shift {
+        c.to_ascii_uppercase()
+    } else {
+        c
+    }
+}
 
 fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool {
     unsafe {
@@ -416,7 +417,6 @@ fn main() {
             .title(app_title)
             .window_size((ui::WINDOW_WIDTH, ui::WINDOW_HEIGHT))
             .set_position(ui::center_window_position())
-            .set_always_on_top(true)
             .resizable(false);
         let app = AppLauncher::with_window(win);
         let event_sink = app.get_external_handle();
