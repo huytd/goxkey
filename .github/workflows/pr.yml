@@ -1,0 +1,36 @@
+on:
+  push:
+    branches-ignore:
+      - 'main'
+
+name: Pull request
+
+jobs:
+  test:
+    name: Test project
+    runs-on: macos-11 # add other OS later
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: cargo-bundle
+  build:
+    name: Build project
+    runs-on: macos-11 # add other OS later
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: cargo-bundle
+      - uses: actions-rs/cargo@v1
+        with:
+          command: bundle
+          args: --release
