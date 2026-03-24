@@ -6,8 +6,17 @@ Compiles, runs to UI. Have quirks while typing. Yet to be implemented.
 - [x] IME stack rewrite/implement for Windows
 
 Works, but have some errors. Probably won't fix those since I've seen EVKey making the same error on my Windows installation.
-- [ ] Tray icon
+- [x] Tray icon
+
+Functional, albeit incomplete: missing icon, quick switch,...
 - [ ] Further implementation due to dev's abandonment of the Windows' version plan
+
+Some functions are missing; no per-app enable/disable;...
+
+# What is missing
+- Multiple functions are using placeholders e.g. file pickers
+- Some features in the UI outright just not work
+
 
 <p align="center">
 	<img src="./icons/icon.png" width="90px">
