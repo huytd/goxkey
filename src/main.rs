@@ -303,6 +303,13 @@ fn event_handler(
                                         INPUT_STATE.try_resume_previous_word();
                                     } else {
                                         INPUT_STATE.pop();
+                                        if !INPUT_STATE.is_buffer_empty() {
+                                            return do_transform_keys(
+                                                handle,
+                                                true,
+                                                modifiers.is_capslock(),
+                                            );
+                                        }
                                     }
                                 }
                                 c => {
