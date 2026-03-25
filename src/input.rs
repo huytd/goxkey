@@ -88,8 +88,15 @@ fn mask_standalone_w(buffer: &str) -> String {
     for (i, &ch) in chars.iter().enumerate() {
         if ch == 'w' || ch == 'W' {
             let preceded_by_eligible = i > 0 && HORN_BREVE_ELIGIBLE.contains(chars[i - 1]);
-            if preceded_by_eligible {
-                result.push(ch); // let telex transform it: uw→ư, ow→ơ, aw→ă
+            // Also pass through when this 'w' follows a 'w' that was itself
+            // preceded by an eligible vowel (e.g. "aww", "uww", "oww").
+            // This lets telex see the full "ww" sequence and undo the
+            // Horn/Breve modification, producing the raw text.
+            let preceded_by_w_after_eligible = i >= 2
+                && (chars[i - 1] == 'w' || chars[i - 1] == 'W')
+                && HORN_BREVE_ELIGIBLE.contains(chars[i - 2]);
+            if preceded_by_eligible || preceded_by_w_after_eligible {
+                result.push(ch); // let telex transform it: uw→ư, ow→ơ, aw→ă, or ww→undo
             } else {
                 // Mask it — telex ignores \x01/\x02, we restore them after transform
                 result.push(if ch == 'w' { '\x01' } else { '\x02' });
@@ -924,5 +931,53 @@ mod diff_tests {
         assert!(sfx_start >= new_start);
         assert!(sfx_start + sfx.len() <= new_start + new.len());
         assert_eq!(sfx, "ên");
+    }
+}
+
+#[cfg(test)]
+mod mask_w_tests {
+    use super::mask_standalone_w;
+
+    #[test]
+    fn standalone_w_is_masked() {
+        // 'w' not preceded by eligible vowel → masked
+        assert_eq!(mask_standalone_w("w"), "\x01");
+        assert_eq!(mask_standalone_w("rw"), "r\x01");
+    }
+
+    #[test]
+    fn standalone_upper_w_is_masked() {
+        assert_eq!(mask_standalone_w("W"), "\x02");
+        assert_eq!(mask_standalone_w("RW"), "R\x02");
+    }
+
+    #[test]
+    fn w_after_eligible_vowel_is_not_masked() {
+        // aw→ă, uw→ư, ow→ơ should pass through
+        assert_eq!(mask_standalone_w("aw"), "aw");
+        assert_eq!(mask_standalone_w("uw"), "uw");
+        assert_eq!(mask_standalone_w("ow"), "ow");
+    }
+
+    #[test]
+    fn ww_after_eligible_vowel_not_masked() {
+        // "aww" → both w's passed through so telex sees "ww" and undoes breve
+        assert_eq!(mask_standalone_w("aww"), "aww");
+        assert_eq!(mask_standalone_w("uww"), "uww");
+        assert_eq!(mask_standalone_w("oww"), "oww");
+        assert_eq!(mask_standalone_w("raww"), "raww");
+    }
+
+    #[test]
+    fn standalone_ww_both_masked() {
+        // "ww" with no eligible vowel before → both masked
+        assert_eq!(mask_standalone_w("ww"), "\x01\x01");
+        assert_eq!(mask_standalone_w("rww"), "r\x01\x01");
+    }
+
+    #[test]
+    fn mixed_case_ww_after_eligible() {
+        assert_eq!(mask_standalone_w("aWW"), "aWW");
+        assert_eq!(mask_standalone_w("AWw"), "AWw");
     }
 }
