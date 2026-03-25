@@ -324,6 +324,83 @@ pub fn ensure_accessibility_permission() -> bool {
     }
 }
 
+/// Return the RGBA pixel data (pre-multiplied) and dimensions for the icon of
+/// the application at `app_path` (e.g. "/Applications/Safari.app").
+/// The icon is rendered at `size`×`size` points.  Returns `None` on failure.
+pub fn get_app_icon_rgba(app_path: &str, size: u32) -> Option<(Vec<u8>, u32, u32)> {
+    unsafe {
+        use cocoa::foundation::NSString;
+        use cocoa::base::nil;
+
+        let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
+        let path_ns = NSString::alloc(nil).init_str(app_path);
+        let icon: id = msg_send![workspace, iconForFile: path_ns];
+        if icon.is_null() {
+            return None;
+        }
+
+        let ns_size: cocoa::foundation::NSSize = cocoa::foundation::NSSize::new(size as f64, size as f64);
+        let _: () = msg_send![icon, setSize: ns_size];
+
+        // Create an NSBitmapImageRep to rasterize into RGBA
+        let rep: id = msg_send![
+            class!(NSBitmapImageRep),
+            alloc
+        ];
+        let planes: *mut u8 = std::ptr::null_mut();
+        let color_space_name = NSString::alloc(nil).init_str("NSCalibratedRGBColorSpace");
+        let rep: id = msg_send![rep,
+            initWithBitmapDataPlanes: &planes
+            pixelsWide: size as i64
+            pixelsHigh: size as i64
+            bitsPerSample: 8_i64
+            samplesPerPixel: 4_i64
+            hasAlpha: YES
+            isPlanar: cocoa::base::NO
+            colorSpaceName: color_space_name
+            bytesPerRow: (size * 4) as i64
+            bitsPerPixel: 32_i64
+        ];
+        if rep.is_null() {
+            return None;
+        }
+
+        // Draw the icon into the bitmap context
+        let _: () = msg_send![class!(NSGraphicsContext), saveGraphicsState];
+        let gfx_ctx: id =
+            msg_send![class!(NSGraphicsContext), graphicsContextWithBitmapImageRep: rep];
+        let _: () = msg_send![class!(NSGraphicsContext), setCurrentContext: gfx_ctx];
+
+        let draw_rect = cocoa::foundation::NSRect::new(
+            cocoa::foundation::NSPoint::new(0.0, 0.0),
+            ns_size,
+        );
+        let from_rect = cocoa::foundation::NSRect::new(
+            cocoa::foundation::NSPoint::new(0.0, 0.0),
+            cocoa::foundation::NSSize::new(0.0, 0.0), // zero = entire image
+        );
+        let _: () = msg_send![icon,
+            drawInRect: draw_rect
+            fromRect: from_rect
+            operation: 2_i64  // NSCompositingOperationSourceOver
+            fraction: 1.0_f64
+        ];
+        let _: () = msg_send![class!(NSGraphicsContext), restoreGraphicsState];
+
+        // Extract pixel data
+        let bitmap_data: *const u8 = msg_send![rep, bitmapData];
+        if bitmap_data.is_null() {
+            let _: () = msg_send![rep, release];
+            return None;
+        }
+        let len = (size * size * 4) as usize;
+        let pixels = std::slice::from_raw_parts(bitmap_data, len).to_vec();
+        let _: () = msg_send![rep, release];
+
+        Some((pixels, size, size))
+    }
+}
+
 pub fn get_active_app_name() -> String {
     unsafe {
         let shared_workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];

@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use crate::input::TypingMethod;
 use druid::{
     kurbo::{BezPath, Circle, RoundedRect},
-    piet::{FontFamily, Text, TextLayout, TextLayoutBuilder},
+    piet::{FontFamily, ImageFormat, InterpolationMode, Text, TextLayout, TextLayoutBuilder},
     BoxConstraints, Color, Env, Event, EventCtx, LayoutCtx, LifeCycle, LifeCycleCtx, PaintCtx,
     Point, Rect, RenderContext, Size, UpdateCtx, Widget, WidgetPod,
 };
@@ -960,6 +962,8 @@ pub(super) struct AppsListWidget {
     row_rects: Vec<Rect>,
     badge_rects: Vec<Rect>,
     avatar_colors: Vec<Color>,
+    /// Cached RGBA pixel data per app path. `None` means we tried and failed.
+    icon_cache: HashMap<String, Option<(Vec<u8>, u32, u32)>>,
 }
 
 const ROW_HEIGHT: f64 = 52.0;
@@ -976,8 +980,10 @@ impl AppsListWidget {
                 Color::rgb8(133, 86, 178),
                 Color::rgb8(203, 131, 46),
             ],
+            icon_cache: HashMap::new(),
         }
     }
+
 
     pub(super) fn build_entries(data: &UIDataAdapter) -> Vec<CombinedAppEntry> {
         let to_entry = |e: &crate::ui::data::AppEntry, is_vn: bool| CombinedAppEntry {
@@ -1114,6 +1120,15 @@ impl Widget<UIDataAdapter> for AppsListWidget {
         let entries = Self::build_entries(data);
         let size = ctx.size();
 
+        // Preload icons into cache before the paint loop.
+        // Request 72px (2x) so icons are sharp on Retina displays.
+        for entry in &entries {
+            if !self.icon_cache.contains_key(&entry.full_name) {
+                let icon = crate::platform::get_app_icon_rgba(&entry.full_name, 72);
+                self.icon_cache.insert(entry.full_name.clone(), icon);
+            }
+        }
+
         for (i, entry) in entries.iter().enumerate() {
             let rect = self.row_rects[i];
             let is_selected = data.selected_app_index == i as i32;
@@ -1132,31 +1147,52 @@ impl Widget<UIDataAdapter> for AppsListWidget {
                 );
             }
 
-            // Avatar
+            // Avatar — use app icon if available, fall back to colored initials
             let avatar_x = 14.0;
             let avatar_y = rect.y0 + (ROW_HEIGHT - 36.0) / 2.0;
             let avatar_rect =
                 RoundedRect::new(avatar_x, avatar_y, avatar_x + 36.0, avatar_y + 36.0, 8.0);
-            ctx.fill(
-                avatar_rect,
-                &self.avatar_colors[i % self.avatar_colors.len()],
-            );
 
-            let initials = Self::initials(&entry.display_name);
-            let init_layout = ctx
-                .text()
-                .new_text_layout(initials)
-                .font(FontFamily::SYSTEM_UI, 13.0)
-                .text_color(Color::WHITE)
-                .build()
-                .unwrap();
-            ctx.draw_text(
-                &init_layout,
-                (
-                    avatar_x + (36.0 - init_layout.size().width) / 2.0,
-                    avatar_y + (36.0 - init_layout.size().height) / 2.0,
-                ),
-            );
+            let icon_drawn = if let Some(Some((pixels, w, h))) =
+                self.icon_cache.get(&entry.full_name)
+            {
+                if let Ok(image) = ctx.make_image(
+                    *w as usize,
+                    *h as usize,
+                    pixels,
+                    ImageFormat::RgbaPremul,
+                ) {
+                    let dst = Rect::new(avatar_x, avatar_y, avatar_x + 36.0, avatar_y + 36.0);
+                    ctx.draw_image(&image, dst, InterpolationMode::Bilinear);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
+            if !icon_drawn {
+                ctx.fill(
+                    avatar_rect,
+                    &self.avatar_colors[i % self.avatar_colors.len()],
+                );
+                let initials = Self::initials(&entry.display_name);
+                let init_layout = ctx
+                    .text()
+                    .new_text_layout(initials)
+                    .font(FontFamily::SYSTEM_UI, 13.0)
+                    .text_color(Color::WHITE)
+                    .build()
+                    .unwrap();
+                ctx.draw_text(
+                    &init_layout,
+                    (
+                        avatar_x + (36.0 - init_layout.size().width) / 2.0,
+                        avatar_y + (36.0 - init_layout.size().height) / 2.0,
+                    ),
+                );
+            }
 
             // App name
             let name_layout = ctx
