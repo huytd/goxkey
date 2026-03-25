@@ -981,3 +981,69 @@ mod mask_w_tests {
         assert_eq!(mask_standalone_w("AWw"), "AWw");
     }
 }
+
+#[cfg(test)]
+mod tracking_tests {
+    use super::InputState;
+
+    #[test]
+    fn stop_tracking_disables_tracking() {
+        let mut state = InputState::new();
+        state.push('r');
+        assert!(state.is_tracking());
+        state.stop_tracking();
+        assert!(!state.is_tracking());
+        assert!(state.is_buffer_empty());
+    }
+
+    #[test]
+    fn new_word_re_enables_tracking_after_stop() {
+        let mut state = InputState::new();
+        state.push('r');
+        state.stop_tracking();
+        assert!(!state.is_tracking());
+        state.new_word();
+        assert!(state.is_tracking());
+    }
+
+    #[test]
+    fn pop_to_empty_then_new_word_re_enables_tracking() {
+        // Simulates: type "raww" → stop_tracking → backspace to empty → new_word
+        let mut state = InputState::new();
+        state.push('r');
+        state.push('a');
+        state.push('w');
+        state.push('w');
+        state.stop_tracking(); // triggered by "ww" pattern
+        assert!(!state.is_tracking());
+        assert!(state.is_buffer_empty());
+
+        // Backspaces clear the screen (handled by OS), buffer already empty.
+        // Calling new_word() re-enables tracking for the next keystrokes.
+        state.new_word();
+        assert!(state.is_tracking());
+
+        // New characters should be tracked
+        state.push('o');
+        state.push('o');
+        assert_eq!(state.get_typing_buffer(), "oo");
+    }
+
+    #[test]
+    fn resume_previous_word_re_enables_tracking() {
+        let mut state = InputState::new();
+        state.push('t');
+        state.push('e');
+        state.push('s');
+        state.push('t');
+        // Simulate end-of-word (space) → new_word + mark_resumable
+        state.new_word();
+        state.mark_resumable();
+        assert!(state.is_buffer_empty());
+
+        // Resume should restore the previous word
+        assert!(state.try_resume_previous_word());
+        assert!(state.is_tracking());
+        assert_eq!(state.get_typing_buffer(), "test");
+    }
+}

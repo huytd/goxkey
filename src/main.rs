@@ -300,7 +300,12 @@ fn event_handler(
                                         // Buffer is empty — the user just started a new
                                         // word (e.g. after space).  Try to resume editing
                                         // the previous word so backspace + retype works.
-                                        INPUT_STATE.try_resume_previous_word();
+                                        // If resume fails, reset to a fresh tracking state
+                                        // so the next keystrokes are processed (e.g. after
+                                        // stop_tracking from a duplicate pattern like "ww").
+                                        if !INPUT_STATE.try_resume_previous_word() {
+                                            INPUT_STATE.new_word();
+                                        }
                                     } else {
                                         INPUT_STATE.pop();
                                         if !INPUT_STATE.is_buffer_empty() {
