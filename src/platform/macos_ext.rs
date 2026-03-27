@@ -196,13 +196,38 @@ unsafe fn create_badge_image(title: &str, is_vietnamese: bool) -> id {
     let corner_radius = 4.0_f64;
     let border_width = 1.2_f64;
 
-    let img_size = NSSize::new(badge_w, badge_h);
-    let image: id = msg_send![class!(NSImage), alloc];
-    let image: id = msg_send![image, initWithSize: img_size];
+    // Draw at 2x resolution for Retina crispness
+    let scale = 2.0_f64;
+    let px_w = badge_w * scale;
+    let px_h = badge_h * scale;
 
-    let _: () = msg_send![image, lockFocus];
+    let color_space_name = NSString::alloc(nil).init_str("NSCalibratedRGBColorSpace");
+    let rep: id = msg_send![class!(NSBitmapImageRep), alloc];
+    let planes: *mut u8 = std::ptr::null_mut();
+    let rep: id = msg_send![rep,
+        initWithBitmapDataPlanes: &planes
+        pixelsWide: px_w as i64
+        pixelsHigh: px_h as i64
+        bitsPerSample: 8_i64
+        samplesPerPixel: 4_i64
+        hasAlpha: YES
+        isPlanar: NO
+        colorSpaceName: color_space_name
+        bytesPerRow: 0_i64
+        bitsPerPixel: 0_i64
+    ];
 
-    // Draw rounded rect border in badge color
+    // Draw into the bitmap rep at 2x
+    let _: () = msg_send![class!(NSGraphicsContext), saveGraphicsState];
+    let gfx_ctx: id = msg_send![class!(NSGraphicsContext), graphicsContextWithBitmapImageRep: rep];
+    let _: () = msg_send![class!(NSGraphicsContext), setCurrentContext: gfx_ctx];
+
+    // Scale the graphics context so we draw in logical points
+    let xform: id = msg_send![class!(NSAffineTransform), transform];
+    let _: () = msg_send![xform, scaleBy: scale];
+    let _: () = msg_send![xform, concat];
+
+    // Fill background
     let inset = border_width / 2.0;
     let rect = NSRect::new(
         NSPoint::new(inset, inset),
@@ -220,7 +245,14 @@ unsafe fn create_badge_image(title: &str, is_vietnamese: bool) -> id {
     let text_y = (badge_h - text_size.height) / 2.0;
     let _: () = msg_send![attr_str, drawAtPoint: NSPoint::new(text_x, text_y)];
 
-    let _: () = msg_send![image, unlockFocus];
+    let _: () = msg_send![class!(NSGraphicsContext), restoreGraphicsState];
+
+    // Create image from the bitmap rep with logical (1x) size
+    let img_size = NSSize::new(badge_w, badge_h);
+    let image: id = msg_send![class!(NSImage), alloc];
+    let image: id = msg_send![image, initWithSize: img_size];
+    let _: () = msg_send![image, addRepresentation: rep];
+    let _: () = msg_send![image, setTemplate: NO];
     let _: () = msg_send![attr_str, release];
 
     image
