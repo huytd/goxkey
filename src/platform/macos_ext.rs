@@ -172,7 +172,7 @@ unsafe fn create_badge_image(title: &str, is_vietnamese: bool) -> id {
         (58.0 / 255.0, 115.0 / 255.0, 199.0 / 255.0) // blue
     };
     let badge_color: id = msg_send![class!(NSColor), colorWithSRGBRed:r green:g blue:b alpha:1.0_f64];
-    let badge_bg: id = msg_send![class!(NSColor), colorWithSRGBRed:r green:g blue:b alpha:0.15_f64];
+    let badge_bg: id = msg_send![class!(NSColor), whiteColor];
 
     // Measure text to determine badge width
     let font: id = msg_send![class!(NSFont), systemFontOfSize: 9.5_f64 weight: 0.4_f64];
