@@ -18,7 +18,7 @@ pub use views::{
 pub const UPDATE_UI: Selector = Selector::new("gox-ui.update-ui");
 pub const SHOW_UI: Selector = Selector::new("gox-ui.show-ui");
 pub const WINDOW_WIDTH: f64 = 480.0;
-pub const WINDOW_HEIGHT: f64 = 620.0;
+pub const WINDOW_HEIGHT: f64 = 680.0;
 
 pub fn format_letter_key(c: Option<char>) -> String {
     if let Some(c) = c {

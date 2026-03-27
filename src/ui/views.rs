@@ -35,12 +35,12 @@ use super::{
 
 // ── Layout helpers ─────────────────────────────────────────────────────────────
 
-/// A simple left-aligned text painter.
-fn text_label(text: &'static str, font_size: f64, color: Color, height: f64) -> impl Widget<UIDataAdapter> {
+/// A simple left-aligned text painter that resolves translation key at paint time.
+fn text_label(key: &'static str, font_size: f64, color: Color, height: f64) -> impl Widget<UIDataAdapter> {
     Painter::new(move |ctx, _: &UIDataAdapter, _| {
         let layout = ctx
             .text()
-            .new_text_layout(text)
+            .new_text_layout(t(key))
             .font(FontFamily::SYSTEM_UI, font_size)
             .text_color(color.clone())
             .build()
@@ -51,27 +51,27 @@ fn text_label(text: &'static str, font_size: f64, color: Color, height: f64) -> 
     .expand_width()
 }
 
-/// Title text (13pt, primary color, 18px height).
-fn title_label(text: &'static str) -> impl Widget<UIDataAdapter> {
-    text_label(text, 13.0, TEXT_PRIMARY, 18.0)
+/// Title text (13pt, primary color, 18px height). Resolves key via t() at paint time.
+fn title_label(key: &'static str) -> impl Widget<UIDataAdapter> {
+    text_label(key, 13.0, TEXT_PRIMARY, 18.0)
 }
 
-/// Subtitle text (12pt, secondary color, 16px height).
-fn subtitle_label(text: &'static str) -> impl Widget<UIDataAdapter> {
-    text_label(text, 12.0, TEXT_SECONDARY, 16.0)
+/// Subtitle text (12pt, secondary color, 16px height). Resolves key via t() at paint time.
+fn subtitle_label(key: &'static str) -> impl Widget<UIDataAdapter> {
+    text_label(key, 12.0, TEXT_SECONDARY, 16.0)
 }
 
 /// A title + subtitle column, used in settings rows and custom rows.
-fn title_subtitle_column(title: &'static str, subtitle: &'static str) -> impl Widget<UIDataAdapter> {
+fn title_subtitle_column(title_key: &'static str, subtitle_key: &'static str) -> impl Widget<UIDataAdapter> {
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-        .with_child(title_label(title))
-        .with_child(subtitle_label(subtitle))
+        .with_child(title_label(title_key))
+        .with_child(subtitle_label(subtitle_key))
 }
 
-/// A rounded-rect button with centered text.
+/// A rounded-rect button with centered text. Resolves key via t() at paint time.
 fn centered_btn(
-    text: &'static str,
+    key: &'static str,
     width: f64,
     height: f64,
     bg: Color,
@@ -87,7 +87,7 @@ fn centered_btn(
         }
         let layout = ctx
             .text()
-            .new_text_layout(text)
+            .new_text_layout(t(key))
             .font(FontFamily::SYSTEM_UI, 13.0)
             .text_color(text_color.clone())
             .build()
@@ -135,11 +135,11 @@ fn h_divider() -> impl Widget<UIDataAdapter> {
     .expand_width()
 }
 
-fn section_label(text: &'static str) -> impl Widget<UIDataAdapter> {
+fn section_label(key: &'static str) -> impl Widget<UIDataAdapter> {
     Painter::new(move |ctx, _data: &UIDataAdapter, _env| {
         let layout = ctx
             .text()
-            .new_text_layout(text.to_uppercase())
+            .new_text_layout(t(key).to_uppercase())
             .font(FontFamily::SYSTEM_UI, 11.0)
             .text_color(TEXT_SECTION)
             .build()
@@ -192,8 +192,8 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                 Flex::row()
                     .with_flex_child(
                         title_subtitle_column(
-                            t("general.vietnamese_input"),
-                            t("general.enable_vietnamese"),
+                            "general.vietnamese_input",
+                            "general.enable_vietnamese",
                         ),
                         1.0,
                     )
@@ -212,7 +212,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
             .with_child(
                 Flex::column()
                     .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-                    .with_child(title_label(t("general.input_method")))
+                    .with_child(title_label("general.input_method"))
                     .with_spacer(8.0)
                     .with_child(
                         SegmentedControl::new(vec![
@@ -229,14 +229,14 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
     );
 
     let w_literal_card = settings_card(settings_row(
-        t("general.w_literal"),
-        t("general.w_literal_desc"),
+        "general.w_literal",
+        "general.w_literal_desc",
         ToggleSwitch.lens(UIDataAdapter::is_w_literal_enabled),
     ));
 
     let system_card = settings_card(settings_row(
-        t("general.launch_at_login"),
-        t("general.launch_at_login_desc"),
+        "general.launch_at_login",
+        "general.launch_at_login_desc",
         StyledCheckbox.lens(UIDataAdapter::launch_on_login),
     ));
 
@@ -244,8 +244,8 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         Flex::column()
             .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
             .with_child(title_subtitle_column(
-                t("general.ui_language"),
-                t("general.ui_language_desc"),
+                "general.ui_language",
+                "general.ui_language_desc",
             ))
             .with_spacer(8.0)
             .with_child(
@@ -301,8 +301,8 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         Flex::row()
             .with_flex_child(
                 title_subtitle_column(
-                    t("general.toggle_shortcut"),
-                    t("general.toggle_shortcut_desc"),
+                    "general.toggle_shortcut",
+                    "general.toggle_shortcut_desc",
                 ),
                 1.0,
             )
@@ -320,7 +320,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         .with_flex_spacer(1.0)
         .with_child(
             centered_btn(
-                t("general.reset_defaults"),
+                "general.reset_defaults",
                 120.0, 30.0,
                 BTN_RESET_BG,
                 Color::rgb8(51, 51, 51),
@@ -332,7 +332,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         )
         .with_spacer(8.0)
         .with_child(
-            centered_btn(t("general.done"), 70.0, 30.0, GREEN, Color::WHITE, None)
+            centered_btn("general.done", 70.0, 30.0, GREEN, Color::WHITE, None)
                 .on_click(|ctx, _data: &mut UIDataAdapter, _env| {
                     ctx.window().hide();
                 }),
@@ -341,17 +341,17 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
 
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-        .with_child(section_label(t("general.input_mode")))
+        .with_child(section_label("general.input_mode"))
         .with_child(input_mode_card)
         .with_spacer(8.0)
         .with_child(w_literal_card)
         .with_spacer(20.0)
-        .with_child(section_label(t("general.system")))
+        .with_child(section_label("general.system"))
         .with_child(system_card)
         .with_spacer(8.0)
         .with_child(language_card)
         .with_spacer(20.0)
-        .with_child(section_label(t("general.shortcut")))
+        .with_child(section_label("general.shortcut"))
         .with_child(shortcut_card)
         .with_flex_spacer(1.0)
         .with_child(footer)
@@ -359,7 +359,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
 }
 
 fn apps_tab() -> impl Widget<UIDataAdapter> {
-    let description = title_label(t("apps.description"));
+    let description = title_label("apps.description");
 
     let legend = Painter::new(|ctx, _: &UIDataAdapter, _| {
         let mut x = 0.0;
@@ -493,8 +493,8 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
     .rounded(10.0);
 
     let per_app_toggle_card = settings_card(settings_row(
-        t("apps.per_app_toggle"),
-        t("apps.per_app_toggle_desc"),
+        "apps.per_app_toggle",
+        "apps.per_app_toggle_desc",
         ToggleSwitch.lens(UIDataAdapter::is_auto_toggle_enabled),
     ));
 
@@ -513,18 +513,18 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
 }
 
 fn advanced_tab() -> impl Widget<UIDataAdapter> {
-    let description = title_label(t("macro.description"));
+    let description = title_label("macro.description");
 
     let enable_row = settings_card(settings_row(
-        t("macro.text_expansion"),
-        t("macro.enable"),
+        "macro.text_expansion",
+        "macro.enable",
         ToggleSwitch.lens(UIDataAdapter::is_macro_enabled),
     ));
 
     let autocap_row = settings_card(
         Flex::row()
             .with_flex_child(
-                title_subtitle_column(t("macro.auto_capitalize"), t("macro.auto_capitalize_desc")),
+                title_subtitle_column("macro.auto_capitalize", "macro.auto_capitalize_desc"),
                 1.0,
             )
             .with_child(
@@ -861,11 +861,11 @@ fn styled_text_input(placeholder: &'static str) -> impl Widget<String> {
 pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
     use super::colors::{BTN_RESET_BG, BTN_RESET_BORDER, GREEN};
 
-    let shorthand_label = subtitle_label(t("macro.shorthand"));
-    let replacement_label = subtitle_label(t("macro.replacement"));
+    let shorthand_label = subtitle_label("macro.shorthand");
+    let replacement_label = subtitle_label("macro.replacement");
 
     let cancel_btn = centered_btn(
-        t("button.cancel"),
+        "button.cancel",
         90.0, 30.0,
         BTN_RESET_BG,
         Color::rgb8(51, 51, 51),
@@ -948,11 +948,11 @@ pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
 pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
     use super::{colors::TEXT_SECONDARY, selectors::SAVE_SHORTCUT};
 
-    let title_label = subtitle_label(t("shortcut.new"));
-    let hint_label = text_label(t("shortcut.hint"), 11.0, TEXT_SECONDARY, 14.0);
+    let title_label = subtitle_label("shortcut.new");
+    let hint_label = text_label("shortcut.hint", 11.0, TEXT_SECONDARY, 14.0);
 
     let cancel_btn = centered_btn(
-        t("button.cancel"),
+        "button.cancel",
         90.0, 30.0,
         BTN_RESET_BG,
         Color::rgb8(51, 51, 51),

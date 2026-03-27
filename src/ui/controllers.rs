@@ -284,6 +284,7 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                     .unwrap()
                     .set_ui_language(lang_str);
                 super::locale::init_lang(lang_str);
+                ctx.request_paint();
             }
         }
         child.update(ctx, old_data, data, env);
