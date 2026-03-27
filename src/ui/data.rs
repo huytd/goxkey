@@ -7,7 +7,7 @@ use crate::{
 };
 use druid::{commands::QUIT_APP, Data, Lens, Target};
 
-use super::{format_letter_key, SHOW_UI, UPDATE_UI};
+use super::{format_letter_key, locale::t, SHOW_UI, UPDATE_UI};
 
 #[derive(Clone, Data, PartialEq, Eq)]
 pub(super) struct MacroEntry {
@@ -152,7 +152,7 @@ impl UIDataAdapter {
                     };
                     self.systray.set_title(title);
                     self.systray
-                        .set_menu_item_title(SystemTrayMenuItemKey::Enable, "Tắt gõ tiếng Việt");
+                        .set_menu_item_title(SystemTrayMenuItemKey::Enable, t("menu.disable_vietnamese"));
                 }
                 false => {
                     let title = if INPUT_STATE.is_gox_mode_enabled() {
@@ -166,7 +166,7 @@ impl UIDataAdapter {
                     };
                     self.systray.set_title(title);
                     self.systray
-                        .set_menu_item_title(SystemTrayMenuItemKey::Enable, "Bật gõ tiếng Việt");
+                        .set_menu_item_title(SystemTrayMenuItemKey::Enable, t("menu.enable_vietnamese"));
                 }
             }
             match self.typing_method {

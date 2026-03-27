@@ -93,7 +93,7 @@ impl SystemTray {
         use crate::ui::locale::t;
         self.add_menu_item(t("menu.open_panel"), || ());
         self.add_menu_separator();
-        self.add_menu_item(t("menu.toggle_vietnamese"), || ());
+        self.add_menu_item(t("menu.disable_vietnamese"), || ());
         self.add_menu_separator();
         self.add_menu_item("Telex ✓", || ());
         self.add_menu_item("VNI", || ());

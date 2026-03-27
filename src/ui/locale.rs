@@ -30,8 +30,11 @@ pub fn t(key: &'static str) -> &'static str {
         (Lang::Vi, "menu.open_panel") => "Mở bảng điều khiển",
         (Lang::En, "menu.open_panel") => "Open Control Panel",
 
-        (Lang::Vi, "menu.toggle_vietnamese") => "Tắt gõ tiếng Việt",
-        (Lang::En, "menu.toggle_vietnamese") => "Disable Vietnamese",
+        (Lang::Vi, "menu.disable_vietnamese") => "Tắt gõ tiếng Việt",
+        (Lang::En, "menu.disable_vietnamese") => "Disable Vietnamese",
+
+        (Lang::Vi, "menu.enable_vietnamese") => "Bật gõ tiếng Việt",
+        (Lang::En, "menu.enable_vietnamese") => "Enable Vietnamese",
 
         (Lang::Vi, "menu.quit") => "Thoát ứng dụng",
         (Lang::En, "menu.quit") => "Quit",
