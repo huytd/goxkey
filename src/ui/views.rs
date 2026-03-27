@@ -85,44 +85,64 @@ fn centered_btn(
         if let Some((ref bc, bw)) = border {
             ctx.stroke(rr, bc, bw);
         }
-        let layout = ctx
-            .text()
-            .new_text_layout(t(key))
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(text_color.clone())
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
+        draw_centered_text(ctx, t(key), 13.0, &text_color);
     })
     .fix_size(width, height)
+}
+
+/// Build a text layout and draw it centered in the current widget size.
+fn draw_centered_text(ctx: &mut druid::PaintCtx, text: &str, font_size: f64, color: &Color) {
+    let layout = ctx
+        .text()
+        .new_text_layout(text.to_owned())
+        .font(FontFamily::SYSTEM_UI, font_size)
+        .text_color(color.clone())
+        .build()
+        .unwrap();
+    let size = ctx.size();
+    ctx.draw_text(
+        &layout,
+        (
+            (size.width - layout.size().width) / 2.0,
+            (size.height - layout.size().height) / 2.0,
+        ),
+    );
 }
 
 /// A "+" or "−" icon button for list add/remove actions.
 fn symbol_btn(symbol: &'static str) -> impl Widget<UIDataAdapter> {
     Painter::new(move |ctx, _: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let layout = ctx
-            .text()
-            .new_text_layout(symbol)
-            .font(FontFamily::SYSTEM_UI, 18.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
+        draw_centered_text(ctx, symbol, 18.0, &TEXT_PRIMARY);
     })
     .fix_size(44.0, 44.0)
+}
+
+/// A "−" remove button with a left divider, disabled when `is_enabled_fn` returns false.
+fn remove_btn(is_enabled_fn: fn(&UIDataAdapter) -> bool) -> impl Widget<UIDataAdapter> {
+    Painter::new(move |ctx, data: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let color = if is_enabled_fn(data) {
+            TEXT_PRIMARY
+        } else {
+            Color::rgb8(187, 187, 187)
+        };
+        ctx.fill(Rect::new(0.0, 10.0, 0.5, size.height - 10.0), &DIVIDER);
+        draw_centered_text(ctx, "−", 18.0, &color);
+    })
+    .fix_size(44.0, 44.0)
+}
+
+/// A small toolbar-style text button, optionally with a left or right divider.
+fn toolbar_btn(key: &'static str, divider: Option<&'static str>) -> impl Widget<UIDataAdapter> {
+    Painter::new(move |ctx, _: &UIDataAdapter, _| {
+        let size = ctx.size();
+        if let Some(side) = divider {
+            let x = if side == "left" { 0.0 } else { size.width - 0.5 };
+            ctx.fill(Rect::new(x, 10.0, x + 0.5, size.height - 10.0), &DIVIDER);
+        }
+        draw_centered_text(ctx, t(key), 12.0, &TEXT_PRIMARY);
+    })
+    .fix_size(60.0, 44.0)
 }
 
 /// A full-width horizontal divider (0.5px).
@@ -445,36 +465,12 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
         }));
     });
 
-    let remove_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let is_enabled = data.selected_app_index >= 0;
-        let color = if is_enabled {
-            TEXT_PRIMARY
-        } else {
-            Color::rgb8(187, 187, 187)
-        };
-        ctx.fill(Rect::new(0.0, 10.0, 0.5, size.height - 10.0), &DIVIDER);
-        let layout = ctx
-            .text()
-            .new_text_layout("−")
-            .font(FontFamily::SYSTEM_UI, 18.0)
-            .text_color(color)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0 + 0.5,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(44.0, 44.0)
-    .on_click(|ctx, data: &mut UIDataAdapter, _| {
-        if data.selected_app_index >= 0 {
-            ctx.submit_command(DELETE_SELECTED_APP.to(Target::Global));
-        }
-    });
+    let remove_btn = remove_btn(|d| d.selected_app_index >= 0)
+        .on_click(|ctx, data: &mut UIDataAdapter, _| {
+            if data.selected_app_index >= 0 {
+                ctx.submit_command(DELETE_SELECTED_APP.to(Target::Global));
+            }
+        });
 
     let card = Container::new(
         Flex::column()
@@ -550,81 +546,22 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         ctx.submit_command(SHOW_ADD_MACRO_DIALOG.to(Target::Global));
     });
 
-    let remove_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let is_enabled = data.selected_macro_index >= 0;
-        let color = if is_enabled {
-            TEXT_PRIMARY
-        } else {
-            Color::rgb8(187, 187, 187)
-        };
-        ctx.fill(Rect::new(0.0, 10.0, 0.5, size.height - 10.0), &DIVIDER);
-        let layout = ctx
-            .text()
-            .new_text_layout("−")
-            .font(FontFamily::SYSTEM_UI, 18.0)
-            .text_color(color)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0 + 0.5,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(44.0, 44.0)
-    .on_click(|ctx, data: &mut UIDataAdapter, _| {
-        if data.selected_macro_index >= 0 {
-            ctx.submit_command(DELETE_SELECTED_MACRO.to(Target::Global));
-        }
-    });
+    let remove_btn = remove_btn(|d| d.selected_macro_index >= 0)
+        .on_click(|ctx, data: &mut UIDataAdapter, _| {
+            if data.selected_macro_index >= 0 {
+                ctx.submit_command(DELETE_SELECTED_MACRO.to(Target::Global));
+            }
+        });
 
-    let load_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let size = ctx.size();
-        ctx.fill(Rect::new(size.width - 0.5, 10.0, size.width, size.height - 10.0), &DIVIDER);
-        let layout = ctx
-            .text()
-            .new_text_layout(t("macro.load"))
-            .font(FontFamily::SYSTEM_UI, 12.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(60.0, 44.0)
-    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
-        ctx.submit_command(LOAD_MACROS_FROM_FILE.to(Target::Global));
-    });
+    let load_btn = toolbar_btn("macro.load", Some("left"))
+        .on_click(|ctx, _data: &mut UIDataAdapter, _| {
+            ctx.submit_command(LOAD_MACROS_FROM_FILE.to(Target::Global));
+        });
 
-    let export_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let layout = ctx
-            .text()
-            .new_text_layout(t("macro.export"))
-            .font(FontFamily::SYSTEM_UI, 12.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(60.0, 44.0)
-    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
-        ctx.submit_command(EXPORT_MACROS_TO_FILE.to(Target::Global));
-    });
+    let export_btn = toolbar_btn("macro.export", None)
+        .on_click(|ctx, _data: &mut UIDataAdapter, _| {
+            ctx.submit_command(EXPORT_MACROS_TO_FILE.to(Target::Global));
+        });
 
     let card = Container::new(
         Flex::column()
@@ -635,13 +572,6 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
                     .with_child(add_btn)
                     .with_child(remove_btn)
                     .with_flex_spacer(1.0)
-                    .with_child(
-                        Painter::new(|ctx, _: &UIDataAdapter, _| {
-                            let h = ctx.size().height;
-                            ctx.fill(Rect::new(0.0, 10.0, 0.5, h - 10.0), &DIVIDER);
-                        })
-                        .fix_size(0.5, 44.0),
-                    )
                     .with_child(load_btn)
                     .with_child(export_btn)
                     .expand_width(),
@@ -742,20 +672,7 @@ pub fn permission_request_ui_builder() -> impl Widget<()> {
         let size = ctx.size();
         let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
         ctx.fill(rr, &GREEN);
-        let layout = ctx
-            .text()
-            .new_text_layout(t("perm.exit"))
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(Color::WHITE)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
+        draw_centered_text(ctx, t("perm.exit"), 13.0, &Color::WHITE);
     })
     .fix_size(90.0, 30.0)
     .on_click(|_, _, _| Application::global().quit());
@@ -887,20 +804,7 @@ pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
             Color::rgb8(150, 150, 150)
         };
         ctx.fill(rr, &bg);
-        let layout = ctx
-            .text()
-            .new_text_layout(t("button.add"))
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(Color::WHITE)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
+        draw_centered_text(ctx, t("button.add"), 13.0, &Color::WHITE);
     })
     .fix_size(70.0, 30.0)
     .on_click(|ctx, data: &mut UIDataAdapter, _| {
@@ -972,20 +876,7 @@ pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
             Color::rgb8(150, 150, 150)
         };
         ctx.fill(rr, &bg);
-        let layout = ctx
-            .text()
-            .new_text_layout(t("button.save"))
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(Color::WHITE)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
+        draw_centered_text(ctx, t("button.save"), 13.0, &Color::WHITE);
     })
     .fix_size(70.0, 30.0)
     .on_click(|ctx, data: &mut UIDataAdapter, _| {
