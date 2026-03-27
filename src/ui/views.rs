@@ -195,6 +195,13 @@ fn settings_card<TW: Widget<UIDataAdapter> + 'static>(inner: TW) -> impl Widget<
         .rounded(10.0)
 }
 
+/// A start-aligned column with standard tab padding.
+fn tab_body() -> Flex<UIDataAdapter> {
+    Flex::column().cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+}
+
+const TAB_PADDING: (f64, f64, f64, f64) = (24.0, 20.0, 24.0, 24.0);
+
 /// A card with a label/subtitle header and a segmented control beneath.
 fn option_group<SW: Widget<UIDataAdapter> + 'static>(
     header: impl Widget<UIDataAdapter> + 'static,
@@ -392,8 +399,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
             }),
     );
 
-    Flex::column()
-        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+    tab_body()
         .with_child(section_label("general.input_mode"))
         .with_child(input_mode_card)
         .with_spacer(8.0)
@@ -408,7 +414,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         .with_child(shortcut_card)
         .with_flex_spacer(1.0)
         .with_child(footer)
-        .padding((24.0, 20.0, 24.0, 24.0))
+        .padding(TAB_PADDING)
 }
 
 fn apps_tab() -> impl Widget<UIDataAdapter> {
@@ -477,8 +483,7 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
         ToggleSwitch.lens(UIDataAdapter::is_auto_toggle_enabled),
     ));
 
-    Flex::column()
-        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+    tab_body()
         .with_child(description)
         .with_spacer(12.0)
         .with_child(per_app_toggle_card)
@@ -488,7 +493,7 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
         .with_flex_child(card.expand_height(), 1.0)
         .must_fill_main_axis(true)
         .expand()
-        .padding((24.0, 20.0, 24.0, 24.0))
+        .padding(TAB_PADDING)
 }
 
 fn advanced_tab() -> impl Widget<UIDataAdapter> {
@@ -542,8 +547,7 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
             ),
     );
 
-    Flex::column()
-        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+    tab_body()
         .with_child(description)
         .with_spacer(12.0)
         .with_child(enable_row)
@@ -553,7 +557,7 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         .with_flex_child(card.expand_height(), 1.0)
         .must_fill_main_axis(true)
         .expand()
-        .padding((24.0, 20.0, 24.0, 24.0))
+        .padding(TAB_PADDING)
 }
 
 // ── List row helpers ───────────────────────────────────────────────────────────
