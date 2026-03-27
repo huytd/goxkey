@@ -190,7 +190,8 @@ unsafe fn create_badge_image(title: &str, is_vietnamese: bool) -> id {
 
     let padding_h = 6.0_f64;
     let padding_v = 3.5_f64;
-    let badge_w = (text_size.width + padding_h * 2.0).ceil();
+    let natural_w = (text_size.width + padding_h * 2.0).ceil();
+    let badge_w = natural_w.max(28.0);
     let badge_h = (text_size.height + padding_v * 2.0).ceil();
     let corner_radius = 4.0_f64;
     let border_width = 1.2_f64;
