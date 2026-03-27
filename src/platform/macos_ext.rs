@@ -61,9 +61,9 @@ impl SystemTray {
             let app = NSApp();
             app.activateIgnoringOtherApps_(YES);
             let item = NSStatusBar::systemStatusBar(nil).statusItemWithLength_(-1.0);
-            let title = NSString::alloc(nil).init_str("VN");
             let button: id = msg_send![item, button];
-            let _: () = msg_send![button, setTitle: title];
+            let image = create_badge_image("VN");
+            let _: () = msg_send![button, setImage: image];
             item.setMenu_(menu);
 
             // Store the raw pointer globally so dispatch_set_systray_title
@@ -82,10 +82,13 @@ impl SystemTray {
 
     pub fn set_title(&mut self, title: &str) {
         unsafe {
-            let title_str = NSString::alloc(nil).init_str(title);
             let button: id = msg_send![self.item.0, button];
-            let _: () = msg_send![button, setTitle: title_str];
-            let _: () = msg_send![title_str, release];
+            let image = create_badge_image(title);
+            let _: () = msg_send![button, setImage: image];
+            // Clear text title so only the image shows
+            let empty = NSString::alloc(nil).init_str("");
+            let _: () = msg_send![button, setTitle: empty];
+            let _: () = msg_send![empty, release];
         }
     }
 
@@ -159,6 +162,64 @@ impl SystemTray {
     }
 }
 
+/// Create an NSImage with a badge-style rounded rectangle and centered text.
+/// The image is template-aware and sized for the macOS menu bar.
+unsafe fn create_badge_image(title: &str) -> id {
+    use cocoa::foundation::{NSPoint, NSRect, NSSize};
+
+    // Measure text to determine badge width
+    let font: id = msg_send![class!(NSFont), systemFontOfSize: 9.5_f64 weight: 0.4_f64]; // medium weight
+    let title_ns = NSString::alloc(nil).init_str(title);
+
+    // Create attributed string to measure text size
+    let attrs: id = msg_send![class!(NSDictionary), dictionaryWithObject:font forKey:NSString::alloc(nil).init_str("NSFont")];
+    let attr_str: id = msg_send![class!(NSAttributedString), alloc];
+    let attr_str: id = msg_send![attr_str, initWithString:title_ns attributes:attrs];
+    let text_size: NSSize = msg_send![attr_str, size];
+
+    let padding_h = 6.0_f64;
+    let padding_v = 2.0_f64;
+    let badge_w = (text_size.width + padding_h * 2.0).ceil();
+    let badge_h = (text_size.height + padding_v * 2.0).ceil();
+    let corner_radius = 4.0_f64;
+    let border_width = 1.2_f64;
+
+    let img_size = NSSize::new(badge_w, badge_h);
+    let image: id = msg_send![class!(NSImage), alloc];
+    let image: id = msg_send![image, initWithSize: img_size];
+
+    let _: () = msg_send![image, lockFocus];
+
+    // Draw rounded rect border
+    let inset = border_width / 2.0;
+    let rect = NSRect::new(
+        NSPoint::new(inset, inset),
+        NSSize::new(badge_w - border_width, badge_h - border_width),
+    );
+    let path: id = msg_send![class!(NSBezierPath), bezierPathWithRoundedRect:rect xRadius:corner_radius yRadius:corner_radius];
+
+    // Use label color for the border/text (adapts to dark/light mode)
+    let color: id = msg_send![class!(NSColor), secondaryLabelColor];
+    let _: () = msg_send![color, setStroke];
+    let _: () = msg_send![path, setLineWidth: border_width];
+    let _: () = msg_send![path, stroke];
+
+    // Draw centered text
+    let text_x = (badge_w - text_size.width) / 2.0;
+    let text_y = (badge_h - text_size.height) / 2.0;
+    let text_point = NSPoint::new(text_x, text_y);
+    let _: () = msg_send![attr_str, drawAtPoint: text_point];
+
+    let _: () = msg_send![image, unlockFocus];
+
+    // Mark as template so macOS handles dark/light mode automatically
+    let _: () = msg_send![image, setTemplate: YES];
+
+    let _: () = msg_send![attr_str, release];
+
+    image
+}
+
 /// Update the system tray title immediately by dispatching to the main queue.
 /// This bypasses Druid's event loop, which can be slow when the window is hidden.
 /// Safe to call from any thread.
@@ -176,10 +237,12 @@ pub fn dispatch_set_systray_title(title: &str) {
     unsafe extern "C" fn work(ctx: *mut c_void) {
         let ctx = Box::from_raw(ctx as *mut Context);
         let item = ctx.item as id;
-        let title_str = NSString::alloc(nil).init_str(&ctx.title);
         let button: id = msg_send![item, button];
-        let _: () = msg_send![button, setTitle: title_str];
-        let _: () = msg_send![title_str, release];
+        let image = create_badge_image(&ctx.title);
+        let _: () = msg_send![button, setImage: image];
+        let empty = NSString::alloc(nil).init_str("");
+        let _: () = msg_send![button, setTitle: empty];
+        let _: () = msg_send![empty, release];
     }
 
     let ctx = Box::new(Context {
