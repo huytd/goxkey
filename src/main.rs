@@ -16,8 +16,9 @@ use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
     add_app_change_callback, dispatch_set_systray_title, ensure_accessibility_permission,
-    run_event_listener, send_backspace, send_string, EventTapType, Handle, KeyModifier,
-    PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, RAW_KEY_GLOBE,
+    run_event_listener, send_arrow_left, send_arrow_right, send_backspace, send_string,
+    EventTapType, Handle, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE,
+    KEY_TAB, RAW_KEY_GLOBE,
 };
 
 use crate::{
@@ -71,9 +72,9 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
                 // Exception: when `is_delete` is true the caller wants the
                 // entire word erased (e.g. the user pressed Delete/Backspace),
                 // so we fall back to full-replace in that case.
-                let (backspace_count, suffix_offset) = if is_delete {
+                let (backspace_count, suffix_offset, screen_char_count) = if is_delete {
                     let bs = INPUT_STATE.get_backspace_count(is_delete);
-                    (bs, 0usize)
+                    (bs, 0usize, bs)
                 } else {
                     // Clone the display buffer so we hold no borrow into INPUT_STATE
                     // while calling get_diff_parts, which borrows `output`.
@@ -87,15 +88,54 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
                         .next_back()
                         .map(|(i, _)| i)
                         .unwrap_or(displaying.len());
-                    let (bs, sfx) = get_diff_parts(&displaying[..screen_end], &output);
+                    let screen = &displaying[..screen_end];
+                    let sc = screen.chars().count();
+                    let (bs, sfx) = get_diff_parts(screen, &output);
                     let offset = output.len() - sfx.len();
-                    (bs, offset)
+                    (bs, offset, sc)
                 };
                 let suffix = &output[suffix_offset..];
                 debug!("Backspace count: {}", backspace_count);
-                _ = send_backspace(handle, backspace_count);
-                if !suffix.is_empty() {
-                    _ = send_string(handle, suffix);
+
+                // When the entire on-screen word would be erased (no common
+                // prefix), Chromium/Electron apps fire an "empty value" event
+                // that swallows subsequent keystrokes.  Avoid this by keeping
+                // one sentinel char on screen: type the new text first, then
+                // navigate back to delete the sentinel.
+                let needs_sentinel = !is_delete
+                    && backspace_count > 0
+                    && backspace_count == screen_char_count;
+
+                if needs_sentinel {
+                    // Keep one old char as a sentinel so the field never
+                    // empties (Chromium/Electron kill pending events on
+                    // empty).  Build the new word left-to-right:
+                    let first_char_end = suffix
+                        .char_indices()
+                        .nth(1)
+                        .map(|(i, _)| i)
+                        .unwrap_or(suffix.len());
+                    let first_char = &suffix[..first_char_end];
+                    let rest = &suffix[first_char_end..];
+                    // 1. Delete all old chars except the last (sentinel)
+                    _ = send_backspace(handle, backspace_count - 1);
+                    // 2. Type the first char of the new output
+                    _ = send_string(handle, first_char);
+                    // 3. Move left behind the first char (before sentinel)
+                    _ = send_arrow_left(handle, 1);
+                    // 4. Delete the sentinel
+                    _ = send_backspace(handle, 1);
+                    // 5. Move right past the first char
+                    _ = send_arrow_right(handle, 1);
+                    // 6. Type the rest of the output
+                    if !rest.is_empty() {
+                        _ = send_string(handle, rest);
+                    }
+                } else {
+                    _ = send_backspace(handle, backspace_count);
+                    if !suffix.is_empty() {
+                        _ = send_string(handle, suffix);
+                    }
                 }
                 debug!("Sent suffix: {:?}", suffix);
                 INPUT_STATE.replace(output);
@@ -169,7 +209,7 @@ pub unsafe fn update_systray_title_immediately() {
     } else {
         "EN"
     };
-    dispatch_set_systray_title(title);
+    dispatch_set_systray_title(title, is_enabled);
 }
 
 unsafe fn toggle_vietnamese() {
@@ -455,7 +495,12 @@ mod tests {
 fn main() {
     let app_title = format!("gõkey v{APP_VERSION}");
     env_logger::init();
-    if !ensure_accessibility_permission() {
+    {
+        let config = crate::config::CONFIG_MANAGER.lock().unwrap();
+        ui::locale::init_lang(config.get_ui_language());
+    }
+    let skip_permission = std::env::args().any(|a| a == "--skip-permission");
+    if !skip_permission && !ensure_accessibility_permission() {
         // Show the Accessibility Permission Request screen
         let win = WindowDesc::new(ui::permission_request_ui_builder())
             .title(app_title)

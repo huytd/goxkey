@@ -211,6 +211,40 @@ pub fn send_backspace(handle: Handle, count: usize) -> Result<(), ()> {
     Ok(())
 }
 
+pub fn send_arrow_left(handle: Handle, count: usize) -> Result<(), ()> {
+    let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
+    let (down, up) = unsafe {
+        (
+            CGEventCreateKeyboardEvent(null_event_source, super::RAW_ARROW_LEFT as CGKeyCode, true),
+            CGEventCreateKeyboardEvent(null_event_source, super::RAW_ARROW_LEFT as CGKeyCode, false),
+        )
+    };
+    for _ in 0..count {
+        unsafe {
+            CGEventTapPostEvent(handle, down);
+            CGEventTapPostEvent(handle, up);
+        }
+    }
+    Ok(())
+}
+
+pub fn send_arrow_right(handle: Handle, count: usize) -> Result<(), ()> {
+    let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
+    let (down, up) = unsafe {
+        (
+            CGEventCreateKeyboardEvent(null_event_source, super::RAW_ARROW_RIGHT as CGKeyCode, true),
+            CGEventCreateKeyboardEvent(null_event_source, super::RAW_ARROW_RIGHT as CGKeyCode, false),
+        )
+    };
+    for _ in 0..count {
+        unsafe {
+            CGEventTapPostEvent(handle, down);
+            CGEventTapPostEvent(handle, up);
+        }
+    }
+    Ok(())
+}
+
 pub fn send_string(handle: Handle, string: &str) -> Result<(), ()> {
     let utf_16_str: Vec<u16> = string.encode_utf16().collect();
     let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
@@ -398,6 +432,18 @@ pub fn get_app_icon_rgba(app_path: &str, size: u32) -> Option<(Vec<u8>, u32, u32
         let _: () = msg_send![rep, release];
 
         Some((pixels, size, size))
+    }
+}
+
+/// Return the user's preferred language code (e.g. "vi", "en", "ja").
+pub fn get_preferred_language() -> String {
+    unsafe {
+        let langs: id = msg_send![class!(NSLocale), preferredLanguages];
+        let first: id = msg_send![langs, firstObject];
+        if first.is_null() {
+            return "en".to_string();
+        }
+        nsstring_to_string!(first).unwrap_or_else(|| "en".to_string())
     }
 }
 

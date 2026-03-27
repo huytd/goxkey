@@ -56,6 +56,17 @@ After that, you'll find the `Gõ Key.app` file in the `target/debug/bundle` fold
 
 Without this step, the app will crash and can't be use.
 
+## Development
+
+```sh
+# Run with UI-only mode (skip Accessibility permission check)
+cargo r -- --skip-permission
+
+# Force a specific UI language (vi or en), ignoring OS language
+cargo r -- --lang vi
+cargo r -- --lang en
+```
+
 ## Dependencies
 
 - [core-foundation](https://crates.io/crates/core-foundation), [core-graphics](https://crates.io/crates/core-graphics): for event handling on macOS

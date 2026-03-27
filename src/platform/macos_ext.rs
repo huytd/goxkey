@@ -61,9 +61,9 @@ impl SystemTray {
             let app = NSApp();
             app.activateIgnoringOtherApps_(YES);
             let item = NSStatusBar::systemStatusBar(nil).statusItemWithLength_(-1.0);
-            let title = NSString::alloc(nil).init_str("VN");
             let button: id = msg_send![item, button];
-            let _: () = msg_send![button, setTitle: title];
+            let image = create_badge_image("VN", true);
+            let _: () = msg_send![button, setImage: image];
             item.setMenu_(menu);
 
             // Store the raw pointer globally so dispatch_set_systray_title
@@ -80,25 +80,28 @@ impl SystemTray {
         }
     }
 
-    pub fn set_title(&mut self, title: &str) {
+    pub fn set_title(&mut self, title: &str, is_vietnamese: bool) {
         unsafe {
-            let title_str = NSString::alloc(nil).init_str(title);
             let button: id = msg_send![self.item.0, button];
-            let _: () = msg_send![button, setTitle: title_str];
-            let _: () = msg_send![title_str, release];
+            let image = create_badge_image(title, is_vietnamese);
+            let _: () = msg_send![button, setImage: image];
+            let empty = NSString::alloc(nil).init_str("");
+            let _: () = msg_send![button, setTitle: empty];
+            let _: () = msg_send![empty, release];
         }
     }
 
     pub fn init_menu_items(&self) {
-        self.add_menu_item("Mở bảng điều khiển", || ());
+        use crate::ui::locale::t;
+        self.add_menu_item(t("menu.open_panel"), || ());
         self.add_menu_separator();
-        self.add_menu_item("Tắt gõ tiếng việt", || ());
+        self.add_menu_item(t("menu.disable_vietnamese"), || ());
         self.add_menu_separator();
         self.add_menu_item("Telex ✓", || ());
         self.add_menu_item("VNI", || ());
         self.add_menu_item("Telex+VNI", || ());
         self.add_menu_separator();
-        self.add_menu_item("Thoát ứng dụng", || ());
+        self.add_menu_item(t("menu.quit"), || ());
     }
 
     pub fn add_menu_separator(&self) {
@@ -158,10 +161,98 @@ impl SystemTray {
     }
 }
 
+/// Create an NSImage with a colored badge-style rounded rectangle and centered text.
+/// Renders the status bar badge with white text and border, no fill.
+unsafe fn create_badge_image(title: &str, _is_vietnamese: bool) -> id {
+    use cocoa::foundation::{NSPoint, NSRect, NSSize};
+
+    let white: id = msg_send![class!(NSColor), whiteColor];
+
+    // Measure text to determine badge width
+    let font: id = msg_send![class!(NSFont), systemFontOfSize: 9.5_f64 weight: 0.4_f64];
+    let title_ns = NSString::alloc(nil).init_str(title);
+
+    let font_key = NSString::alloc(nil).init_str("NSFont");
+    let color_key = NSString::alloc(nil).init_str("NSColor");
+    let keys: [id; 2] = [font_key, color_key];
+    let vals: [id; 2] = [font, white];
+    let attrs: id = msg_send![class!(NSDictionary), dictionaryWithObjects:vals.as_ptr() forKeys:keys.as_ptr() count:2_u64];
+    let attr_str: id = msg_send![class!(NSAttributedString), alloc];
+    let attr_str: id = msg_send![attr_str, initWithString:title_ns attributes:attrs];
+    let text_size: NSSize = msg_send![attr_str, size];
+
+    let padding_h = 4.0_f64;
+    let padding_v = 3.5_f64;
+    let natural_w = (text_size.width + padding_h * 2.0).ceil();
+    let badge_w = natural_w.max(24.0);
+    let badge_h = (text_size.height + padding_v * 2.0).ceil();
+    let corner_radius = 4.0_f64;
+    let border_width = 1.2_f64;
+
+    // Draw at 2x resolution for Retina crispness
+    let scale = 2.0_f64;
+    let px_w = badge_w * scale;
+    let px_h = badge_h * scale;
+
+    let color_space_name = NSString::alloc(nil).init_str("NSCalibratedRGBColorSpace");
+    let rep: id = msg_send![class!(NSBitmapImageRep), alloc];
+    let planes: *mut u8 = std::ptr::null_mut();
+    let rep: id = msg_send![rep,
+        initWithBitmapDataPlanes: &planes
+        pixelsWide: px_w as i64
+        pixelsHigh: px_h as i64
+        bitsPerSample: 8_i64
+        samplesPerPixel: 4_i64
+        hasAlpha: YES
+        isPlanar: NO
+        colorSpaceName: color_space_name
+        bytesPerRow: 0_i64
+        bitsPerPixel: 0_i64
+    ];
+
+    // Draw into the bitmap rep at 2x
+    let _: () = msg_send![class!(NSGraphicsContext), saveGraphicsState];
+    let gfx_ctx: id = msg_send![class!(NSGraphicsContext), graphicsContextWithBitmapImageRep: rep];
+    let _: () = msg_send![class!(NSGraphicsContext), setCurrentContext: gfx_ctx];
+
+    // Scale the graphics context so we draw in logical points
+    let xform: id = msg_send![class!(NSAffineTransform), transform];
+    let _: () = msg_send![xform, scaleBy: scale];
+    let _: () = msg_send![xform, concat];
+
+    // Draw rounded rect border only (no fill)
+    let inset = border_width / 2.0;
+    let rect = NSRect::new(
+        NSPoint::new(inset, inset),
+        NSSize::new(badge_w - border_width, badge_h - border_width),
+    );
+    let path: id = msg_send![class!(NSBezierPath), bezierPathWithRoundedRect:rect xRadius:corner_radius yRadius:corner_radius];
+    let _: () = msg_send![white, setStroke];
+    let _: () = msg_send![path, setLineWidth: border_width];
+    let _: () = msg_send![path, stroke];
+
+    // Draw centered text
+    let text_x = (badge_w - text_size.width) / 2.0;
+    let text_y = (badge_h - text_size.height) / 2.0;
+    let _: () = msg_send![attr_str, drawAtPoint: NSPoint::new(text_x, text_y)];
+
+    let _: () = msg_send![class!(NSGraphicsContext), restoreGraphicsState];
+
+    // Create image from the bitmap rep with logical (1x) size
+    let img_size = NSSize::new(badge_w, badge_h);
+    let image: id = msg_send![class!(NSImage), alloc];
+    let image: id = msg_send![image, initWithSize: img_size];
+    let _: () = msg_send![image, addRepresentation: rep];
+    let _: () = msg_send![image, setTemplate: NO];
+    let _: () = msg_send![attr_str, release];
+
+    image
+}
+
 /// Update the system tray title immediately by dispatching to the main queue.
 /// This bypasses Druid's event loop, which can be slow when the window is hidden.
 /// Safe to call from any thread.
-pub fn dispatch_set_systray_title(title: &str) {
+pub fn dispatch_set_systray_title(title: &str, is_vietnamese: bool) {
     let Some(&item_ptr) = SYSTRAY_ITEM.get() else {
         return;
     };
@@ -170,20 +261,24 @@ pub fn dispatch_set_systray_title(title: &str) {
     struct Context {
         item: usize,
         title: String,
+        is_vietnamese: bool,
     }
 
     unsafe extern "C" fn work(ctx: *mut c_void) {
         let ctx = Box::from_raw(ctx as *mut Context);
         let item = ctx.item as id;
-        let title_str = NSString::alloc(nil).init_str(&ctx.title);
         let button: id = msg_send![item, button];
-        let _: () = msg_send![button, setTitle: title_str];
-        let _: () = msg_send![title_str, release];
+        let image = create_badge_image(&ctx.title, ctx.is_vietnamese);
+        let _: () = msg_send![button, setImage: image];
+        let empty = NSString::alloc(nil).init_str("");
+        let _: () = msg_send![button, setTitle: empty];
+        let _: () = msg_send![empty, release];
     }
 
     let ctx = Box::new(Context {
         item: item_ptr,
         title: title_owned,
+        is_vietnamese: is_vietnamese,
     });
     let ctx_ptr = Box::into_raw(ctx) as *mut c_void;
 

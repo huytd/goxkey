@@ -1,6 +1,6 @@
 use crate::{
     input::TypingMethod,
-    platform::{defer_open_app_file_picker, defer_open_text_file_picker, defer_save_text_file_picker},
+    platform::defer_open_app_file_picker,
     UI_EVENT_SINK,
 };
 use druid::{
@@ -14,6 +14,7 @@ use druid::{
 };
 
 use super::{
+    locale::t,
     colors::{
         BADGE_EN_BG, BADGE_EN_BORDER, BADGE_VI_BG, BADGE_VI_BORDER, BTN_RESET_BG, BTN_RESET_BORDER,
         CARD_BG, CARD_BORDER, DIVIDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_SECTION, WIN_BG,
@@ -27,22 +28,134 @@ use super::{
     },
     widgets::{
         AppsListWidget, HotkeyBadgesWidget, InfoTooltip, MacroListWidget, SegmentedControl,
-        ShortcutCaptureWidget, StyledCheckbox, TabBar, ToggleSwitch,
+        ShortcutCaptureWidget, StyledCheckbox, TabBar, ToggleSwitch, U32SegmentedControl,
     },
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 
 // ── Layout helpers ─────────────────────────────────────────────────────────────
 
-fn section_label(text: &'static str) -> impl Widget<UIDataAdapter> {
+/// A simple left-aligned text painter that resolves translation key at paint time.
+fn text_label(key: &'static str, font_size: f64, color: Color, height: f64) -> impl Widget<UIDataAdapter> {
+    Painter::new(move |ctx, _: &UIDataAdapter, _| {
+        let layout = make_text_layout(ctx, t(key), font_size, &color);
+        ctx.draw_text(&layout, (0.0, 0.0));
+    })
+    .fix_height(height)
+    .expand_width()
+}
+
+/// Title text (13pt, primary color, 18px height). Resolves key via t() at paint time.
+fn title_label(key: &'static str) -> impl Widget<UIDataAdapter> {
+    text_label(key, 13.0, TEXT_PRIMARY, 18.0)
+}
+
+/// Subtitle text (12pt, secondary color, 16px height). Resolves key via t() at paint time.
+fn subtitle_label(key: &'static str) -> impl Widget<UIDataAdapter> {
+    text_label(key, 12.0, TEXT_SECONDARY, 16.0)
+}
+
+/// A title + subtitle column, used in settings rows and custom rows.
+fn title_subtitle_column(title_key: &'static str, subtitle_key: &'static str) -> impl Widget<UIDataAdapter> {
+    Flex::column()
+        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+        .with_child(title_label(title_key))
+        .with_child(subtitle_label(subtitle_key))
+}
+
+/// A rounded-rect button with centered text. Resolves key via t() at paint time.
+fn centered_btn(
+    key: &'static str,
+    width: f64,
+    height: f64,
+    bg: Color,
+    text_color: Color,
+    border: Option<(Color, f64)>,
+) -> impl Widget<UIDataAdapter> {
+    Painter::new(move |ctx, _: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
+        ctx.fill(rr, &bg);
+        if let Some((ref bc, bw)) = border {
+            ctx.stroke(rr, bc, bw);
+        }
+        draw_centered_text(ctx, t(key), 13.0, &text_color);
+    })
+    .fix_size(width, height)
+}
+
+/// Build a piet text layout with the given font size and color.
+fn make_text_layout(ctx: &mut druid::PaintCtx, text: &str, font_size: f64, color: &Color) -> druid::piet::PietTextLayout {
+    ctx.text()
+        .new_text_layout(text.to_owned())
+        .font(FontFamily::SYSTEM_UI, font_size)
+        .text_color(color.clone())
+        .build()
+        .unwrap()
+}
+
+/// Build a text layout and draw it centered in the current widget size.
+fn draw_centered_text(ctx: &mut druid::PaintCtx, text: &str, font_size: f64, color: &Color) {
+    let layout = make_text_layout(ctx, text, font_size, color);
+    let size = ctx.size();
+    ctx.draw_text(
+        &layout,
+        (
+            (size.width - layout.size().width) / 2.0,
+            (size.height - layout.size().height) / 2.0,
+        ),
+    );
+}
+
+/// A "+" or "−" icon button for list add/remove actions.
+fn symbol_btn(symbol: &'static str) -> impl Widget<UIDataAdapter> {
+    Painter::new(move |ctx, _: &UIDataAdapter, _| {
+        draw_centered_text(ctx, symbol, 18.0, &TEXT_PRIMARY);
+    })
+    .fix_size(44.0, 44.0)
+}
+
+/// A "−" remove button with a left divider, disabled when `is_enabled_fn` returns false.
+fn remove_btn(is_enabled_fn: fn(&UIDataAdapter) -> bool) -> impl Widget<UIDataAdapter> {
+    Painter::new(move |ctx, data: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let color = if is_enabled_fn(data) {
+            TEXT_PRIMARY
+        } else {
+            Color::rgb8(187, 187, 187)
+        };
+        ctx.fill(Rect::new(0.0, 10.0, 0.5, size.height - 10.0), &DIVIDER);
+        draw_centered_text(ctx, "−", 18.0, &color);
+    })
+    .fix_size(44.0, 44.0)
+}
+
+/// A small toolbar-style text button, optionally with a left or right divider.
+fn toolbar_btn(key: &'static str, divider: Option<&'static str>) -> impl Widget<UIDataAdapter> {
+    Painter::new(move |ctx, _: &UIDataAdapter, _| {
+        let size = ctx.size();
+        if let Some(side) = divider {
+            let x = if side == "left" { 0.0 } else { size.width - 0.5 };
+            ctx.fill(Rect::new(x, 10.0, x + 0.5, size.height - 10.0), &DIVIDER);
+        }
+        draw_centered_text(ctx, t(key), 12.0, &TEXT_PRIMARY);
+    })
+    .fix_size(60.0, 44.0)
+}
+
+/// A full-width horizontal divider (0.5px).
+fn h_divider() -> impl Widget<UIDataAdapter> {
+    Painter::new(|ctx, _: &UIDataAdapter, _| {
+        let w = ctx.size().width;
+        ctx.fill(Rect::new(0.0, 0.0, w, 0.5), &DIVIDER);
+    })
+    .fix_height(0.5)
+    .expand_width()
+}
+
+fn section_label(key: &'static str) -> impl Widget<UIDataAdapter> {
     Painter::new(move |ctx, _data: &UIDataAdapter, _env| {
-        let layout = ctx
-            .text()
-            .new_text_layout(text.to_uppercase())
-            .font(FontFamily::SYSTEM_UI, 11.0)
-            .text_color(TEXT_SECTION)
-            .build()
-            .unwrap();
+        let layout = make_text_layout(ctx, &t(key).to_uppercase(), 11.0, &TEXT_SECTION);
         let h = ctx.size().height;
         ctx.draw_text(&layout, (0.0, (h - layout.size().height) / 2.0));
     })
@@ -66,39 +179,7 @@ fn settings_row<TW: Widget<UIDataAdapter> + 'static>(
     trailing: TW,
 ) -> impl Widget<UIDataAdapter> {
     Flex::row()
-        .with_flex_child(
-            Flex::column()
-                .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-                .with_child(
-                    Painter::new(move |ctx, _data: &UIDataAdapter, _env| {
-                        let layout = ctx
-                            .text()
-                            .new_text_layout(title)
-                            .font(FontFamily::SYSTEM_UI, 13.0)
-                            .text_color(TEXT_PRIMARY)
-                            .build()
-                            .unwrap();
-                        ctx.draw_text(&layout, (0.0, 0.0));
-                    })
-                    .fix_height(18.0)
-                    .expand_width(),
-                )
-                .with_child(
-                    Painter::new(move |ctx, _data: &UIDataAdapter, _env| {
-                        let layout = ctx
-                            .text()
-                            .new_text_layout(subtitle)
-                            .font(FontFamily::SYSTEM_UI, 12.0)
-                            .text_color(TEXT_SECONDARY)
-                            .build()
-                            .unwrap();
-                        ctx.draw_text(&layout, (0.0, 0.0));
-                    })
-                    .fix_height(16.0)
-                    .expand_width(),
-                ),
-            1.0,
-        )
+        .with_flex_child(title_subtitle_column(title, subtitle), 1.0)
         .with_child(trailing)
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
         .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
@@ -114,75 +195,111 @@ fn settings_card<TW: Widget<UIDataAdapter> + 'static>(inner: TW) -> impl Widget<
         .rounded(10.0)
 }
 
+/// A start-aligned column with standard tab padding.
+fn tab_body() -> Flex<UIDataAdapter> {
+    Flex::column().cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+}
+
+const TAB_PADDING: (f64, f64, f64, f64) = (24.0, 20.0, 24.0, 24.0);
+
+/// A card with a label/subtitle header and a segmented control beneath.
+fn option_group<SW: Widget<UIDataAdapter> + 'static>(
+    header: impl Widget<UIDataAdapter> + 'static,
+    control: SW,
+) -> impl Widget<UIDataAdapter> {
+    settings_card(
+        Flex::column()
+            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+            .with_child(header)
+            .with_spacer(8.0)
+            .with_child(control.expand_width())
+            .expand_width()
+            .padding((14.0, 10.0)),
+    )
+}
+
+/// A vertical-only scroll wrapper.
+fn v_scroll<W: Widget<UIDataAdapter> + 'static>(inner: W) -> Scroll<UIDataAdapter, W> {
+    let mut scroll = Scroll::new(inner);
+    scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
+    scroll.set_horizontal_scroll_enabled(false);
+    scroll
+}
+
+/// A card with a scrollable list and a bottom toolbar row.
+fn list_card(
+    list: impl Widget<UIDataAdapter> + 'static,
+    toolbar: impl Widget<UIDataAdapter> + 'static,
+) -> impl Widget<UIDataAdapter> {
+    Container::new(
+        Flex::column()
+            .with_flex_child(v_scroll(list.expand_width()).expand(), 1.0)
+            .with_child(h_divider())
+            .with_child(toolbar.expand_width()),
+    )
+    .background(CARD_BG)
+    .border(CARD_BORDER, 0.5)
+    .rounded(10.0)
+}
+
+/// A green (enabled) or gray (disabled) action button with centered label.
+fn action_btn(
+    key: &'static str,
+    enabled_fn: fn(&UIDataAdapter) -> bool,
+) -> impl Widget<UIDataAdapter> {
+    Painter::new(move |ctx, data: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
+        let bg = if enabled_fn(data) { GREEN } else { Color::rgb8(150, 150, 150) };
+        ctx.fill(rr, &bg);
+        draw_centered_text(ctx, t(key), 13.0, &Color::WHITE);
+    })
+    .fix_size(70.0, 30.0)
+}
+
+/// A right-aligned Cancel + Action button row for dialogs.
+fn dialog_buttons(
+    cancel: impl Widget<UIDataAdapter> + 'static,
+    action: impl Widget<UIDataAdapter> + 'static,
+) -> impl Widget<UIDataAdapter> {
+    Flex::row()
+        .with_flex_spacer(1.0)
+        .with_child(cancel)
+        .with_spacer(8.0)
+        .with_child(action)
+        .expand_width()
+}
+
+/// Cancel button used across dialogs.
+fn cancel_btn() -> impl Widget<UIDataAdapter> {
+    centered_btn(
+        "button.cancel",
+        90.0, 30.0,
+        BTN_RESET_BG,
+        Color::rgb8(51, 51, 51),
+        Some((BTN_RESET_BORDER, 0.5)),
+    )
+}
+
 // ── Tab content ────────────────────────────────────────────────────────────────
 
 fn general_tab() -> impl Widget<UIDataAdapter> {
     let input_mode_card = settings_card(
         Flex::column()
-            .with_child(
-                Flex::row()
-                    .with_flex_child(
-                        Flex::column()
-                            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-                            .with_child(
-                                Painter::new(|ctx, _data: &UIDataAdapter, _env| {
-                                    let layout = ctx
-                                        .text()
-                                        .new_text_layout("Vietnamese input")
-                                        .font(FontFamily::SYSTEM_UI, 13.0)
-                                        .text_color(TEXT_PRIMARY)
-                                        .build()
-                                        .unwrap();
-                                    ctx.draw_text(&layout, (0.0, 0.0));
-                                })
-                                .fix_height(18.0)
-                                .expand_width(),
-                            )
-                            .with_child(
-                                Painter::new(|ctx, _data: &UIDataAdapter, _env| {
-                                    let layout = ctx
-                                        .text()
-                                        .new_text_layout("Enable Vietnamese typing mode")
-                                        .font(FontFamily::SYSTEM_UI, 12.0)
-                                        .text_color(TEXT_SECONDARY)
-                                        .build()
-                                        .unwrap();
-                                    ctx.draw_text(&layout, (0.0, 0.0));
-                                })
-                                .fix_height(16.0)
-                                .expand_width(),
-                            ),
-                        1.0,
-                    )
-                    .with_child(ToggleSwitch.lens(UIDataAdapter::is_enabled).on_click(
-                        |_, data: &mut UIDataAdapter, _| {
-                            data.toggle_vietnamese();
-                        },
-                    ))
-                    .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
-                    .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
-                    .must_fill_main_axis(true)
-                    .expand_width()
-                    .padding((14.0, 10.0)),
-            )
+            .with_child(settings_row(
+                "general.vietnamese_input",
+                "general.enable_vietnamese",
+                ToggleSwitch.lens(UIDataAdapter::is_enabled).on_click(
+                    |_, data: &mut UIDataAdapter, _| {
+                        data.toggle_vietnamese();
+                    },
+                ),
+            ))
             .with_child(card_divider())
             .with_child(
                 Flex::column()
                     .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-                    .with_child(
-                        Painter::new(|ctx, _data: &UIDataAdapter, _env| {
-                            let layout = ctx
-                                .text()
-                                .new_text_layout("Input method")
-                                .font(FontFamily::SYSTEM_UI, 13.0)
-                                .text_color(TEXT_PRIMARY)
-                                .build()
-                                .unwrap();
-                            ctx.draw_text(&layout, (0.0, 0.0));
-                        })
-                        .fix_height(18.0)
-                        .expand_width(),
-                    )
+                    .with_child(title_label("general.input_method"))
                     .with_spacer(8.0)
                     .with_child(
                         SegmentedControl::new(vec![
@@ -199,16 +316,26 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
     );
 
     let w_literal_card = settings_card(settings_row(
-        "W literal mode",
-        "Type w for w; use uw, ow, aw for ư, ơ, ă",
+        "general.w_literal",
+        "general.w_literal_desc",
         ToggleSwitch.lens(UIDataAdapter::is_w_literal_enabled),
     ));
 
     let system_card = settings_card(settings_row(
-        "Launch at login",
-        "Start gõkey when you log in",
+        "general.launch_at_login",
+        "general.launch_at_login_desc",
         StyledCheckbox.lens(UIDataAdapter::launch_on_login),
     ));
+
+    let language_card = option_group(
+        title_subtitle_column("general.ui_language", "general.ui_language_desc"),
+        U32SegmentedControl::new(vec![
+            ("Auto", 0),
+            ("Tiếng Việt", 1),
+            ("English", 2),
+        ])
+        .lens(UIDataAdapter::ui_language),
+    );
 
     let edit_shortcut_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
         let size = ctx.size();
@@ -246,231 +373,86 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         ctx.submit_command(SHOW_EDIT_SHORTCUT_DIALOG.to(druid::Target::Global));
     });
 
-    let shortcut_card = settings_card(
+    let shortcut_card = settings_card(settings_row(
+        "general.toggle_shortcut",
+        "general.toggle_shortcut_desc",
         Flex::row()
-            .with_flex_child(
-                Flex::column()
-                    .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-                    .with_child(
-                        Painter::new(|ctx, _data: &UIDataAdapter, _env| {
-                            let layout = ctx
-                                .text()
-                                .new_text_layout("Toggle Vietnamese input")
-                                .font(FontFamily::SYSTEM_UI, 13.0)
-                                .text_color(TEXT_PRIMARY)
-                                .build()
-                                .unwrap();
-                            ctx.draw_text(&layout, (0.0, 0.0));
-                        })
-                        .fix_height(18.0)
-                        .expand_width(),
-                    )
-                    .with_child(
-                        Painter::new(|ctx, _data: &UIDataAdapter, _env| {
-                            let layout = ctx
-                                .text()
-                                .new_text_layout("Keyboard shortcut to toggle on/off")
-                                .font(FontFamily::SYSTEM_UI, 12.0)
-                                .text_color(TEXT_SECONDARY)
-                                .build()
-                                .unwrap();
-                            ctx.draw_text(&layout, (0.0, 0.0));
-                        })
-                        .fix_height(16.0)
-                        .expand_width(),
-                    ),
-                1.0,
-            )
             .with_child(HotkeyBadgesWidget::new())
             .with_spacer(8.0)
-            .with_child(edit_shortcut_btn)
-            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
-            .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
-            .must_fill_main_axis(true)
-            .expand_width()
-            .padding((14.0, 10.0)),
-    );
+            .with_child(edit_shortcut_btn),
+    ));
 
-    let footer = Flex::row()
-        .with_flex_spacer(1.0)
-        .with_child(
-            Painter::new(|ctx, _data: &UIDataAdapter, _env| {
-                let size = ctx.size();
-                let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
-                ctx.fill(rr, &BTN_RESET_BG);
-                ctx.stroke(rr, &BTN_RESET_BORDER, 0.5);
-                let layout = ctx
-                    .text()
-                    .new_text_layout("Reset defaults")
-                    .font(FontFamily::SYSTEM_UI, 13.0)
-                    .text_color(Color::rgb8(51, 51, 51))
-                    .build()
-                    .unwrap();
-                ctx.draw_text(
-                    &layout,
-                    (
-                        (size.width - layout.size().width) / 2.0,
-                        (size.height - layout.size().height) / 2.0,
-                    ),
-                );
-            })
-            .fix_size(120.0, 30.0)
-            .on_click(|ctx, _data: &mut UIDataAdapter, _env| {
-                ctx.submit_command(super::selectors::RESET_DEFAULTS);
-            }),
+    let footer = dialog_buttons(
+        centered_btn(
+            "general.reset_defaults",
+            120.0, 30.0,
+            BTN_RESET_BG,
+            Color::rgb8(51, 51, 51),
+            Some((BTN_RESET_BORDER, 0.5)),
         )
-        .with_spacer(8.0)
-        .with_child(
-            Painter::new(|ctx, _data: &UIDataAdapter, _env| {
-                let size = ctx.size();
-                let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
-                ctx.fill(rr, &GREEN);
-                let layout = ctx
-                    .text()
-                    .new_text_layout("Done")
-                    .font(FontFamily::SYSTEM_UI, 13.0)
-                    .text_color(Color::WHITE)
-                    .build()
-                    .unwrap();
-                ctx.draw_text(
-                    &layout,
-                    (
-                        (size.width - layout.size().width) / 2.0,
-                        (size.height - layout.size().height) / 2.0,
-                    ),
-                );
-            })
-            .fix_size(70.0, 30.0)
+        .on_click(|ctx, _data: &mut UIDataAdapter, _env| {
+            ctx.submit_command(super::selectors::RESET_DEFAULTS);
+        }),
+        centered_btn("general.done", 70.0, 30.0, GREEN, Color::WHITE, None)
             .on_click(|ctx, _data: &mut UIDataAdapter, _env| {
                 ctx.window().hide();
             }),
-        )
-        .expand_width();
+    );
 
-    Flex::column()
-        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-        .with_child(section_label("Input mode"))
+    tab_body()
+        .with_child(section_label("general.input_mode"))
         .with_child(input_mode_card)
         .with_spacer(8.0)
         .with_child(w_literal_card)
         .with_spacer(20.0)
-        .with_child(section_label("System"))
+        .with_child(section_label("general.system"))
         .with_child(system_card)
+        .with_spacer(8.0)
+        .with_child(language_card)
         .with_spacer(20.0)
-        .with_child(section_label("Shortcut"))
+        .with_child(section_label("general.shortcut"))
         .with_child(shortcut_card)
         .with_flex_spacer(1.0)
         .with_child(footer)
-        .padding((24.0, 20.0, 24.0, 24.0))
+        .padding(TAB_PADDING)
 }
 
 fn apps_tab() -> impl Widget<UIDataAdapter> {
-    let description = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let layout = ctx
-            .text()
-            .new_text_layout("Set input language per application.")
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(&layout, (0.0, 0.0));
-    })
-    .fix_height(18.0)
-    .expand_width();
+    let description = title_label("apps.description");
 
     let legend = Painter::new(|ctx, _: &UIDataAdapter, _| {
         let mut x = 0.0;
         let bh = 22.0;
         let badge_y = (26.0 - bh) / 2.0;
 
-        let vi_layout = ctx
-            .text()
-            .new_text_layout("VI")
-            .font(FontFamily::SYSTEM_UI, 11.0)
-            .text_color(BADGE_VI_BORDER)
-            .build()
-            .unwrap();
-        let bw = vi_layout.size().width + 14.0;
-        let vi_rr = RoundedRect::new(x, badge_y, x + bw, badge_y + bh, 5.0);
-        ctx.fill(vi_rr, &BADGE_VI_BG);
-        ctx.stroke(vi_rr, &BADGE_VI_BORDER, 1.0);
-        ctx.draw_text(
-            &vi_layout,
-            (
-                x + (bw - vi_layout.size().width) / 2.0,
-                badge_y + (bh - vi_layout.size().height) / 2.0,
-            ),
-        );
-        x += bw + 8.0;
+        // Draw badge + label pairs for VI and EN
+        for (badge_text, badge_bg, badge_border, label_key) in [
+            ("VI", BADGE_VI_BG, BADGE_VI_BORDER, "apps.vietnamese"),
+            ("EN", BADGE_EN_BG, BADGE_EN_BORDER, "apps.english"),
+        ] {
+            let badge_layout = make_text_layout(ctx, badge_text, 11.0, &badge_border);
+            let bw = badge_layout.size().width + 14.0;
+            let rr = RoundedRect::new(x, badge_y, x + bw, badge_y + bh, 5.0);
+            ctx.fill(rr, &badge_bg);
+            ctx.stroke(rr, &badge_border, 1.0);
+            ctx.draw_text(
+                &badge_layout,
+                (
+                    x + (bw - badge_layout.size().width) / 2.0,
+                    badge_y + (bh - badge_layout.size().height) / 2.0,
+                ),
+            );
+            x += bw + 8.0;
 
-        let vn_label = ctx
-            .text()
-            .new_text_layout("Vietnamese")
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(&vn_label, (x, (26.0 - vn_label.size().height) / 2.0));
-        x += vn_label.size().width + 20.0;
-
-        let en_layout = ctx
-            .text()
-            .new_text_layout("EN")
-            .font(FontFamily::SYSTEM_UI, 11.0)
-            .text_color(BADGE_EN_BORDER)
-            .build()
-            .unwrap();
-        let bw_en = en_layout.size().width + 14.0;
-        let en_rr = RoundedRect::new(x, badge_y, x + bw_en, badge_y + bh, 5.0);
-        ctx.fill(en_rr, &BADGE_EN_BG);
-        ctx.stroke(en_rr, &BADGE_EN_BORDER, 1.0);
-        ctx.draw_text(
-            &en_layout,
-            (
-                x + (bw_en - en_layout.size().width) / 2.0,
-                badge_y + (bh - en_layout.size().height) / 2.0,
-            ),
-        );
-        x += bw_en + 8.0;
-
-        let en_label = ctx
-            .text()
-            .new_text_layout("English")
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(&en_label, (x, (26.0 - en_label.size().height) / 2.0));
+            let label = make_text_layout(ctx, t(label_key), 13.0, &TEXT_PRIMARY);
+            ctx.draw_text(&label, (x, (26.0 - label.size().height) / 2.0));
+            x += label.size().width + 20.0;
+        }
     })
     .fix_height(26.0)
     .expand_width();
 
-    let app_list = {
-        let mut scroll = Scroll::new(AppsListWidget::new().expand_width());
-        scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
-        scroll.set_horizontal_scroll_enabled(false);
-        scroll
-    };
-
-    let add_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let layout = ctx
-            .text()
-            .new_text_layout("+")
-            .font(FontFamily::SYSTEM_UI, 18.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(44.0, 44.0)
-    .on_click(|_, _, _| {
+    let add_btn = symbol_btn("+").on_click(|_, _, _| {
         defer_open_app_file_picker(Box::new(|name| {
             if let Some(name) = name {
                 if let Some(sink) = UI_EVENT_SINK.get() {
@@ -480,68 +462,28 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
         }));
     });
 
-    let remove_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let is_enabled = data.selected_app_index >= 0;
-        let color = if is_enabled {
-            TEXT_PRIMARY
-        } else {
-            Color::rgb8(187, 187, 187)
-        };
-        ctx.fill(Rect::new(0.0, 10.0, 0.5, size.height - 10.0), &DIVIDER);
-        let layout = ctx
-            .text()
-            .new_text_layout("−")
-            .font(FontFamily::SYSTEM_UI, 18.0)
-            .text_color(color)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0 + 0.5,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(44.0, 44.0)
-    .on_click(|ctx, data: &mut UIDataAdapter, _| {
-        if data.selected_app_index >= 0 {
-            ctx.submit_command(DELETE_SELECTED_APP.to(Target::Global));
-        }
-    });
+    let remove_btn = remove_btn(|d| d.selected_app_index >= 0)
+        .on_click(|ctx, data: &mut UIDataAdapter, _| {
+            if data.selected_app_index >= 0 {
+                ctx.submit_command(DELETE_SELECTED_APP.to(Target::Global));
+            }
+        });
 
-    let card = Container::new(
-        Flex::column()
-            .with_flex_child(app_list.expand(), 1.0)
-            .with_child(
-                Painter::new(|ctx, _: &UIDataAdapter, _| {
-                    let w = ctx.size().width;
-                    ctx.fill(Rect::new(0.0, 0.0, w, 0.5), &DIVIDER);
-                })
-                .fix_height(0.5)
-                .expand_width(),
-            )
-            .with_child(
-                Flex::row()
-                    .with_child(add_btn)
-                    .with_child(remove_btn)
-                    .with_flex_spacer(1.0)
-                    .expand_width(),
-            ),
-    )
-    .background(CARD_BG)
-    .border(CARD_BORDER, 0.5)
-    .rounded(10.0);
+    let card = list_card(
+        AppsListWidget::new(),
+        Flex::row()
+            .with_child(add_btn)
+            .with_child(remove_btn)
+            .with_flex_spacer(1.0),
+    );
 
     let per_app_toggle_card = settings_card(settings_row(
-        "Per-app toggle",
-        "Enable/disable per application",
+        "apps.per_app_toggle",
+        "apps.per_app_toggle_desc",
         ToggleSwitch.lens(UIDataAdapter::is_auto_toggle_enabled),
     ));
 
-    Flex::column()
-        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+    tab_body()
         .with_child(description)
         .with_spacer(12.0)
         .with_child(per_app_toggle_card)
@@ -551,215 +493,61 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
         .with_flex_child(card.expand_height(), 1.0)
         .must_fill_main_axis(true)
         .expand()
-        .padding((24.0, 20.0, 24.0, 24.0))
+        .padding(TAB_PADDING)
 }
 
 fn advanced_tab() -> impl Widget<UIDataAdapter> {
-    let description = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let layout = ctx
-            .text()
-            .new_text_layout("Expand shorthand into full text automatically.")
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(&layout, (0.0, 0.0));
-    })
-    .fix_height(18.0)
-    .expand_width();
+    let description = title_label("macro.description");
 
     let enable_row = settings_card(settings_row(
-        "Text expansion",
-        "Enable shorthand expansion",
+        "macro.text_expansion",
+        "macro.enable",
         ToggleSwitch.lens(UIDataAdapter::is_macro_enabled),
     ));
 
-    let autocap_row = settings_card(
+    let autocap_row = settings_card(settings_row(
+        "macro.auto_capitalize",
+        "macro.auto_capitalize_desc",
         Flex::row()
-            .with_flex_child(
-                Flex::column()
-                    .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-                    .with_child(
-                        Painter::new(|ctx, _: &UIDataAdapter, _| {
-                            let layout = ctx
-                                .text()
-                                .new_text_layout("Auto capitalize")
-                                .font(FontFamily::SYSTEM_UI, 13.0)
-                                .text_color(TEXT_PRIMARY)
-                                .build()
-                                .unwrap();
-                            ctx.draw_text(&layout, (0.0, 0.0));
-                        })
-                        .fix_height(18.0)
-                        .expand_width(),
-                    )
-                    .with_child(
-                        Painter::new(|ctx, _: &UIDataAdapter, _| {
-                            let layout = ctx
-                                .text()
-                                .new_text_layout("Apply capitalization from typed shorthand")
-                                .font(FontFamily::SYSTEM_UI, 12.0)
-                                .text_color(TEXT_SECONDARY)
-                                .build()
-                                .unwrap();
-                            ctx.draw_text(&layout, (0.0, 0.0));
-                        })
-                        .fix_height(16.0)
-                        .expand_width(),
-                    ),
-                1.0,
-            )
             .with_child(
                 InfoTooltip::new("ko → không\nKo → Không\nKO → KHÔNG")
                     .padding((0.0, 0.0, 8.0, 0.0)),
             )
-            .with_child(StyledCheckbox.lens(UIDataAdapter::is_macro_autocap_enabled))
-            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
-            .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
-            .must_fill_main_axis(true)
-            .expand_width()
-            .padding((14.0, 10.0)),
-    );
+            .with_child(StyledCheckbox.lens(UIDataAdapter::is_macro_autocap_enabled)),
+    ));
 
-    let macro_list = {
-        let mut scroll = Scroll::new(MacroListWidget::new().expand_width());
-        scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
-        scroll.set_horizontal_scroll_enabled(false);
-        scroll
-    };
-
-    let add_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let layout = ctx
-            .text()
-            .new_text_layout("+")
-            .font(FontFamily::SYSTEM_UI, 18.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(44.0, 44.0)
-    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
+    let add_btn = symbol_btn("+").on_click(|ctx, _data: &mut UIDataAdapter, _| {
         ctx.submit_command(SHOW_ADD_MACRO_DIALOG.to(Target::Global));
     });
 
-    let remove_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let is_enabled = data.selected_macro_index >= 0;
-        let color = if is_enabled {
-            TEXT_PRIMARY
-        } else {
-            Color::rgb8(187, 187, 187)
-        };
-        ctx.fill(Rect::new(0.0, 10.0, 0.5, size.height - 10.0), &DIVIDER);
-        let layout = ctx
-            .text()
-            .new_text_layout("−")
-            .font(FontFamily::SYSTEM_UI, 18.0)
-            .text_color(color)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0 + 0.5,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(44.0, 44.0)
-    .on_click(|ctx, data: &mut UIDataAdapter, _| {
-        if data.selected_macro_index >= 0 {
-            ctx.submit_command(DELETE_SELECTED_MACRO.to(Target::Global));
-        }
-    });
+    let remove_btn = remove_btn(|d| d.selected_macro_index >= 0)
+        .on_click(|ctx, data: &mut UIDataAdapter, _| {
+            if data.selected_macro_index >= 0 {
+                ctx.submit_command(DELETE_SELECTED_MACRO.to(Target::Global));
+            }
+        });
 
-    let load_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let size = ctx.size();
-        ctx.fill(Rect::new(size.width - 0.5, 10.0, size.width, size.height - 10.0), &DIVIDER);
-        let layout = ctx
-            .text()
-            .new_text_layout("Load")
-            .font(FontFamily::SYSTEM_UI, 12.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(60.0, 44.0)
-    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
-        ctx.submit_command(LOAD_MACROS_FROM_FILE.to(Target::Global));
-    });
-
-    let export_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let layout = ctx
-            .text()
-            .new_text_layout("Export")
-            .font(FontFamily::SYSTEM_UI, 12.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(60.0, 44.0)
-    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
-        ctx.submit_command(EXPORT_MACROS_TO_FILE.to(Target::Global));
-    });
-
-    let card = Container::new(
-        Flex::column()
-            .with_flex_child(macro_list.expand(), 1.0)
+    let card = list_card(
+        MacroListWidget::new(),
+        Flex::row()
+            .with_child(add_btn)
+            .with_child(remove_btn)
+            .with_flex_spacer(1.0)
             .with_child(
-                Painter::new(|ctx, _: &UIDataAdapter, _| {
-                    let w = ctx.size().width;
-                    ctx.fill(Rect::new(0.0, 0.0, w, 0.5), &DIVIDER);
-                })
-                .fix_height(0.5)
-                .expand_width(),
+                toolbar_btn("macro.load", Some("left"))
+                    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
+                        ctx.submit_command(LOAD_MACROS_FROM_FILE.to(Target::Global));
+                    }),
             )
             .with_child(
-                Flex::row()
-                    .with_child(add_btn)
-                    .with_child(remove_btn)
-                    .with_flex_spacer(1.0)
-                    .with_child(
-                        Painter::new(|ctx, _: &UIDataAdapter, _| {
-                            let h = ctx.size().height;
-                            ctx.fill(Rect::new(0.0, 10.0, 0.5, h - 10.0), &DIVIDER);
-                        })
-                        .fix_size(0.5, 44.0),
-                    )
-                    .with_child(load_btn)
-                    .with_child(export_btn)
-                    .expand_width(),
+                toolbar_btn("macro.export", None)
+                    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
+                        ctx.submit_command(EXPORT_MACROS_TO_FILE.to(Target::Global));
+                    }),
             ),
-    )
-    .background(CARD_BG)
-    .border(CARD_BORDER, 0.5)
-    .rounded(10.0);
+    );
 
-    Flex::column()
-        .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+    tab_body()
         .with_child(description)
         .with_spacer(12.0)
         .with_child(enable_row)
@@ -769,7 +557,7 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         .with_flex_child(card.expand_height(), 1.0)
         .must_fill_main_axis(true)
         .expand()
-        .padding((24.0, 20.0, 24.0, 24.0))
+        .padding(TAB_PADDING)
 }
 
 // ── List row helpers ───────────────────────────────────────────────────────────
@@ -829,7 +617,7 @@ pub fn permission_request_ui_builder() -> impl Widget<()> {
     use super::colors::{CARD_BORDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY, WIN_BG};
     let image_data = ImageBuf::from_data(include_bytes!("../../assets/accessibility.png")).unwrap();
 
-    let title_label = Label::new("Chờ đã! Bạn cần phải cấp quyền Accessibility cho ứng dụng GõKey trước khi sử dụng.")
+    let title_label = Label::new(t("perm.title"))
         .with_text_color(TEXT_PRIMARY)
         .with_font(druid::FontDescriptor::new(FontFamily::SYSTEM_UI).with_size(13.0))
         .with_line_break_mode(LineBreaking::WordWrap);
@@ -840,7 +628,7 @@ pub fn permission_request_ui_builder() -> impl Widget<()> {
     .rounded(8.0)
     .border(CARD_BORDER, 1.0);
 
-    let subtitle_label = Label::new("Bạn vui lòng thoát khỏi ứng dụng và mở lại sau khi đã cấp quyền.")
+    let subtitle_label = Label::new(t("perm.subtitle"))
         .with_text_color(TEXT_SECONDARY)
         .with_font(druid::FontDescriptor::new(FontFamily::SYSTEM_UI).with_size(12.0))
         .with_line_break_mode(LineBreaking::WordWrap);
@@ -849,20 +637,7 @@ pub fn permission_request_ui_builder() -> impl Widget<()> {
         let size = ctx.size();
         let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
         ctx.fill(rr, &GREEN);
-        let layout = ctx
-            .text()
-            .new_text_layout("Thoát")
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(Color::WHITE)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
+        draw_centered_text(ctx, t("perm.exit"), 13.0, &Color::WHITE);
     })
     .fix_size(90.0, 30.0)
     .on_click(|_, _, _| Application::global().quit());
@@ -890,16 +665,11 @@ pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
         .with_flex_child(
-            {
-                let mut scroll = Scroll::new(
-                    List::new(macro_row_item)
-                        .lens(UIDataAdapter::macro_table)
-                        .expand_width(),
-                );
-                scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
-                scroll.set_horizontal_scroll_enabled(false);
-                scroll
-            }
+            v_scroll(
+                List::new(macro_row_item)
+                    .lens(UIDataAdapter::macro_table)
+                    .expand_width(),
+            )
             .expand(),
             1.0,
         )
@@ -907,20 +677,20 @@ pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
             Flex::row()
                 .with_flex_child(
                     TextBox::new()
-                        .with_placeholder("Shorthand")
+                        .with_placeholder(t("macro.shorthand"))
                         .expand_width()
                         .lens(UIDataAdapter::new_macro_from),
                     2.0,
                 )
                 .with_flex_child(
                     TextBox::new()
-                        .with_placeholder("Replacement")
+                        .with_placeholder(t("macro.replacement"))
                         .expand_width()
                         .lens(UIDataAdapter::new_macro_to),
                     2.0,
                 )
                 .with_child(
-                    Button::new("Add")
+                    Button::new(t("button.add"))
                         .on_click(|ctx, _, _| ctx.submit_command(ADD_MACRO.to(Target::Global))),
                 )
                 .expand_width(),
@@ -966,100 +736,25 @@ fn styled_text_input(placeholder: &'static str) -> impl Widget<String> {
 }
 
 pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
-    use super::colors::{BTN_RESET_BG, BTN_RESET_BORDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY};
+    let shorthand_label = subtitle_label("macro.shorthand");
+    let replacement_label = subtitle_label("macro.replacement");
 
-    let shorthand_label = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let layout = ctx
-            .text()
-            .new_text_layout("Shorthand")
-            .font(FontFamily::SYSTEM_UI, 12.0)
-            .text_color(TEXT_SECONDARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(&layout, (0.0, 0.0));
-    })
-    .fix_height(16.0)
-    .expand_width();
-
-    let replacement_label = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let layout = ctx
-            .text()
-            .new_text_layout("Replacement")
-            .font(FontFamily::SYSTEM_UI, 12.0)
-            .text_color(TEXT_SECONDARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(&layout, (0.0, 0.0));
-    })
-    .fix_height(16.0)
-    .expand_width();
-
-    let cancel_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
-        ctx.fill(rr, &BTN_RESET_BG);
-        ctx.stroke(rr, &BTN_RESET_BORDER, 0.5);
-        let layout = ctx
-            .text()
-            .new_text_layout("Cancel")
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(Color::rgb8(51, 51, 51))
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(90.0, 30.0)
-    .on_click(|ctx, data: &mut UIDataAdapter, _| {
-        data.new_macro_from = String::new();
-        data.new_macro_to = String::new();
-        ctx.window().close();
-    });
-
-    let add_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
-        let enabled = !data.new_macro_from.is_empty() && !data.new_macro_to.is_empty();
-        let bg = if enabled {
-            GREEN
-        } else {
-            Color::rgb8(150, 150, 150)
-        };
-        ctx.fill(rr, &bg);
-        let layout = ctx
-            .text()
-            .new_text_layout("Add")
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(Color::WHITE)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(70.0, 30.0)
-    .on_click(|ctx, data: &mut UIDataAdapter, _| {
-        if !data.new_macro_from.is_empty() && !data.new_macro_to.is_empty() {
-            ctx.submit_command(ADD_MACRO.to(Target::Global));
+    let buttons = dialog_buttons(
+        cancel_btn().on_click(|ctx, data: &mut UIDataAdapter, _| {
+            data.new_macro_from = String::new();
+            data.new_macro_to = String::new();
             ctx.window().close();
-        }
-    });
-
-    let buttons = Flex::row()
-        .with_flex_spacer(1.0)
-        .with_child(cancel_btn)
-        .with_spacer(8.0)
-        .with_child(add_btn)
-        .expand_width();
+        }),
+        action_btn("button.add", |d| {
+            !d.new_macro_from.is_empty() && !d.new_macro_to.is_empty()
+        })
+        .on_click(|ctx, data: &mut UIDataAdapter, _| {
+            if !data.new_macro_from.is_empty() && !data.new_macro_to.is_empty() {
+                ctx.submit_command(ADD_MACRO.to(Target::Global));
+                ctx.window().close();
+            }
+        }),
+    );
 
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
@@ -1092,106 +787,31 @@ pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
 pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
     use super::{colors::TEXT_SECONDARY, selectors::SAVE_SHORTCUT};
 
-    let title_label = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let layout = ctx
-            .text()
-            .new_text_layout("New Shortcut")
-            .font(FontFamily::SYSTEM_UI, 12.0)
-            .text_color(TEXT_SECONDARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(&layout, (0.0, 0.0));
-    })
-    .fix_height(16.0)
-    .expand_width();
+    let title_label = subtitle_label("shortcut.new");
+    let hint_label = text_label("shortcut.hint", 11.0, TEXT_SECONDARY, 14.0);
 
-    let hint_label = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let layout = ctx
-            .text()
-            .new_text_layout("Press keys. Modifier-only combos are allowed.")
-            .font(FontFamily::SYSTEM_UI, 11.0)
-            .text_color(TEXT_SECONDARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(&layout, (0.0, 0.0));
-    })
-    .fix_height(14.0)
-    .expand_width();
-
-    let cancel_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let rr = druid::kurbo::RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
-        ctx.fill(rr, &BTN_RESET_BG);
-        ctx.stroke(rr, &BTN_RESET_BORDER, 0.5);
-        let layout = ctx
-            .text()
-            .new_text_layout("Cancel")
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(Color::rgb8(51, 51, 51))
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(90.0, 30.0)
-    .on_click(|ctx, _: &mut UIDataAdapter, _| {
-        ctx.window().close();
-    });
-
-    let save_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let rr = druid::kurbo::RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
-        let enabled = !data.pending_shortcut_display.is_empty();
-        let bg = if enabled {
-            GREEN
-        } else {
-            Color::rgb8(150, 150, 150)
-        };
-        ctx.fill(rr, &bg);
-        let layout = ctx
-            .text()
-            .new_text_layout("Save")
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(Color::WHITE)
-            .build()
-            .unwrap();
-        ctx.draw_text(
-            &layout,
-            (
-                (size.width - layout.size().width) / 2.0,
-                (size.height - layout.size().height) / 2.0,
-            ),
-        );
-    })
-    .fix_size(70.0, 30.0)
-    .on_click(|ctx, data: &mut UIDataAdapter, _| {
-        if !data.pending_shortcut_display.is_empty() {
-            ctx.submit_command(
-                SAVE_SHORTCUT
-                    .with((
-                        data.pending_shortcut_super,
-                        data.pending_shortcut_ctrl,
-                        data.pending_shortcut_alt,
-                        data.pending_shortcut_shift,
-                        data.pending_shortcut_letter.clone(),
-                    ))
-                    .to(Target::Global),
-            );
+    let buttons = dialog_buttons(
+        cancel_btn().on_click(|ctx, _: &mut UIDataAdapter, _| {
             ctx.window().close();
-        }
-    });
-
-    let buttons = Flex::row()
-        .with_flex_spacer(1.0)
-        .with_child(cancel_btn)
-        .with_spacer(8.0)
-        .with_child(save_btn)
-        .expand_width();
+        }),
+        action_btn("button.save", |d| !d.pending_shortcut_display.is_empty())
+            .on_click(|ctx, data: &mut UIDataAdapter, _| {
+                if !data.pending_shortcut_display.is_empty() {
+                    ctx.submit_command(
+                        SAVE_SHORTCUT
+                            .with((
+                                data.pending_shortcut_super,
+                                data.pending_shortcut_ctrl,
+                                data.pending_shortcut_alt,
+                                data.pending_shortcut_shift,
+                                data.pending_shortcut_letter.clone(),
+                            ))
+                            .to(Target::Global),
+                    );
+                    ctx.window().close();
+                }
+            }),
+    );
 
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
