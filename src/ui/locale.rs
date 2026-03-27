@@ -1,4 +1,7 @@
-use once_cell::sync::Lazy;
+use std::sync::atomic::{AtomicU8, Ordering};
+
+const LANG_VI: u8 = 0;
+const LANG_EN: u8 = 1;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Lang {
@@ -6,20 +9,57 @@ pub enum Lang {
     En,
 }
 
-static LANG: Lazy<Lang> = Lazy::new(|| {
+static LANG: AtomicU8 = AtomicU8::new(LANG_EN);
+
+/// Resolve the effective language from config, CLI flag, or OS preference.
+fn resolve_lang(config_value: &str) -> Lang {
+    // CLI --lang flag takes highest priority
     let pref = std::env::args()
         .skip_while(|a| a != "--lang")
         .nth(1)
-        .unwrap_or_else(|| crate::platform::get_preferred_language());
+        .unwrap_or_else(|| {
+            // Then config value, then OS preference
+            match config_value {
+                "vi" => "vi".to_string(),
+                "en" => "en".to_string(),
+                _ => crate::platform::get_preferred_language(), // "auto" or unknown
+            }
+        });
     if pref.starts_with("vi") {
         Lang::Vi
     } else {
         Lang::En
     }
-});
+}
+
+/// Initialize the language from config. Called once at startup.
+pub fn init_lang(config_value: &str) {
+    let lang = resolve_lang(config_value);
+    LANG.store(
+        match lang {
+            Lang::Vi => LANG_VI,
+            Lang::En => LANG_EN,
+        },
+        Ordering::Relaxed,
+    );
+}
+
+/// Update the language at runtime (e.g. from UI settings).
+pub fn set_lang(lang: Lang) {
+    LANG.store(
+        match lang {
+            Lang::Vi => LANG_VI,
+            Lang::En => LANG_EN,
+        },
+        Ordering::Relaxed,
+    );
+}
 
 pub fn current_lang() -> Lang {
-    *LANG
+    match LANG.load(Ordering::Relaxed) {
+        LANG_VI => Lang::Vi,
+        _ => Lang::En,
+    }
 }
 
 /// Translate a key to the current locale.
@@ -70,6 +110,15 @@ pub fn t(key: &'static str) -> &'static str {
         // ── General tab ─────────────────────────────────────────────────
         (Lang::Vi, "general.input_mode") => "Chế độ gõ",
         (Lang::En, "general.input_mode") => "Input mode",
+
+        (Lang::Vi, "general.language") => "Ngôn ngữ",
+        (Lang::En, "general.language") => "Language",
+
+        (Lang::Vi, "general.ui_language") => "Ngôn ngữ giao diện",
+        (Lang::En, "general.ui_language") => "UI language",
+
+        (Lang::Vi, "general.ui_language_desc") => "Thay đổi ngôn ngữ cần khởi động lại",
+        (Lang::En, "general.ui_language_desc") => "Language change requires restart",
 
         (Lang::Vi, "general.system") => "Hệ thống",
         (Lang::En, "general.system") => "System",

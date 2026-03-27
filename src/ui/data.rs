@@ -52,6 +52,8 @@ pub struct UIDataAdapter {
     pub(super) pending_shortcut_alt: bool,
     pub(super) pending_shortcut_shift: bool,
     pub(super) pending_shortcut_letter: String,
+    // UI language (0=Auto, 1=Vietnamese, 2=English)
+    pub(super) ui_language: u32,
     // Tab navigation (0=General, 1=Apps, 2=Shortcuts, 3=Advanced)
     pub(super) active_tab: u32,
     // Apps tab selected row (combined vn+en list, -1 = none)
@@ -91,6 +93,7 @@ impl UIDataAdapter {
             pending_shortcut_alt: false,
             pending_shortcut_shift: false,
             pending_shortcut_letter: String::new(),
+            ui_language: 0,
             active_tab: 0,
             selected_app_index: -1,
             selected_macro_index: -1,
@@ -111,6 +114,13 @@ impl UIDataAdapter {
             self.is_auto_toggle_enabled = INPUT_STATE.is_auto_toggle_enabled();
             self.is_w_literal_enabled = INPUT_STATE.is_w_literal_enabled();
             self.launch_on_login = is_launch_on_login();
+            let config = crate::config::CONFIG_MANAGER.lock().unwrap();
+            self.ui_language = match config.get_ui_language() {
+                "vi" => 1,
+                "en" => 2,
+                _ => 0, // "auto"
+            };
+            drop(config);
             self.macro_table = Arc::new(
                 INPUT_STATE
                     .get_macro_table()

@@ -272,6 +272,19 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
             if old_data.is_w_literal_enabled != data.is_w_literal_enabled {
                 INPUT_STATE.toggle_w_literal();
             }
+
+            if old_data.ui_language != data.ui_language {
+                let lang_str = match data.ui_language {
+                    1 => "vi",
+                    2 => "en",
+                    _ => "auto",
+                };
+                crate::config::CONFIG_MANAGER
+                    .lock()
+                    .unwrap()
+                    .set_ui_language(lang_str);
+                super::locale::init_lang(lang_str);
+            }
         }
         child.update(ctx, old_data, data, env);
     }

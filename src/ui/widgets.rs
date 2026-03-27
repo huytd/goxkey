@@ -349,6 +349,105 @@ impl Widget<TypingMethod> for SegmentedControl {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// U32SegmentedControl
+// ══════════════════════════════════════════════════════════════════════════════
+
+pub(super) struct U32SegmentedControl {
+    options: Vec<(&'static str, u32)>,
+    rects: Vec<Rect>,
+}
+
+impl U32SegmentedControl {
+    pub(super) fn new(options: Vec<(&'static str, u32)>) -> Self {
+        Self {
+            options,
+            rects: Vec::new(),
+        }
+    }
+}
+
+impl Widget<u32> for U32SegmentedControl {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut u32, _env: &Env) {
+        if let Event::MouseDown(mouse) = event {
+            for (i, rect) in self.rects.iter().enumerate() {
+                if rect.contains(mouse.pos) {
+                    *data = self.options[i].1;
+                    ctx.request_paint();
+                    break;
+                }
+            }
+        }
+    }
+
+    fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &LifeCycle, _data: &u32, _env: &Env) {}
+
+    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &u32, data: &u32, _env: &Env) {
+        if old_data != data {
+            ctx.request_layout();
+        }
+    }
+
+    fn layout(&mut self, _ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &u32, _env: &Env) -> Size {
+        let w = bc.max().width;
+        let h = 34.0;
+        let n = self.options.len() as f64;
+        let gap = 8.0;
+        let btn_w = (w - gap * (n - 1.0)) / n;
+        self.rects = (0..self.options.len())
+            .map(|i| {
+                let x = i as f64 * (btn_w + gap);
+                Rect::new(x, 0.0, x + btn_w, h)
+            })
+            .collect();
+        Size::new(w, h)
+    }
+
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &u32, _env: &Env) {
+        for (i, (label, value)) in self.options.iter().enumerate() {
+            let rect = self.rects[i];
+            let is_active = value == data;
+            let rr = RoundedRect::new(rect.x0, rect.y0, rect.x1, rect.y1, 8.0);
+
+            ctx.fill(rr, &Color::WHITE);
+            ctx.stroke(rr, &Color::rgb8(221, 221, 221), 1.5);
+
+            if is_active {
+                ctx.fill(rr, &GREEN_BG);
+                ctx.stroke(rr, &GREEN, 1.5);
+            }
+
+            let text_color = if is_active {
+                GREEN
+            } else {
+                Color::rgb8(136, 136, 136)
+            };
+            let layout = ctx
+                .text()
+                .new_text_layout(*label)
+                .font(FontFamily::SYSTEM_UI, 13.0)
+                .text_color(text_color)
+                .build()
+                .unwrap();
+            let text_x = rect.x0 + (rect.width() - layout.size().width) / 2.0 + 7.0;
+            let text_y = rect.y0 + (rect.height() - layout.size().height) / 2.0 - 1.0;
+            ctx.draw_text(&layout, (text_x, text_y));
+
+            let dot_cx = text_x - 14.0;
+            let dot_cy = rect.y0 + rect.height() / 2.0;
+            let ring_color = if is_active {
+                GREEN
+            } else {
+                Color::rgb8(187, 187, 187)
+            };
+            ctx.stroke(Circle::new((dot_cx, dot_cy), 5.0), &ring_color, 1.5);
+            if is_active {
+                ctx.fill(Circle::new((dot_cx, dot_cy), 2.5), &GREEN);
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // TabBar
 // ══════════════════════════════════════════════════════════════════════════════
 

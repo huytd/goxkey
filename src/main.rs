@@ -495,6 +495,10 @@ mod tests {
 fn main() {
     let app_title = format!("gõkey v{APP_VERSION}");
     env_logger::init();
+    {
+        let config = crate::config::CONFIG_MANAGER.lock().unwrap();
+        ui::locale::init_lang(config.get_ui_language());
+    }
     let skip_permission = std::env::args().any(|a| a == "--skip-permission");
     if !skip_permission && !ensure_accessibility_permission() {
         // Show the Accessibility Permission Request screen

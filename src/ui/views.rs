@@ -28,7 +28,7 @@ use super::{
     },
     widgets::{
         AppsListWidget, HotkeyBadgesWidget, InfoTooltip, MacroListWidget, SegmentedControl,
-        ShortcutCaptureWidget, StyledCheckbox, TabBar, ToggleSwitch,
+        ShortcutCaptureWidget, StyledCheckbox, TabBar, ToggleSwitch, U32SegmentedControl,
     },
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
@@ -240,6 +240,27 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         StyledCheckbox.lens(UIDataAdapter::launch_on_login),
     ));
 
+    let language_card = settings_card(
+        Flex::column()
+            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+            .with_child(title_subtitle_column(
+                t("general.ui_language"),
+                t("general.ui_language_desc"),
+            ))
+            .with_spacer(8.0)
+            .with_child(
+                U32SegmentedControl::new(vec![
+                    ("Auto", 0),
+                    ("Tiếng Việt", 1),
+                    ("English", 2),
+                ])
+                .lens(UIDataAdapter::ui_language)
+                .expand_width(),
+            )
+            .expand_width()
+            .padding((14.0, 10.0)),
+    );
+
     let edit_shortcut_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
         let size = ctx.size();
         let cx = size.width / 2.0;
@@ -327,6 +348,8 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         .with_spacer(20.0)
         .with_child(section_label(t("general.system")))
         .with_child(system_card)
+        .with_spacer(8.0)
+        .with_child(language_card)
         .with_spacer(20.0)
         .with_child(section_label(t("general.shortcut")))
         .with_child(shortcut_card)
