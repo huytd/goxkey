@@ -117,8 +117,8 @@ pub fn t(key: &'static str) -> &'static str {
         (Lang::Vi, "general.ui_language") => "Ngôn ngữ giao diện",
         (Lang::En, "general.ui_language") => "UI language",
 
-        (Lang::Vi, "general.ui_language_desc") => "Thay đổi ngôn ngữ cần khởi động lại",
-        (Lang::En, "general.ui_language_desc") => "Language change requires restart",
+        (Lang::Vi, "general.ui_language_desc") => "Thay đổi ngôn ngữ giao diện",
+        (Lang::En, "general.ui_language_desc") => "Change the interface language",
 
         (Lang::Vi, "general.system") => "Hệ thống",
         (Lang::En, "general.system") => "System",
