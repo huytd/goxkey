@@ -162,36 +162,29 @@ impl SystemTray {
 }
 
 /// Create an NSImage with a colored badge-style rounded rectangle and centered text.
-/// `is_vietnamese` selects the color: green for Vietnamese, blue for English.
-unsafe fn create_badge_image(title: &str, is_vietnamese: bool) -> id {
+/// Renders the status bar badge with white text and border, no fill.
+unsafe fn create_badge_image(title: &str, _is_vietnamese: bool) -> id {
     use cocoa::foundation::{NSPoint, NSRect, NSSize};
 
-    let (r, g, b) = if is_vietnamese {
-        (26.0 / 255.0, 138.0 / 255.0, 110.0 / 255.0) // green
-    } else {
-        (58.0 / 255.0, 115.0 / 255.0, 199.0 / 255.0) // blue
-    };
-    let badge_color: id = msg_send![class!(NSColor), colorWithSRGBRed:r green:g blue:b alpha:1.0_f64];
-    let badge_bg: id = msg_send![class!(NSColor), whiteColor];
+    let white: id = msg_send![class!(NSColor), whiteColor];
 
     // Measure text to determine badge width
     let font: id = msg_send![class!(NSFont), systemFontOfSize: 9.5_f64 weight: 0.4_f64];
     let title_ns = NSString::alloc(nil).init_str(title);
 
-    // Create attributed string with badge color for the text
     let font_key = NSString::alloc(nil).init_str("NSFont");
     let color_key = NSString::alloc(nil).init_str("NSColor");
     let keys: [id; 2] = [font_key, color_key];
-    let vals: [id; 2] = [font, badge_color];
+    let vals: [id; 2] = [font, white];
     let attrs: id = msg_send![class!(NSDictionary), dictionaryWithObjects:vals.as_ptr() forKeys:keys.as_ptr() count:2_u64];
     let attr_str: id = msg_send![class!(NSAttributedString), alloc];
     let attr_str: id = msg_send![attr_str, initWithString:title_ns attributes:attrs];
     let text_size: NSSize = msg_send![attr_str, size];
 
-    let padding_h = 6.0_f64;
+    let padding_h = 4.0_f64;
     let padding_v = 3.5_f64;
     let natural_w = (text_size.width + padding_h * 2.0).ceil();
-    let badge_w = natural_w.max(28.0);
+    let badge_w = natural_w.max(24.0);
     let badge_h = (text_size.height + padding_v * 2.0).ceil();
     let corner_radius = 4.0_f64;
     let border_width = 1.2_f64;
@@ -227,16 +220,14 @@ unsafe fn create_badge_image(title: &str, is_vietnamese: bool) -> id {
     let _: () = msg_send![xform, scaleBy: scale];
     let _: () = msg_send![xform, concat];
 
-    // Fill background
+    // Draw rounded rect border only (no fill)
     let inset = border_width / 2.0;
     let rect = NSRect::new(
         NSPoint::new(inset, inset),
         NSSize::new(badge_w - border_width, badge_h - border_width),
     );
     let path: id = msg_send![class!(NSBezierPath), bezierPathWithRoundedRect:rect xRadius:corner_radius yRadius:corner_radius];
-    let _: () = msg_send![badge_bg, setFill];
-    let _: () = msg_send![path, fill];
-    let _: () = msg_send![badge_color, setStroke];
+    let _: () = msg_send![white, setStroke];
     let _: () = msg_send![path, setLineWidth: border_width];
     let _: () = msg_send![path, stroke];
 
