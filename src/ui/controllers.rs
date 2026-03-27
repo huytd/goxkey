@@ -285,6 +285,8 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                     .set_ui_language(lang_str);
                 super::locale::init_lang(lang_str);
                 ctx.request_paint();
+                // Trigger data.update() so system tray menu text refreshes
+                ctx.submit_command(super::UPDATE_UI);
             }
         }
         child.update(ctx, old_data, data, env);
