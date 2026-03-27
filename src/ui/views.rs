@@ -1,6 +1,6 @@
 use crate::{
     input::TypingMethod,
-    platform::{defer_open_app_file_picker, defer_open_text_file_picker, defer_save_text_file_picker},
+    platform::defer_open_app_file_picker,
     UI_EVENT_SINK,
 };
 use druid::{
@@ -195,31 +195,99 @@ fn settings_card<TW: Widget<UIDataAdapter> + 'static>(inner: TW) -> impl Widget<
         .rounded(10.0)
 }
 
+/// A card with a label/subtitle header and a segmented control beneath.
+fn option_group<SW: Widget<UIDataAdapter> + 'static>(
+    header: impl Widget<UIDataAdapter> + 'static,
+    control: SW,
+) -> impl Widget<UIDataAdapter> {
+    settings_card(
+        Flex::column()
+            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+            .with_child(header)
+            .with_spacer(8.0)
+            .with_child(control.expand_width())
+            .expand_width()
+            .padding((14.0, 10.0)),
+    )
+}
+
+/// A vertical-only scroll wrapper.
+fn v_scroll<W: Widget<UIDataAdapter> + 'static>(inner: W) -> Scroll<UIDataAdapter, W> {
+    let mut scroll = Scroll::new(inner);
+    scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
+    scroll.set_horizontal_scroll_enabled(false);
+    scroll
+}
+
+/// A card with a scrollable list and a bottom toolbar row.
+fn list_card(
+    list: impl Widget<UIDataAdapter> + 'static,
+    toolbar: impl Widget<UIDataAdapter> + 'static,
+) -> impl Widget<UIDataAdapter> {
+    Container::new(
+        Flex::column()
+            .with_flex_child(v_scroll(list.expand_width()).expand(), 1.0)
+            .with_child(h_divider())
+            .with_child(toolbar.expand_width()),
+    )
+    .background(CARD_BG)
+    .border(CARD_BORDER, 0.5)
+    .rounded(10.0)
+}
+
+/// A green (enabled) or gray (disabled) action button with centered label.
+fn action_btn(
+    key: &'static str,
+    enabled_fn: fn(&UIDataAdapter) -> bool,
+) -> impl Widget<UIDataAdapter> {
+    Painter::new(move |ctx, data: &UIDataAdapter, _| {
+        let size = ctx.size();
+        let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
+        let bg = if enabled_fn(data) { GREEN } else { Color::rgb8(150, 150, 150) };
+        ctx.fill(rr, &bg);
+        draw_centered_text(ctx, t(key), 13.0, &Color::WHITE);
+    })
+    .fix_size(70.0, 30.0)
+}
+
+/// A right-aligned Cancel + Action button row for dialogs.
+fn dialog_buttons(
+    cancel: impl Widget<UIDataAdapter> + 'static,
+    action: impl Widget<UIDataAdapter> + 'static,
+) -> impl Widget<UIDataAdapter> {
+    Flex::row()
+        .with_flex_spacer(1.0)
+        .with_child(cancel)
+        .with_spacer(8.0)
+        .with_child(action)
+        .expand_width()
+}
+
+/// Cancel button used across dialogs.
+fn cancel_btn() -> impl Widget<UIDataAdapter> {
+    centered_btn(
+        "button.cancel",
+        90.0, 30.0,
+        BTN_RESET_BG,
+        Color::rgb8(51, 51, 51),
+        Some((BTN_RESET_BORDER, 0.5)),
+    )
+}
+
 // ── Tab content ────────────────────────────────────────────────────────────────
 
 fn general_tab() -> impl Widget<UIDataAdapter> {
     let input_mode_card = settings_card(
         Flex::column()
-            .with_child(
-                Flex::row()
-                    .with_flex_child(
-                        title_subtitle_column(
-                            "general.vietnamese_input",
-                            "general.enable_vietnamese",
-                        ),
-                        1.0,
-                    )
-                    .with_child(ToggleSwitch.lens(UIDataAdapter::is_enabled).on_click(
-                        |_, data: &mut UIDataAdapter, _| {
-                            data.toggle_vietnamese();
-                        },
-                    ))
-                    .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
-                    .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
-                    .must_fill_main_axis(true)
-                    .expand_width()
-                    .padding((14.0, 10.0)),
-            )
+            .with_child(settings_row(
+                "general.vietnamese_input",
+                "general.enable_vietnamese",
+                ToggleSwitch.lens(UIDataAdapter::is_enabled).on_click(
+                    |_, data: &mut UIDataAdapter, _| {
+                        data.toggle_vietnamese();
+                    },
+                ),
+            ))
             .with_child(card_divider())
             .with_child(
                 Flex::column()
@@ -252,25 +320,14 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         StyledCheckbox.lens(UIDataAdapter::launch_on_login),
     ));
 
-    let language_card = settings_card(
-        Flex::column()
-            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-            .with_child(title_subtitle_column(
-                "general.ui_language",
-                "general.ui_language_desc",
-            ))
-            .with_spacer(8.0)
-            .with_child(
-                U32SegmentedControl::new(vec![
-                    ("Auto", 0),
-                    ("Tiếng Việt", 1),
-                    ("English", 2),
-                ])
-                .lens(UIDataAdapter::ui_language)
-                .expand_width(),
-            )
-            .expand_width()
-            .padding((14.0, 10.0)),
+    let language_card = option_group(
+        title_subtitle_column("general.ui_language", "general.ui_language_desc"),
+        U32SegmentedControl::new(vec![
+            ("Auto", 0),
+            ("Tiếng Việt", 1),
+            ("English", 2),
+        ])
+        .lens(UIDataAdapter::ui_language),
     );
 
     let edit_shortcut_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
@@ -309,47 +366,31 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         ctx.submit_command(SHOW_EDIT_SHORTCUT_DIALOG.to(druid::Target::Global));
     });
 
-    let shortcut_card = settings_card(
+    let shortcut_card = settings_card(settings_row(
+        "general.toggle_shortcut",
+        "general.toggle_shortcut_desc",
         Flex::row()
-            .with_flex_child(
-                title_subtitle_column(
-                    "general.toggle_shortcut",
-                    "general.toggle_shortcut_desc",
-                ),
-                1.0,
-            )
             .with_child(HotkeyBadgesWidget::new())
             .with_spacer(8.0)
-            .with_child(edit_shortcut_btn)
-            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
-            .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
-            .must_fill_main_axis(true)
-            .expand_width()
-            .padding((14.0, 10.0)),
-    );
+            .with_child(edit_shortcut_btn),
+    ));
 
-    let footer = Flex::row()
-        .with_flex_spacer(1.0)
-        .with_child(
-            centered_btn(
-                "general.reset_defaults",
-                120.0, 30.0,
-                BTN_RESET_BG,
-                Color::rgb8(51, 51, 51),
-                Some((BTN_RESET_BORDER, 0.5)),
-            )
+    let footer = dialog_buttons(
+        centered_btn(
+            "general.reset_defaults",
+            120.0, 30.0,
+            BTN_RESET_BG,
+            Color::rgb8(51, 51, 51),
+            Some((BTN_RESET_BORDER, 0.5)),
+        )
+        .on_click(|ctx, _data: &mut UIDataAdapter, _env| {
+            ctx.submit_command(super::selectors::RESET_DEFAULTS);
+        }),
+        centered_btn("general.done", 70.0, 30.0, GREEN, Color::WHITE, None)
             .on_click(|ctx, _data: &mut UIDataAdapter, _env| {
-                ctx.submit_command(super::selectors::RESET_DEFAULTS);
+                ctx.window().hide();
             }),
-        )
-        .with_spacer(8.0)
-        .with_child(
-            centered_btn("general.done", 70.0, 30.0, GREEN, Color::WHITE, None)
-                .on_click(|ctx, _data: &mut UIDataAdapter, _env| {
-                    ctx.window().hide();
-                }),
-        )
-        .expand_width();
+    );
 
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
@@ -405,13 +446,6 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
     .fix_height(26.0)
     .expand_width();
 
-    let app_list = {
-        let mut scroll = Scroll::new(AppsListWidget::new().expand_width());
-        scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
-        scroll.set_horizontal_scroll_enabled(false);
-        scroll
-    };
-
     let add_btn = symbol_btn("+").on_click(|_, _, _| {
         defer_open_app_file_picker(Box::new(|name| {
             if let Some(name) = name {
@@ -429,21 +463,13 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
             }
         });
 
-    let card = Container::new(
-        Flex::column()
-            .with_flex_child(app_list.expand(), 1.0)
-            .with_child(h_divider())
-            .with_child(
-                Flex::row()
-                    .with_child(add_btn)
-                    .with_child(remove_btn)
-                    .with_flex_spacer(1.0)
-                    .expand_width(),
-            ),
-    )
-    .background(CARD_BG)
-    .border(CARD_BORDER, 0.5)
-    .rounded(10.0);
+    let card = list_card(
+        AppsListWidget::new(),
+        Flex::row()
+            .with_child(add_btn)
+            .with_child(remove_btn)
+            .with_flex_spacer(1.0),
+    );
 
     let per_app_toggle_card = settings_card(settings_row(
         "apps.per_app_toggle",
@@ -474,30 +500,16 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         ToggleSwitch.lens(UIDataAdapter::is_macro_enabled),
     ));
 
-    let autocap_row = settings_card(
+    let autocap_row = settings_card(settings_row(
+        "macro.auto_capitalize",
+        "macro.auto_capitalize_desc",
         Flex::row()
-            .with_flex_child(
-                title_subtitle_column("macro.auto_capitalize", "macro.auto_capitalize_desc"),
-                1.0,
-            )
             .with_child(
                 InfoTooltip::new("ko → không\nKo → Không\nKO → KHÔNG")
                     .padding((0.0, 0.0, 8.0, 0.0)),
             )
-            .with_child(StyledCheckbox.lens(UIDataAdapter::is_macro_autocap_enabled))
-            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Center)
-            .main_axis_alignment(druid::widget::MainAxisAlignment::SpaceBetween)
-            .must_fill_main_axis(true)
-            .expand_width()
-            .padding((14.0, 10.0)),
-    );
-
-    let macro_list = {
-        let mut scroll = Scroll::new(MacroListWidget::new().expand_width());
-        scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
-        scroll.set_horizontal_scroll_enabled(false);
-        scroll
-    };
+            .with_child(StyledCheckbox.lens(UIDataAdapter::is_macro_autocap_enabled)),
+    ));
 
     let add_btn = symbol_btn("+").on_click(|ctx, _data: &mut UIDataAdapter, _| {
         ctx.submit_command(SHOW_ADD_MACRO_DIALOG.to(Target::Global));
@@ -510,33 +522,25 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
             }
         });
 
-    let load_btn = toolbar_btn("macro.load", Some("left"))
-        .on_click(|ctx, _data: &mut UIDataAdapter, _| {
-            ctx.submit_command(LOAD_MACROS_FROM_FILE.to(Target::Global));
-        });
-
-    let export_btn = toolbar_btn("macro.export", None)
-        .on_click(|ctx, _data: &mut UIDataAdapter, _| {
-            ctx.submit_command(EXPORT_MACROS_TO_FILE.to(Target::Global));
-        });
-
-    let card = Container::new(
-        Flex::column()
-            .with_flex_child(macro_list.expand(), 1.0)
-            .with_child(h_divider())
+    let card = list_card(
+        MacroListWidget::new(),
+        Flex::row()
+            .with_child(add_btn)
+            .with_child(remove_btn)
+            .with_flex_spacer(1.0)
             .with_child(
-                Flex::row()
-                    .with_child(add_btn)
-                    .with_child(remove_btn)
-                    .with_flex_spacer(1.0)
-                    .with_child(load_btn)
-                    .with_child(export_btn)
-                    .expand_width(),
+                toolbar_btn("macro.load", Some("left"))
+                    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
+                        ctx.submit_command(LOAD_MACROS_FROM_FILE.to(Target::Global));
+                    }),
+            )
+            .with_child(
+                toolbar_btn("macro.export", None)
+                    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
+                        ctx.submit_command(EXPORT_MACROS_TO_FILE.to(Target::Global));
+                    }),
             ),
-    )
-    .background(CARD_BG)
-    .border(CARD_BORDER, 0.5)
-    .rounded(10.0);
+    );
 
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
@@ -657,16 +661,11 @@ pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
         .with_flex_child(
-            {
-                let mut scroll = Scroll::new(
-                    List::new(macro_row_item)
-                        .lens(UIDataAdapter::macro_table)
-                        .expand_width(),
-                );
-                scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
-                scroll.set_horizontal_scroll_enabled(false);
-                scroll
-            }
+            v_scroll(
+                List::new(macro_row_item)
+                    .lens(UIDataAdapter::macro_table)
+                    .expand_width(),
+            )
             .expand(),
             1.0,
         )
@@ -733,50 +732,25 @@ fn styled_text_input(placeholder: &'static str) -> impl Widget<String> {
 }
 
 pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
-    use super::colors::{BTN_RESET_BG, BTN_RESET_BORDER, GREEN};
-
     let shorthand_label = subtitle_label("macro.shorthand");
     let replacement_label = subtitle_label("macro.replacement");
 
-    let cancel_btn = centered_btn(
-        "button.cancel",
-        90.0, 30.0,
-        BTN_RESET_BG,
-        Color::rgb8(51, 51, 51),
-        Some((BTN_RESET_BORDER, 0.5)),
-    )
-    .on_click(|ctx, data: &mut UIDataAdapter, _| {
-        data.new_macro_from = String::new();
-        data.new_macro_to = String::new();
-        ctx.window().close();
-    });
-
-    let add_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
-        let enabled = !data.new_macro_from.is_empty() && !data.new_macro_to.is_empty();
-        let bg = if enabled {
-            GREEN
-        } else {
-            Color::rgb8(150, 150, 150)
-        };
-        ctx.fill(rr, &bg);
-        draw_centered_text(ctx, t("button.add"), 13.0, &Color::WHITE);
-    })
-    .fix_size(70.0, 30.0)
-    .on_click(|ctx, data: &mut UIDataAdapter, _| {
-        if !data.new_macro_from.is_empty() && !data.new_macro_to.is_empty() {
-            ctx.submit_command(ADD_MACRO.to(Target::Global));
+    let buttons = dialog_buttons(
+        cancel_btn().on_click(|ctx, data: &mut UIDataAdapter, _| {
+            data.new_macro_from = String::new();
+            data.new_macro_to = String::new();
             ctx.window().close();
-        }
-    });
-
-    let buttons = Flex::row()
-        .with_flex_spacer(1.0)
-        .with_child(cancel_btn)
-        .with_spacer(8.0)
-        .with_child(add_btn)
-        .expand_width();
+        }),
+        action_btn("button.add", |d| {
+            !d.new_macro_from.is_empty() && !d.new_macro_to.is_empty()
+        })
+        .on_click(|ctx, data: &mut UIDataAdapter, _| {
+            if !data.new_macro_from.is_empty() && !data.new_macro_to.is_empty() {
+                ctx.submit_command(ADD_MACRO.to(Target::Global));
+                ctx.window().close();
+            }
+        }),
+    );
 
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
@@ -812,53 +786,28 @@ pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
     let title_label = subtitle_label("shortcut.new");
     let hint_label = text_label("shortcut.hint", 11.0, TEXT_SECONDARY, 14.0);
 
-    let cancel_btn = centered_btn(
-        "button.cancel",
-        90.0, 30.0,
-        BTN_RESET_BG,
-        Color::rgb8(51, 51, 51),
-        Some((BTN_RESET_BORDER, 0.5)),
-    )
-    .on_click(|ctx, _: &mut UIDataAdapter, _| {
-        ctx.window().close();
-    });
-
-    let save_btn = Painter::new(|ctx, data: &UIDataAdapter, _| {
-        let size = ctx.size();
-        let rr = druid::kurbo::RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
-        let enabled = !data.pending_shortcut_display.is_empty();
-        let bg = if enabled {
-            GREEN
-        } else {
-            Color::rgb8(150, 150, 150)
-        };
-        ctx.fill(rr, &bg);
-        draw_centered_text(ctx, t("button.save"), 13.0, &Color::WHITE);
-    })
-    .fix_size(70.0, 30.0)
-    .on_click(|ctx, data: &mut UIDataAdapter, _| {
-        if !data.pending_shortcut_display.is_empty() {
-            ctx.submit_command(
-                SAVE_SHORTCUT
-                    .with((
-                        data.pending_shortcut_super,
-                        data.pending_shortcut_ctrl,
-                        data.pending_shortcut_alt,
-                        data.pending_shortcut_shift,
-                        data.pending_shortcut_letter.clone(),
-                    ))
-                    .to(Target::Global),
-            );
+    let buttons = dialog_buttons(
+        cancel_btn().on_click(|ctx, _: &mut UIDataAdapter, _| {
             ctx.window().close();
-        }
-    });
-
-    let buttons = Flex::row()
-        .with_flex_spacer(1.0)
-        .with_child(cancel_btn)
-        .with_spacer(8.0)
-        .with_child(save_btn)
-        .expand_width();
+        }),
+        action_btn("button.save", |d| !d.pending_shortcut_display.is_empty())
+            .on_click(|ctx, data: &mut UIDataAdapter, _| {
+                if !data.pending_shortcut_display.is_empty() {
+                    ctx.submit_command(
+                        SAVE_SHORTCUT
+                            .with((
+                                data.pending_shortcut_super,
+                                data.pending_shortcut_ctrl,
+                                data.pending_shortcut_alt,
+                                data.pending_shortcut_shift,
+                                data.pending_shortcut_letter.clone(),
+                            ))
+                            .to(Target::Global),
+                    );
+                    ctx.window().close();
+                }
+            }),
+    );
 
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
