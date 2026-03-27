@@ -9,6 +9,7 @@ use druid::{
 };
 
 use super::{
+    locale::t,
     colors::{
         BADGE_BG, BADGE_BORDER, BADGE_EN_BG, BADGE_EN_BORDER, BADGE_VI_BG, BADGE_VI_BORDER,
         DIVIDER, GREEN, GREEN_BG, TEXT_PRIMARY, TEXT_SECONDARY,
@@ -460,7 +461,7 @@ impl Widget<u32> for TabBar {
             0.5,
         );
 
-        let labels = ["General", "Apps", "Text Expansion"];
+        let labels = [t("tab.general"), t("tab.apps"), t("tab.text_expansion")];
         let icon_fns: [fn(&mut PaintCtx, f64, f64, &Color); 3] = [
             TabBar::draw_icon_general,
             TabBar::draw_icon_apps,
@@ -725,7 +726,7 @@ impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
         if self.recording {
             let size = ctx.size();
             let label = if self.pending_display.is_empty() {
-                "Type a shortcut…".to_string()
+                t("shortcut.type_prompt").to_string()
             } else {
                 self.pending_display.clone()
             };
@@ -838,7 +839,7 @@ impl Widget<UIDataAdapter> for MacroListWidget {
         // Header row
         let shorthand_header = ctx
             .text()
-            .new_text_layout("Shorthand")
+            .new_text_layout(t("macro.shorthand"))
             .font(FontFamily::SYSTEM_UI, 11.0)
             .text_color(TEXT_SECONDARY)
             .build()
@@ -853,7 +854,7 @@ impl Widget<UIDataAdapter> for MacroListWidget {
 
         let replacement_header = ctx
             .text()
-            .new_text_layout("Replacement")
+            .new_text_layout(t("macro.replacement"))
             .font(FontFamily::SYSTEM_UI, 11.0)
             .text_color(TEXT_SECONDARY)
             .build()
@@ -1480,9 +1481,9 @@ impl Widget<UIDataAdapter> for ShortcutCaptureWidget {
         let (label, text_color) = if data.pending_shortcut_display.is_empty() {
             (
                 if self.focused {
-                    "Press keys…".to_string()
+                    t("shortcut.press_keys").to_string()
                 } else {
-                    "Click and press keys…".to_string()
+                    t("shortcut.click_and_press").to_string()
                 },
                 Color::rgba8(0, 0, 0, 80),
             )

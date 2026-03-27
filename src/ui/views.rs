@@ -14,6 +14,7 @@ use druid::{
 };
 
 use super::{
+    locale::t,
     colors::{
         BADGE_EN_BG, BADGE_EN_BORDER, BADGE_VI_BG, BADGE_VI_BORDER, BTN_RESET_BG, BTN_RESET_BORDER,
         CARD_BG, CARD_BORDER, DIVIDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_SECTION, WIN_BG,
@@ -128,7 +129,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                                 Painter::new(|ctx, _data: &UIDataAdapter, _env| {
                                     let layout = ctx
                                         .text()
-                                        .new_text_layout("Vietnamese input")
+                                        .new_text_layout(t("general.vietnamese_input"))
                                         .font(FontFamily::SYSTEM_UI, 13.0)
                                         .text_color(TEXT_PRIMARY)
                                         .build()
@@ -142,7 +143,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                                 Painter::new(|ctx, _data: &UIDataAdapter, _env| {
                                     let layout = ctx
                                         .text()
-                                        .new_text_layout("Enable Vietnamese typing mode")
+                                        .new_text_layout(t("general.enable_vietnamese"))
                                         .font(FontFamily::SYSTEM_UI, 12.0)
                                         .text_color(TEXT_SECONDARY)
                                         .build()
@@ -173,7 +174,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                         Painter::new(|ctx, _data: &UIDataAdapter, _env| {
                             let layout = ctx
                                 .text()
-                                .new_text_layout("Input method")
+                                .new_text_layout(t("general.input_method"))
                                 .font(FontFamily::SYSTEM_UI, 13.0)
                                 .text_color(TEXT_PRIMARY)
                                 .build()
@@ -199,14 +200,14 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
     );
 
     let w_literal_card = settings_card(settings_row(
-        "W literal mode",
-        "Type w for w; use uw, ow, aw for ư, ơ, ă",
+        t("general.w_literal"),
+        t("general.w_literal_desc"),
         ToggleSwitch.lens(UIDataAdapter::is_w_literal_enabled),
     ));
 
     let system_card = settings_card(settings_row(
-        "Launch at login",
-        "Start gõkey when you log in",
+        t("general.launch_at_login"),
+        t("general.launch_at_login_desc"),
         StyledCheckbox.lens(UIDataAdapter::launch_on_login),
     ));
 
@@ -255,7 +256,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                         Painter::new(|ctx, _data: &UIDataAdapter, _env| {
                             let layout = ctx
                                 .text()
-                                .new_text_layout("Toggle Vietnamese input")
+                                .new_text_layout(t("general.toggle_shortcut"))
                                 .font(FontFamily::SYSTEM_UI, 13.0)
                                 .text_color(TEXT_PRIMARY)
                                 .build()
@@ -269,7 +270,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                         Painter::new(|ctx, _data: &UIDataAdapter, _env| {
                             let layout = ctx
                                 .text()
-                                .new_text_layout("Keyboard shortcut to toggle on/off")
+                                .new_text_layout(t("general.toggle_shortcut_desc"))
                                 .font(FontFamily::SYSTEM_UI, 12.0)
                                 .text_color(TEXT_SECONDARY)
                                 .build()
@@ -301,7 +302,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                 ctx.stroke(rr, &BTN_RESET_BORDER, 0.5);
                 let layout = ctx
                     .text()
-                    .new_text_layout("Reset defaults")
+                    .new_text_layout(t("general.reset_defaults"))
                     .font(FontFamily::SYSTEM_UI, 13.0)
                     .text_color(Color::rgb8(51, 51, 51))
                     .build()
@@ -327,7 +328,7 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
                 ctx.fill(rr, &GREEN);
                 let layout = ctx
                     .text()
-                    .new_text_layout("Done")
+                    .new_text_layout(t("general.done"))
                     .font(FontFamily::SYSTEM_UI, 13.0)
                     .text_color(Color::WHITE)
                     .build()
@@ -349,15 +350,15 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
 
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-        .with_child(section_label("Input mode"))
+        .with_child(section_label(t("general.input_mode")))
         .with_child(input_mode_card)
         .with_spacer(8.0)
         .with_child(w_literal_card)
         .with_spacer(20.0)
-        .with_child(section_label("System"))
+        .with_child(section_label(t("general.system")))
         .with_child(system_card)
         .with_spacer(20.0)
-        .with_child(section_label("Shortcut"))
+        .with_child(section_label(t("general.shortcut")))
         .with_child(shortcut_card)
         .with_flex_spacer(1.0)
         .with_child(footer)
@@ -368,7 +369,7 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
     let description = Painter::new(|ctx, _: &UIDataAdapter, _| {
         let layout = ctx
             .text()
-            .new_text_layout("Set input language per application.")
+            .new_text_layout(t("apps.description"))
             .font(FontFamily::SYSTEM_UI, 13.0)
             .text_color(TEXT_PRIMARY)
             .build()
@@ -405,7 +406,7 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
 
         let vn_label = ctx
             .text()
-            .new_text_layout("Vietnamese")
+            .new_text_layout(t("apps.vietnamese"))
             .font(FontFamily::SYSTEM_UI, 13.0)
             .text_color(TEXT_PRIMARY)
             .build()
@@ -435,7 +436,7 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
 
         let en_label = ctx
             .text()
-            .new_text_layout("English")
+            .new_text_layout(t("apps.english"))
             .font(FontFamily::SYSTEM_UI, 13.0)
             .text_color(TEXT_PRIMARY)
             .build()
@@ -535,8 +536,8 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
     .rounded(10.0);
 
     let per_app_toggle_card = settings_card(settings_row(
-        "Per-app toggle",
-        "Enable/disable per application",
+        t("apps.per_app_toggle"),
+        t("apps.per_app_toggle_desc"),
         ToggleSwitch.lens(UIDataAdapter::is_auto_toggle_enabled),
     ));
 
@@ -558,7 +559,7 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
     let description = Painter::new(|ctx, _: &UIDataAdapter, _| {
         let layout = ctx
             .text()
-            .new_text_layout("Expand shorthand into full text automatically.")
+            .new_text_layout(t("macro.description"))
             .font(FontFamily::SYSTEM_UI, 13.0)
             .text_color(TEXT_PRIMARY)
             .build()
@@ -569,8 +570,8 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
     .expand_width();
 
     let enable_row = settings_card(settings_row(
-        "Text expansion",
-        "Enable shorthand expansion",
+        t("macro.text_expansion"),
+        t("macro.enable"),
         ToggleSwitch.lens(UIDataAdapter::is_macro_enabled),
     ));
 
@@ -583,7 +584,7 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
                         Painter::new(|ctx, _: &UIDataAdapter, _| {
                             let layout = ctx
                                 .text()
-                                .new_text_layout("Auto capitalize")
+                                .new_text_layout(t("macro.auto_capitalize"))
                                 .font(FontFamily::SYSTEM_UI, 13.0)
                                 .text_color(TEXT_PRIMARY)
                                 .build()
@@ -597,7 +598,7 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
                         Painter::new(|ctx, _: &UIDataAdapter, _| {
                             let layout = ctx
                                 .text()
-                                .new_text_layout("Apply capitalization from typed shorthand")
+                                .new_text_layout(t("macro.auto_capitalize_desc"))
                                 .font(FontFamily::SYSTEM_UI, 12.0)
                                 .text_color(TEXT_SECONDARY)
                                 .build()
@@ -686,7 +687,7 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         ctx.fill(Rect::new(size.width - 0.5, 10.0, size.width, size.height - 10.0), &DIVIDER);
         let layout = ctx
             .text()
-            .new_text_layout("Load")
+            .new_text_layout(t("macro.load"))
             .font(FontFamily::SYSTEM_UI, 12.0)
             .text_color(TEXT_PRIMARY)
             .build()
@@ -708,7 +709,7 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         let size = ctx.size();
         let layout = ctx
             .text()
-            .new_text_layout("Export")
+            .new_text_layout(t("macro.export"))
             .font(FontFamily::SYSTEM_UI, 12.0)
             .text_color(TEXT_PRIMARY)
             .build()
@@ -829,7 +830,7 @@ pub fn permission_request_ui_builder() -> impl Widget<()> {
     use super::colors::{CARD_BORDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY, WIN_BG};
     let image_data = ImageBuf::from_data(include_bytes!("../../assets/accessibility.png")).unwrap();
 
-    let title_label = Label::new("Chờ đã! Bạn cần phải cấp quyền Accessibility cho ứng dụng GõKey trước khi sử dụng.")
+    let title_label = Label::new(t("perm.title"))
         .with_text_color(TEXT_PRIMARY)
         .with_font(druid::FontDescriptor::new(FontFamily::SYSTEM_UI).with_size(13.0))
         .with_line_break_mode(LineBreaking::WordWrap);
@@ -840,7 +841,7 @@ pub fn permission_request_ui_builder() -> impl Widget<()> {
     .rounded(8.0)
     .border(CARD_BORDER, 1.0);
 
-    let subtitle_label = Label::new("Bạn vui lòng thoát khỏi ứng dụng và mở lại sau khi đã cấp quyền.")
+    let subtitle_label = Label::new(t("perm.subtitle"))
         .with_text_color(TEXT_SECONDARY)
         .with_font(druid::FontDescriptor::new(FontFamily::SYSTEM_UI).with_size(12.0))
         .with_line_break_mode(LineBreaking::WordWrap);
@@ -851,7 +852,7 @@ pub fn permission_request_ui_builder() -> impl Widget<()> {
         ctx.fill(rr, &GREEN);
         let layout = ctx
             .text()
-            .new_text_layout("Thoát")
+            .new_text_layout(t("perm.exit"))
             .font(FontFamily::SYSTEM_UI, 13.0)
             .text_color(Color::WHITE)
             .build()
@@ -907,20 +908,20 @@ pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
             Flex::row()
                 .with_flex_child(
                     TextBox::new()
-                        .with_placeholder("Shorthand")
+                        .with_placeholder(t("macro.shorthand"))
                         .expand_width()
                         .lens(UIDataAdapter::new_macro_from),
                     2.0,
                 )
                 .with_flex_child(
                     TextBox::new()
-                        .with_placeholder("Replacement")
+                        .with_placeholder(t("macro.replacement"))
                         .expand_width()
                         .lens(UIDataAdapter::new_macro_to),
                     2.0,
                 )
                 .with_child(
-                    Button::new("Add")
+                    Button::new(t("button.add"))
                         .on_click(|ctx, _, _| ctx.submit_command(ADD_MACRO.to(Target::Global))),
                 )
                 .expand_width(),
@@ -971,7 +972,7 @@ pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
     let shorthand_label = Painter::new(|ctx, _: &UIDataAdapter, _| {
         let layout = ctx
             .text()
-            .new_text_layout("Shorthand")
+            .new_text_layout(t("macro.shorthand"))
             .font(FontFamily::SYSTEM_UI, 12.0)
             .text_color(TEXT_SECONDARY)
             .build()
@@ -984,7 +985,7 @@ pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
     let replacement_label = Painter::new(|ctx, _: &UIDataAdapter, _| {
         let layout = ctx
             .text()
-            .new_text_layout("Replacement")
+            .new_text_layout(t("macro.replacement"))
             .font(FontFamily::SYSTEM_UI, 12.0)
             .text_color(TEXT_SECONDARY)
             .build()
@@ -1001,7 +1002,7 @@ pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
         ctx.stroke(rr, &BTN_RESET_BORDER, 0.5);
         let layout = ctx
             .text()
-            .new_text_layout("Cancel")
+            .new_text_layout(t("button.cancel"))
             .font(FontFamily::SYSTEM_UI, 13.0)
             .text_color(Color::rgb8(51, 51, 51))
             .build()
@@ -1033,7 +1034,7 @@ pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
         ctx.fill(rr, &bg);
         let layout = ctx
             .text()
-            .new_text_layout("Add")
+            .new_text_layout(t("button.add"))
             .font(FontFamily::SYSTEM_UI, 13.0)
             .text_color(Color::WHITE)
             .build()
@@ -1095,7 +1096,7 @@ pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
     let title_label = Painter::new(|ctx, _: &UIDataAdapter, _| {
         let layout = ctx
             .text()
-            .new_text_layout("New Shortcut")
+            .new_text_layout(t("shortcut.new"))
             .font(FontFamily::SYSTEM_UI, 12.0)
             .text_color(TEXT_SECONDARY)
             .build()
@@ -1108,7 +1109,7 @@ pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
     let hint_label = Painter::new(|ctx, _: &UIDataAdapter, _| {
         let layout = ctx
             .text()
-            .new_text_layout("Press keys. Modifier-only combos are allowed.")
+            .new_text_layout(t("shortcut.hint"))
             .font(FontFamily::SYSTEM_UI, 11.0)
             .text_color(TEXT_SECONDARY)
             .build()
@@ -1125,7 +1126,7 @@ pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
         ctx.stroke(rr, &BTN_RESET_BORDER, 0.5);
         let layout = ctx
             .text()
-            .new_text_layout("Cancel")
+            .new_text_layout(t("button.cancel"))
             .font(FontFamily::SYSTEM_UI, 13.0)
             .text_color(Color::rgb8(51, 51, 51))
             .build()
@@ -1155,7 +1156,7 @@ pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
         ctx.fill(rr, &bg);
         let layout = ctx
             .text()
-            .new_text_layout("Save")
+            .new_text_layout(t("button.save"))
             .font(FontFamily::SYSTEM_UI, 13.0)
             .text_color(Color::WHITE)
             .build()

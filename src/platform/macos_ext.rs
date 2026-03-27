@@ -90,15 +90,16 @@ impl SystemTray {
     }
 
     pub fn init_menu_items(&self) {
-        self.add_menu_item("Mở bảng điều khiển", || ());
+        use crate::ui::locale::t;
+        self.add_menu_item(t("menu.open_panel"), || ());
         self.add_menu_separator();
-        self.add_menu_item("Tắt gõ tiếng việt", || ());
+        self.add_menu_item(t("menu.toggle_vietnamese"), || ());
         self.add_menu_separator();
         self.add_menu_item("Telex ✓", || ());
         self.add_menu_item("VNI", || ());
         self.add_menu_item("Telex+VNI", || ());
         self.add_menu_separator();
-        self.add_menu_item("Thoát ứng dụng", || ());
+        self.add_menu_item(t("menu.quit"), || ());
     }
 
     pub fn add_menu_separator(&self) {

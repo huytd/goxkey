@@ -435,6 +435,18 @@ pub fn get_app_icon_rgba(app_path: &str, size: u32) -> Option<(Vec<u8>, u32, u32
     }
 }
 
+/// Return the user's preferred language code (e.g. "vi", "en", "ja").
+pub fn get_preferred_language() -> String {
+    unsafe {
+        let langs: id = msg_send![class!(NSLocale), preferredLanguages];
+        let first: id = msg_send![langs, firstObject];
+        if first.is_null() {
+            return "en".to_string();
+        }
+        nsstring_to_string!(first).unwrap_or_else(|| "en".to_string())
+    }
+}
+
 pub fn get_active_app_name() -> String {
     unsafe {
         let shared_workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];

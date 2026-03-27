@@ -1,6 +1,7 @@
 mod colors;
 mod controllers;
 mod data;
+pub(crate) mod locale;
 mod selectors;
 mod views;
 mod widgets;
