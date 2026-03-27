@@ -38,13 +38,7 @@ use super::{
 /// A simple left-aligned text painter that resolves translation key at paint time.
 fn text_label(key: &'static str, font_size: f64, color: Color, height: f64) -> impl Widget<UIDataAdapter> {
     Painter::new(move |ctx, _: &UIDataAdapter, _| {
-        let layout = ctx
-            .text()
-            .new_text_layout(t(key))
-            .font(FontFamily::SYSTEM_UI, font_size)
-            .text_color(color.clone())
-            .build()
-            .unwrap();
+        let layout = make_text_layout(ctx, t(key), font_size, &color);
         ctx.draw_text(&layout, (0.0, 0.0));
     })
     .fix_height(height)
@@ -90,15 +84,19 @@ fn centered_btn(
     .fix_size(width, height)
 }
 
-/// Build a text layout and draw it centered in the current widget size.
-fn draw_centered_text(ctx: &mut druid::PaintCtx, text: &str, font_size: f64, color: &Color) {
-    let layout = ctx
-        .text()
+/// Build a piet text layout with the given font size and color.
+fn make_text_layout(ctx: &mut druid::PaintCtx, text: &str, font_size: f64, color: &Color) -> druid::piet::PietTextLayout {
+    ctx.text()
         .new_text_layout(text.to_owned())
         .font(FontFamily::SYSTEM_UI, font_size)
         .text_color(color.clone())
         .build()
-        .unwrap();
+        .unwrap()
+}
+
+/// Build a text layout and draw it centered in the current widget size.
+fn draw_centered_text(ctx: &mut druid::PaintCtx, text: &str, font_size: f64, color: &Color) {
+    let layout = make_text_layout(ctx, text, font_size, color);
     let size = ctx.size();
     ctx.draw_text(
         &layout,
@@ -157,13 +155,7 @@ fn h_divider() -> impl Widget<UIDataAdapter> {
 
 fn section_label(key: &'static str) -> impl Widget<UIDataAdapter> {
     Painter::new(move |ctx, _data: &UIDataAdapter, _env| {
-        let layout = ctx
-            .text()
-            .new_text_layout(t(key).to_uppercase())
-            .font(FontFamily::SYSTEM_UI, 11.0)
-            .text_color(TEXT_SECTION)
-            .build()
-            .unwrap();
+        let layout = make_text_layout(ctx, &t(key).to_uppercase(), 11.0, &TEXT_SECTION);
         let h = ctx.size().height;
         ctx.draw_text(&layout, (0.0, (h - layout.size().height) / 2.0));
     })
@@ -386,64 +378,29 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
         let bh = 22.0;
         let badge_y = (26.0 - bh) / 2.0;
 
-        let vi_layout = ctx
-            .text()
-            .new_text_layout("VI")
-            .font(FontFamily::SYSTEM_UI, 11.0)
-            .text_color(BADGE_VI_BORDER)
-            .build()
-            .unwrap();
-        let bw = vi_layout.size().width + 14.0;
-        let vi_rr = RoundedRect::new(x, badge_y, x + bw, badge_y + bh, 5.0);
-        ctx.fill(vi_rr, &BADGE_VI_BG);
-        ctx.stroke(vi_rr, &BADGE_VI_BORDER, 1.0);
-        ctx.draw_text(
-            &vi_layout,
-            (
-                x + (bw - vi_layout.size().width) / 2.0,
-                badge_y + (bh - vi_layout.size().height) / 2.0,
-            ),
-        );
-        x += bw + 8.0;
+        // Draw badge + label pairs for VI and EN
+        for (badge_text, badge_bg, badge_border, label_key) in [
+            ("VI", BADGE_VI_BG, BADGE_VI_BORDER, "apps.vietnamese"),
+            ("EN", BADGE_EN_BG, BADGE_EN_BORDER, "apps.english"),
+        ] {
+            let badge_layout = make_text_layout(ctx, badge_text, 11.0, &badge_border);
+            let bw = badge_layout.size().width + 14.0;
+            let rr = RoundedRect::new(x, badge_y, x + bw, badge_y + bh, 5.0);
+            ctx.fill(rr, &badge_bg);
+            ctx.stroke(rr, &badge_border, 1.0);
+            ctx.draw_text(
+                &badge_layout,
+                (
+                    x + (bw - badge_layout.size().width) / 2.0,
+                    badge_y + (bh - badge_layout.size().height) / 2.0,
+                ),
+            );
+            x += bw + 8.0;
 
-        let vn_label = ctx
-            .text()
-            .new_text_layout(t("apps.vietnamese"))
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(&vn_label, (x, (26.0 - vn_label.size().height) / 2.0));
-        x += vn_label.size().width + 20.0;
-
-        let en_layout = ctx
-            .text()
-            .new_text_layout("EN")
-            .font(FontFamily::SYSTEM_UI, 11.0)
-            .text_color(BADGE_EN_BORDER)
-            .build()
-            .unwrap();
-        let bw_en = en_layout.size().width + 14.0;
-        let en_rr = RoundedRect::new(x, badge_y, x + bw_en, badge_y + bh, 5.0);
-        ctx.fill(en_rr, &BADGE_EN_BG);
-        ctx.stroke(en_rr, &BADGE_EN_BORDER, 1.0);
-        ctx.draw_text(
-            &en_layout,
-            (
-                x + (bw_en - en_layout.size().width) / 2.0,
-                badge_y + (bh - en_layout.size().height) / 2.0,
-            ),
-        );
-        x += bw_en + 8.0;
-
-        let en_label = ctx
-            .text()
-            .new_text_layout(t("apps.english"))
-            .font(FontFamily::SYSTEM_UI, 13.0)
-            .text_color(TEXT_PRIMARY)
-            .build()
-            .unwrap();
-        ctx.draw_text(&en_label, (x, (26.0 - en_label.size().height) / 2.0));
+            let label = make_text_layout(ctx, t(label_key), 13.0, &TEXT_PRIMARY);
+            ctx.draw_text(&label, (x, (26.0 - label.size().height) / 2.0));
+            x += label.size().width + 20.0;
+        }
     })
     .fix_height(26.0)
     .expand_width();
