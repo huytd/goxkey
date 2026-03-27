@@ -172,6 +172,7 @@ unsafe fn create_badge_image(title: &str, is_vietnamese: bool) -> id {
         (58.0 / 255.0, 115.0 / 255.0, 199.0 / 255.0) // blue
     };
     let badge_color: id = msg_send![class!(NSColor), colorWithSRGBRed:r green:g blue:b alpha:1.0_f64];
+    let badge_bg: id = msg_send![class!(NSColor), colorWithSRGBRed:r green:g blue:b alpha:0.15_f64];
 
     // Measure text to determine badge width
     let font: id = msg_send![class!(NSFont), systemFontOfSize: 9.5_f64 weight: 0.4_f64];
@@ -207,6 +208,8 @@ unsafe fn create_badge_image(title: &str, is_vietnamese: bool) -> id {
         NSSize::new(badge_w - border_width, badge_h - border_width),
     );
     let path: id = msg_send![class!(NSBezierPath), bezierPathWithRoundedRect:rect xRadius:corner_radius yRadius:corner_radius];
+    let _: () = msg_send![badge_bg, setFill];
+    let _: () = msg_send![path, fill];
     let _: () = msg_send![badge_color, setStroke];
     let _: () = msg_send![path, setLineWidth: border_width];
     let _: () = msg_send![path, stroke];
