@@ -495,7 +495,8 @@ mod tests {
 fn main() {
     let app_title = format!("gõkey v{APP_VERSION}");
     env_logger::init();
-    if !ensure_accessibility_permission() {
+    let skip_permission = std::env::args().any(|a| a == "--skip-permission");
+    if !skip_permission && !ensure_accessibility_permission() {
         // Show the Accessibility Permission Request screen
         let win = WindowDesc::new(ui::permission_request_ui_builder())
             .title(app_title)
