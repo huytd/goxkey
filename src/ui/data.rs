@@ -211,6 +211,11 @@ impl UIDataAdapter {
                     );
                 }
             }
+            // Update localizable menu items
+            self.systray
+                .set_menu_item_title(SystemTrayMenuItemKey::ShowUI, t("menu.open_panel"));
+            self.systray
+                .set_menu_item_title(SystemTrayMenuItemKey::Exit, t("menu.quit"));
         }
     }
 
