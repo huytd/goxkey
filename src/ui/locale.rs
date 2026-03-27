@@ -7,7 +7,10 @@ pub enum Lang {
 }
 
 static LANG: Lazy<Lang> = Lazy::new(|| {
-    let pref = crate::platform::get_preferred_language();
+    let pref = std::env::args()
+        .skip_while(|a| a != "--lang")
+        .nth(1)
+        .unwrap_or_else(|| crate::platform::get_preferred_language());
     if pref.starts_with("vi") {
         Lang::Vi
     } else {
