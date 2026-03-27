@@ -209,7 +209,7 @@ pub unsafe fn update_systray_title_immediately() {
     } else {
         "EN"
     };
-    dispatch_set_systray_title(title);
+    dispatch_set_systray_title(title, is_enabled);
 }
 
 unsafe fn toggle_vietnamese() {

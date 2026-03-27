@@ -160,7 +160,7 @@ impl UIDataAdapter {
                     } else {
                         "VN"
                     };
-                    self.systray.set_title(title);
+                    self.systray.set_title(title, true);
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::Enable, t("menu.disable_vietnamese"));
                 }
@@ -174,7 +174,7 @@ impl UIDataAdapter {
                     } else {
                         "EN"
                     };
-                    self.systray.set_title(title);
+                    self.systray.set_title(title, false);
                     self.systray
                         .set_menu_item_title(SystemTrayMenuItemKey::Enable, t("menu.enable_vietnamese"));
                 }
