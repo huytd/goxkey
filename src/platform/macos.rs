@@ -211,6 +211,40 @@ pub fn send_backspace(handle: Handle, count: usize) -> Result<(), ()> {
     Ok(())
 }
 
+pub fn send_arrow_left(handle: Handle, count: usize) -> Result<(), ()> {
+    let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
+    let (down, up) = unsafe {
+        (
+            CGEventCreateKeyboardEvent(null_event_source, super::RAW_ARROW_LEFT as CGKeyCode, true),
+            CGEventCreateKeyboardEvent(null_event_source, super::RAW_ARROW_LEFT as CGKeyCode, false),
+        )
+    };
+    for _ in 0..count {
+        unsafe {
+            CGEventTapPostEvent(handle, down);
+            CGEventTapPostEvent(handle, up);
+        }
+    }
+    Ok(())
+}
+
+pub fn send_arrow_right(handle: Handle, count: usize) -> Result<(), ()> {
+    let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
+    let (down, up) = unsafe {
+        (
+            CGEventCreateKeyboardEvent(null_event_source, super::RAW_ARROW_RIGHT as CGKeyCode, true),
+            CGEventCreateKeyboardEvent(null_event_source, super::RAW_ARROW_RIGHT as CGKeyCode, false),
+        )
+    };
+    for _ in 0..count {
+        unsafe {
+            CGEventTapPostEvent(handle, down);
+            CGEventTapPostEvent(handle, up);
+        }
+    }
+    Ok(())
+}
+
 pub fn send_string(handle: Handle, string: &str) -> Result<(), ()> {
     let utf_16_str: Vec<u16> = string.encode_utf16().collect();
     let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
