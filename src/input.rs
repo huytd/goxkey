@@ -661,7 +661,7 @@ impl InputState {
     }
 
     pub fn should_dismiss_selection_if_needed(&self) -> bool {
-        const DISMISS_APPS: [&str; 2] = ["Firefox", "Floorp"];
+        const DISMISS_APPS: [&str; 3] = ["Firefox", "Floorp", "Zen"];
         return DISMISS_APPS.iter().any(|app| self.active_app.contains(app));
     }
 
