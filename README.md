@@ -40,6 +40,9 @@ The source code can be compiled easily:
 
 1. Get the latest stable version of the Rust compiler ([see here](https://rustup.rs/))
 2. Install the [cargo-bundle](https://github.com/burtonageo/cargo-bundle) extension, this is necessary for bundling macOS apps
+   ```
+   cargo install cargo-bundle
+   ```
 3. Checkout the source code of the **gõkey** project
    ```
    git clone https://github.com/huytd/goxkey && cd goxkey
@@ -50,7 +53,7 @@ The source code can be compiled easily:
    cargo bundle
    ```
 
-After that, you'll find the `Gõ Key.app` file in the `target/debug/bundle` folder. Copy it to your `/Applications` folder.
+After that, you'll find the `GoKey.app` file in the `target/debug/bundle` folder. Copy it to your `/Applications` folder.
 
 5. **(Important!):** Before you run the app, make you you already allowed Accessibility access for the app. Follow the [guide in the Wiki](https://github.com/huytd/goxkey/wiki/H%C6%B0%E1%BB%9Bng-d%E1%BA%ABn-s%E1%BB%ADa-l%E1%BB%97i-kh%C3%B4ng-g%C3%B5-%C4%91%C6%B0%E1%BB%A3c-ti%E1%BA%BFng-Vi%E1%BB%87t-tr%C3%AAn-macOS) to do so.
 
@@ -77,4 +80,3 @@ cargo r -- --lang en
 Do you know how to type gõkey in Telex?
 
 Do this: `gox<cmd>key`
-
