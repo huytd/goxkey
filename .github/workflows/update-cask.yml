@@ -1,0 +1,44 @@
+on:
+  release:
+    types: [published]
+
+name: Update Homebrew Cask
+
+jobs:
+  update-cask:
+    name: Update Casks/goxkey.rb
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute SHA256 of release asset
+        id: sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="${TAG#v}"
+          URL="https://github.com/huytd/goxkey/releases/download/${TAG}/GoKey-v${VERSION}.zip"
+          SHA=$(curl -sL "$URL" | shasum -a 256 | awk '{print $1}')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Update cask version and sha256
+        env:
+          VERSION: ${{ steps.sha.outputs.version }}
+          SHA256: ${{ steps.sha.outputs.sha256 }}
+        run: |
+          sed -i "s/version \".*\"/version \"$VERSION\"/" Casks/goxkey.rb
+          sed -i "s/sha256 \".*\"/sha256 \"$SHA256\"/" Casks/goxkey.rb
+
+      - name: Commit and push
+        env:
+          VERSION: ${{ steps.sha.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/goxkey.rb
+          git commit -m "chore: bump cask to v$VERSION"
+          git push
