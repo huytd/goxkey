@@ -103,7 +103,7 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
                 // one sentinel char on screen: type the new text first, then
                 // navigate back to delete the sentinel.
                 let needs_sentinel = !is_delete
-                    && backspace_count > 0
+                    && backspace_count > 1
                     && backspace_count == screen_char_count;
 
                 if needs_sentinel {
@@ -490,6 +490,7 @@ mod tests {
         vi::telex::transform_buffer("z".chars(), &mut transformed);
         assert_eq!(transformed, "z");
     }
+
 }
 
 fn main() {

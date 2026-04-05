@@ -908,8 +908,8 @@ mod diff_tests {
     #[test]
     fn telex_viet_transform() {
         let (bs, sfx) = get_diff_parts("viet", "việt");
-        assert_eq!(bs, 3); // common = "v"
-        assert_eq!(sfx, "iệt");
+        assert_eq!(bs, 2); // common = "vi"
+        assert_eq!(sfx, "ệt");
     }
 
     /// Tone cycling: "tiến" → "tiền" (sắc → huyền), "ti" preserved.
@@ -1046,4 +1046,5 @@ mod tracking_tests {
         assert!(state.is_tracking());
         assert_eq!(state.get_typing_buffer(), "test");
     }
+
 }
