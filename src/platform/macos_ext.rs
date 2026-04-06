@@ -166,7 +166,7 @@ impl SystemTray {
 unsafe fn create_badge_image(title: &str, _is_vietnamese: bool) -> id {
     use cocoa::foundation::{NSPoint, NSRect, NSSize};
 
-    let white: id = msg_send![class!(NSColor), whiteColor];
+    let color: id = msg_send![class!(NSColor), labelColor];
 
     // Measure text to determine badge width
     let font: id = msg_send![class!(NSFont), systemFontOfSize: 9.5_f64 weight: 0.4_f64];
@@ -175,7 +175,7 @@ unsafe fn create_badge_image(title: &str, _is_vietnamese: bool) -> id {
     let font_key = NSString::alloc(nil).init_str("NSFont");
     let color_key = NSString::alloc(nil).init_str("NSColor");
     let keys: [id; 2] = [font_key, color_key];
-    let vals: [id; 2] = [font, white];
+    let vals: [id; 2] = [font, color];
     let attrs: id = msg_send![class!(NSDictionary), dictionaryWithObjects:vals.as_ptr() forKeys:keys.as_ptr() count:2_u64];
     let attr_str: id = msg_send![class!(NSAttributedString), alloc];
     let attr_str: id = msg_send![attr_str, initWithString:title_ns attributes:attrs];
@@ -227,7 +227,7 @@ unsafe fn create_badge_image(title: &str, _is_vietnamese: bool) -> id {
         NSSize::new(badge_w - border_width, badge_h - border_width),
     );
     let path: id = msg_send![class!(NSBezierPath), bezierPathWithRoundedRect:rect xRadius:corner_radius yRadius:corner_radius];
-    let _: () = msg_send![white, setStroke];
+    let _: () = msg_send![color, setStroke];
     let _: () = msg_send![path, setLineWidth: border_width];
     let _: () = msg_send![path, stroke];
 
