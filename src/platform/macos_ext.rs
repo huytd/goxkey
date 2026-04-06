@@ -161,12 +161,12 @@ impl SystemTray {
     }
 }
 
-/// Create an NSImage with a colored badge-style rounded rectangle and centered text.
-/// Renders the status bar badge with white text and border, no fill.
+/// Create an NSImage with an outlined rounded rectangle and text.
+/// Rendered as a template image so macOS tints it automatically like other menu bar icons.
 unsafe fn create_badge_image(title: &str, _is_vietnamese: bool) -> id {
     use cocoa::foundation::{NSPoint, NSRect, NSSize};
 
-    let color: id = msg_send![class!(NSColor), labelColor];
+    let black: id = msg_send![class!(NSColor), blackColor];
 
     // Measure text to determine badge width
     let font: id = msg_send![class!(NSFont), systemFontOfSize: 9.5_f64 weight: 0.4_f64];
@@ -175,7 +175,7 @@ unsafe fn create_badge_image(title: &str, _is_vietnamese: bool) -> id {
     let font_key = NSString::alloc(nil).init_str("NSFont");
     let color_key = NSString::alloc(nil).init_str("NSColor");
     let keys: [id; 2] = [font_key, color_key];
-    let vals: [id; 2] = [font, color];
+    let vals: [id; 2] = [font, black];
     let attrs: id = msg_send![class!(NSDictionary), dictionaryWithObjects:vals.as_ptr() forKeys:keys.as_ptr() count:2_u64];
     let attr_str: id = msg_send![class!(NSAttributedString), alloc];
     let attr_str: id = msg_send![attr_str, initWithString:title_ns attributes:attrs];
@@ -227,7 +227,7 @@ unsafe fn create_badge_image(title: &str, _is_vietnamese: bool) -> id {
         NSSize::new(badge_w - border_width, badge_h - border_width),
     );
     let path: id = msg_send![class!(NSBezierPath), bezierPathWithRoundedRect:rect xRadius:corner_radius yRadius:corner_radius];
-    let _: () = msg_send![color, setStroke];
+    let _: () = msg_send![black, setStroke];
     let _: () = msg_send![path, setLineWidth: border_width];
     let _: () = msg_send![path, stroke];
 
@@ -243,7 +243,7 @@ unsafe fn create_badge_image(title: &str, _is_vietnamese: bool) -> id {
     let image: id = msg_send![class!(NSImage), alloc];
     let image: id = msg_send![image, initWithSize: img_size];
     let _: () = msg_send![image, addRepresentation: rep];
-    let _: () = msg_send![image, setTemplate: NO];
+    let _: () = msg_send![image, setTemplate: YES];
     let _: () = msg_send![attr_str, release];
 
     image
