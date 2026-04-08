@@ -9,23 +9,19 @@ use std::thread;
 
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
 use input::{
-    get_diff_parts, rebuild_keyboard_layout_map, TypingMethod, HOTKEY_MATCHING_CIRCUIT_BREAK,
-    INPUT_STATE,
+    get_diff_parts, rebuild_keyboard_layout_map, TypingMethod, HOTKEY_MATCHING,
+    HOTKEY_MATCHING_CIRCUIT_BREAK, HOTKEY_MODIFIERS, INPUT_STATE,
 };
 use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
     add_app_change_callback, dispatch_set_systray_title, ensure_accessibility_permission,
-    run_event_listener, send_arrow_left, send_arrow_right, send_backspace, send_string,
-    EventTapType, Handle, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE, KEY_SPACE,
-    KEY_TAB, RAW_KEY_GLOBE,
+    is_dark_mode, run_event_listener, send_arrow_left, send_arrow_right, send_backspace,
+    send_string, EventTapType, Handle, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE,
+    KEY_SPACE, KEY_TAB, RAW_ARROW_DOWN, RAW_ARROW_LEFT, RAW_ARROW_RIGHT, RAW_ARROW_UP,
+    RAW_KEY_GLOBE,
 };
-
-use crate::{
-    input::{HOTKEY_MATCHING, HOTKEY_MODIFIERS},
-    platform::{RAW_ARROW_DOWN, RAW_ARROW_LEFT, RAW_ARROW_RIGHT, RAW_ARROW_UP},
-};
-use ui::{UIDataAdapter, UPDATE_UI};
+use ui::{get_theme, UIDataAdapter, THEME, UPDATE_UI};
 
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -102,9 +98,8 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
                 // that swallows subsequent keystrokes.  Avoid this by keeping
                 // one sentinel char on screen: type the new text first, then
                 // navigate back to delete the sentinel.
-                let needs_sentinel = !is_delete
-                    && backspace_count > 1
-                    && backspace_count == screen_char_count;
+                let needs_sentinel =
+                    !is_delete && backspace_count > 1 && backspace_count == screen_char_count;
 
                 if needs_sentinel {
                     // Keep one old char as a sentinel so the field never
@@ -199,7 +194,11 @@ pub unsafe fn update_systray_title_immediately() {
     let is_enabled = INPUT_STATE.is_enabled();
     let is_gox = INPUT_STATE.is_gox_mode_enabled();
     let title = if is_enabled {
-        if is_gox { "gõ" } else { "VN" }
+        if is_gox {
+            "gõ"
+        } else {
+            "VN"
+        }
     } else if is_gox {
         match INPUT_STATE.get_method() {
             TypingMethod::Telex => "gox",
@@ -490,7 +489,6 @@ mod tests {
         vi::telex::transform_buffer("z".chars(), &mut transformed);
         assert_eq!(transformed, "z");
     }
-
 }
 
 fn main() {
@@ -501,6 +499,7 @@ fn main() {
         ui::locale::init_lang(config.get_ui_language());
     }
     let skip_permission = std::env::args().any(|a| a == "--skip-permission");
+    let is_dark = is_dark_mode();
     if !skip_permission && !ensure_accessibility_permission() {
         // Show the Accessibility Permission Request screen
         let win = WindowDesc::new(ui::permission_request_ui_builder())
@@ -527,6 +526,11 @@ fn main() {
         add_app_change_callback(|| {
             unsafe { auto_toggle_vietnamese() };
         });
-        _ = app.launch(UIDataAdapter::new());
+        let theme = get_theme(is_dark);
+        _ = app
+            .configure_env(move |env: &mut druid::Env, _| {
+                env.set(THEME.clone(), std::sync::Arc::new(theme));
+            })
+            .launch(UIDataAdapter::new());
     }
 }

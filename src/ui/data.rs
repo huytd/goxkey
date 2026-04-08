@@ -161,8 +161,10 @@ impl UIDataAdapter {
                         "VN"
                     };
                     self.systray.set_title(title, true);
-                    self.systray
-                        .set_menu_item_title(SystemTrayMenuItemKey::Enable, t("menu.disable_vietnamese"));
+                    self.systray.set_menu_item_title(
+                        SystemTrayMenuItemKey::Enable,
+                        t("menu.disable_vietnamese"),
+                    );
                 }
                 false => {
                     let title = if INPUT_STATE.is_gox_mode_enabled() {
@@ -175,8 +177,10 @@ impl UIDataAdapter {
                         "EN"
                     };
                     self.systray.set_title(title, false);
-                    self.systray
-                        .set_menu_item_title(SystemTrayMenuItemKey::Enable, t("menu.enable_vietnamese"));
+                    self.systray.set_menu_item_title(
+                        SystemTrayMenuItemKey::Enable,
+                        t("menu.enable_vietnamese"),
+                    );
                 }
             }
             match self.typing_method {
