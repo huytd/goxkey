@@ -478,10 +478,12 @@ pub fn is_launch_on_login() -> bool {
 
 pub fn is_dark_mode() -> bool {
     unsafe {
+        use cocoa::base::nil;
+        use cocoa::foundation::NSString;
         let app: id = msg_send![class!(NSApplication), sharedApplication];
         let appearance: id = msg_send![app, effectiveAppearance];
         let name: id = msg_send![appearance, name];
-        let dark_aqua = class!(NSAppearanceNameDarkAqua);
+        let dark_aqua = NSString::alloc(nil).init_str("NSAppearanceNameDarkAqua");
         let is_dark: BOOL = msg_send![name, isEqual: dark_aqua];
         is_dark == YES
     }

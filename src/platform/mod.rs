@@ -1,6 +1,6 @@
 #[cfg_attr(target_os = "macos", path = "macos.rs")]
 #[cfg_attr(target_os = "linux", path = "linux.rs")]
-#[cfg_attr(target_os = "window", path = "window.rs")]
+#[cfg_attr(target_os = "windows", path = "window.rs")]
 mod os;
 
 use std::fmt::Display;
