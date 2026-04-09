@@ -6,7 +6,7 @@ mod macos_ext;
 use auto_launch::{AutoLaunch, AutoLaunchBuilder};
 use cocoa::base::id;
 use cocoa::{
-    base::{nil, YES},
+    base::{nil, BOOL, YES},
     foundation::NSDictionary,
 };
 use core_graphics::{
@@ -216,7 +216,11 @@ pub fn send_arrow_left(handle: Handle, count: usize) -> Result<(), ()> {
     let (down, up) = unsafe {
         (
             CGEventCreateKeyboardEvent(null_event_source, super::RAW_ARROW_LEFT as CGKeyCode, true),
-            CGEventCreateKeyboardEvent(null_event_source, super::RAW_ARROW_LEFT as CGKeyCode, false),
+            CGEventCreateKeyboardEvent(
+                null_event_source,
+                super::RAW_ARROW_LEFT as CGKeyCode,
+                false,
+            ),
         )
     };
     for _ in 0..count {
@@ -232,8 +236,16 @@ pub fn send_arrow_right(handle: Handle, count: usize) -> Result<(), ()> {
     let null_event_source = ptr::null_mut() as *mut sys::CGEventSource;
     let (down, up) = unsafe {
         (
-            CGEventCreateKeyboardEvent(null_event_source, super::RAW_ARROW_RIGHT as CGKeyCode, true),
-            CGEventCreateKeyboardEvent(null_event_source, super::RAW_ARROW_RIGHT as CGKeyCode, false),
+            CGEventCreateKeyboardEvent(
+                null_event_source,
+                super::RAW_ARROW_RIGHT as CGKeyCode,
+                true,
+            ),
+            CGEventCreateKeyboardEvent(
+                null_event_source,
+                super::RAW_ARROW_RIGHT as CGKeyCode,
+                false,
+            ),
         )
     };
     for _ in 0..count {
@@ -264,6 +276,13 @@ where
     F: Fn() + Send + 'static,
 {
     macos_ext::add_app_change_callback(cb);
+}
+
+pub fn add_appearance_change_callback<F>(cb: F)
+where
+    F: Fn() + Send + 'static,
+{
+    macos_ext::add_appearance_change_callback(cb);
 }
 
 pub fn run_event_listener(callback: &CallbackFn) {
@@ -363,8 +382,8 @@ pub fn ensure_accessibility_permission() -> bool {
 /// The icon is rendered at `size`×`size` points.  Returns `None` on failure.
 pub fn get_app_icon_rgba(app_path: &str, size: u32) -> Option<(Vec<u8>, u32, u32)> {
     unsafe {
-        use cocoa::foundation::NSString;
         use cocoa::base::nil;
+        use cocoa::foundation::NSString;
 
         let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
         let path_ns = NSString::alloc(nil).init_str(app_path);
@@ -373,14 +392,12 @@ pub fn get_app_icon_rgba(app_path: &str, size: u32) -> Option<(Vec<u8>, u32, u32
             return None;
         }
 
-        let ns_size: cocoa::foundation::NSSize = cocoa::foundation::NSSize::new(size as f64, size as f64);
+        let ns_size: cocoa::foundation::NSSize =
+            cocoa::foundation::NSSize::new(size as f64, size as f64);
         let _: () = msg_send![icon, setSize: ns_size];
 
         // Create an NSBitmapImageRep to rasterize into RGBA
-        let rep: id = msg_send![
-            class!(NSBitmapImageRep),
-            alloc
-        ];
+        let rep: id = msg_send![class!(NSBitmapImageRep), alloc];
         let planes: *mut u8 = std::ptr::null_mut();
         let color_space_name = NSString::alloc(nil).init_str("NSCalibratedRGBColorSpace");
         let rep: id = msg_send![rep,
@@ -405,10 +422,8 @@ pub fn get_app_icon_rgba(app_path: &str, size: u32) -> Option<(Vec<u8>, u32, u32
             msg_send![class!(NSGraphicsContext), graphicsContextWithBitmapImageRep: rep];
         let _: () = msg_send![class!(NSGraphicsContext), setCurrentContext: gfx_ctx];
 
-        let draw_rect = cocoa::foundation::NSRect::new(
-            cocoa::foundation::NSPoint::new(0.0, 0.0),
-            ns_size,
-        );
+        let draw_rect =
+            cocoa::foundation::NSRect::new(cocoa::foundation::NSPoint::new(0.0, 0.0), ns_size);
         let from_rect = cocoa::foundation::NSRect::new(
             cocoa::foundation::NSPoint::new(0.0, 0.0),
             cocoa::foundation::NSSize::new(0.0, 0.0), // zero = entire image
@@ -466,4 +481,17 @@ pub fn update_launch_on_login(is_enable: bool) -> Result<(), auto_launch::Error>
 
 pub fn is_launch_on_login() -> bool {
     AUTO_LAUNCH.is_enabled().unwrap()
+}
+
+pub fn is_dark_mode() -> bool {
+    unsafe {
+        use cocoa::base::nil;
+        use cocoa::foundation::NSString;
+        let app: id = msg_send![class!(NSApplication), sharedApplication];
+        let appearance: id = msg_send![app, effectiveAppearance];
+        let name: id = msg_send![appearance, name];
+        let dark_aqua = NSString::alloc(nil).init_str("NSAppearanceNameDarkAqua");
+        let is_dark: BOOL = msg_send![name, isEqual: dark_aqua];
+        is_dark == YES
+    }
 }

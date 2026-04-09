@@ -652,3 +652,24 @@ where
         ];
     }
 }
+
+pub fn add_appearance_change_callback<F>(cb: F)
+where
+    F: Fn() + Send + 'static,
+{
+    unsafe {
+        use cocoa::base::nil;
+        use cocoa::foundation::NSString;
+        let notification_center: id =
+            msg_send![class!(NSDistributedNotificationCenter), defaultCenter];
+        let cb_obj = Callback::from(Box::new(cb));
+        let name = NSString::alloc(nil).init_str("AppleInterfaceThemeChangedNotification");
+
+        let _: id = msg_send![notification_center,
+            addObserver:cb_obj
+            selector:sel!(call)
+            name:name
+            object:nil
+        ];
+    }
+}

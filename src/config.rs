@@ -101,11 +101,7 @@ impl ConfigStore {
             "{} = {}",
             W_LITERAL_CONFIG_KEY, self.is_w_literal_enabled
         )?;
-        writeln!(
-            file,
-            "{} = {}",
-            UI_LANGUAGE_CONFIG_KEY, self.ui_language
-        )?;
+        writeln!(file, "{} = {}", UI_LANGUAGE_CONFIG_KEY, self.ui_language)?;
         Ok(())
     }
 
@@ -159,9 +155,7 @@ impl ConfigStore {
                         W_LITERAL_CONFIG_KEY => {
                             config.is_w_literal_enabled = matches!(right.trim(), "true")
                         }
-                        UI_LANGUAGE_CONFIG_KEY => {
-                            config.ui_language = right.trim().to_string()
-                        }
+                        UI_LANGUAGE_CONFIG_KEY => config.ui_language = right.trim().to_string(),
                         _ => {}
                     }
                 }

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     input::{TypingMethod, INPUT_STATE},
-    platform::{is_launch_on_login, SystemTray, SystemTrayMenuItemKey},
+    platform::{is_dark_mode, is_launch_on_login, SystemTray, SystemTrayMenuItemKey},
     update_systray_title_immediately, UI_EVENT_SINK,
 };
 use druid::{commands::QUIT_APP, Data, Lens, Target};
@@ -54,6 +54,8 @@ pub struct UIDataAdapter {
     pub(super) pending_shortcut_letter: String,
     // UI language (0=Auto, 1=Vietnamese, 2=English)
     pub(super) ui_language: u32,
+    // Dark mode
+    pub is_dark: bool,
     // Tab navigation (0=General, 1=Apps, 2=Shortcuts, 3=Advanced)
     pub(super) active_tab: u32,
     // Apps tab selected row (combined vn+en list, -1 = none)
@@ -94,6 +96,7 @@ impl UIDataAdapter {
             pending_shortcut_shift: false,
             pending_shortcut_letter: String::new(),
             ui_language: 0,
+            is_dark: false,
             active_tab: 0,
             selected_app_index: -1,
             selected_macro_index: -1,
@@ -114,6 +117,7 @@ impl UIDataAdapter {
             self.is_auto_toggle_enabled = INPUT_STATE.is_auto_toggle_enabled();
             self.is_w_literal_enabled = INPUT_STATE.is_w_literal_enabled();
             self.launch_on_login = is_launch_on_login();
+            self.is_dark = is_dark_mode();
             let config = crate::config::CONFIG_MANAGER.lock().unwrap();
             self.ui_language = match config.get_ui_language() {
                 "vi" => 1,
@@ -161,8 +165,10 @@ impl UIDataAdapter {
                         "VN"
                     };
                     self.systray.set_title(title, true);
-                    self.systray
-                        .set_menu_item_title(SystemTrayMenuItemKey::Enable, t("menu.disable_vietnamese"));
+                    self.systray.set_menu_item_title(
+                        SystemTrayMenuItemKey::Enable,
+                        t("menu.disable_vietnamese"),
+                    );
                 }
                 false => {
                     let title = if INPUT_STATE.is_gox_mode_enabled() {
@@ -175,8 +181,10 @@ impl UIDataAdapter {
                         "EN"
                     };
                     self.systray.set_title(title, false);
-                    self.systray
-                        .set_menu_item_title(SystemTrayMenuItemKey::Enable, t("menu.enable_vietnamese"));
+                    self.systray.set_menu_item_title(
+                        SystemTrayMenuItemKey::Enable,
+                        t("menu.enable_vietnamese"),
+                    );
                 }
             }
             match self.typing_method {

@@ -1,30 +1,26 @@
-use crate::{
-    input::TypingMethod,
-    platform::defer_open_app_file_picker,
-    UI_EVENT_SINK,
-};
+use crate::{input::TypingMethod, platform::defer_open_app_file_picker, UI_EVENT_SINK};
 use druid::{
     kurbo::RoundedRect,
     piet::{FontFamily, Text, TextLayout, TextLayoutBuilder},
     widget::{
-        Button, Container, FillStrat, Flex, Image, Label, LineBreaking, List, Painter, Scroll,
-        TextBox, ViewSwitcher,
+        Button, Container, EnvScope, FillStrat, Flex, Image, Label, LineBreaking, List, Painter,
+        Scroll, TextBox, ViewSwitcher,
     },
     Application, Color, ImageBuf, Rect, RenderContext, Screen, Target, Widget, WidgetExt,
 };
 
 use super::{
-    locale::t,
     colors::{
-        BADGE_EN_BG, BADGE_EN_BORDER, BADGE_VI_BG, BADGE_VI_BORDER, BTN_RESET_BG, BTN_RESET_BORDER,
-        CARD_BG, CARD_BORDER, DIVIDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_SECTION, WIN_BG,
+        theme_from_env, Theme, BADGE_EN_BG, BADGE_EN_BORDER, BADGE_VI_BG, BADGE_VI_BORDER, GREEN,
+        IS_DARK,
     },
     controllers::UIController,
     data::{MacroEntry, UIDataAdapter},
+    locale::t,
     selectors::{
-        ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO,
-        EXPORT_MACROS_TO_FILE, LOAD_MACROS_FROM_FILE, SET_EN_APP_FROM_PICKER,
-        SHOW_ADD_MACRO_DIALOG, SHOW_EDIT_SHORTCUT_DIALOG,
+        ADD_MACRO, DELETE_MACRO, DELETE_SELECTED_APP, DELETE_SELECTED_MACRO, EXPORT_MACROS_TO_FILE,
+        LOAD_MACROS_FROM_FILE, SET_EN_APP_FROM_PICKER, SHOW_ADD_MACRO_DIALOG,
+        SHOW_EDIT_SHORTCUT_DIALOG,
     },
     widgets::{
         AppsListWidget, HotkeyBadgesWidget, InfoTooltip, MacroListWidget, SegmentedControl,
@@ -33,11 +29,15 @@ use super::{
     WINDOW_HEIGHT, WINDOW_WIDTH,
 };
 
-// ── Layout helpers ─────────────────────────────────────────────────────────────
-
-/// A simple left-aligned text painter that resolves translation key at paint time.
-fn text_label(key: &'static str, font_size: f64, color: Color, height: f64) -> impl Widget<UIDataAdapter> {
-    Painter::new(move |ctx, _: &UIDataAdapter, _| {
+fn text_label(
+    key: &'static str,
+    font_size: f64,
+    color_fn: fn(&Theme) -> Color,
+    height: f64,
+) -> impl Widget<UIDataAdapter> {
+    Painter::new(move |ctx, _: &UIDataAdapter, env| {
+        let theme = theme_from_env(env);
+        let color = color_fn(&theme);
         let layout = make_text_layout(ctx, t(key), font_size, &color);
         ctx.draw_text(&layout, (0.0, 0.0));
     })
@@ -45,47 +45,51 @@ fn text_label(key: &'static str, font_size: f64, color: Color, height: f64) -> i
     .expand_width()
 }
 
-/// Title text (13pt, primary color, 18px height). Resolves key via t() at paint time.
 fn title_label(key: &'static str) -> impl Widget<UIDataAdapter> {
-    text_label(key, 13.0, TEXT_PRIMARY, 18.0)
+    text_label(key, 13.0, |t| t.text_primary, 18.0)
 }
 
-/// Subtitle text (12pt, secondary color, 16px height). Resolves key via t() at paint time.
 fn subtitle_label(key: &'static str) -> impl Widget<UIDataAdapter> {
-    text_label(key, 12.0, TEXT_SECONDARY, 16.0)
+    text_label(key, 12.0, |t| t.text_secondary, 16.0)
 }
 
-/// A title + subtitle column, used in settings rows and custom rows.
-fn title_subtitle_column(title_key: &'static str, subtitle_key: &'static str) -> impl Widget<UIDataAdapter> {
+fn title_subtitle_column(
+    title_key: &'static str,
+    subtitle_key: &'static str,
+) -> impl Widget<UIDataAdapter> {
     Flex::column()
         .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
         .with_child(title_label(title_key))
         .with_child(subtitle_label(subtitle_key))
 }
 
-/// A rounded-rect button with centered text. Resolves key via t() at paint time.
 fn centered_btn(
     key: &'static str,
     width: f64,
     height: f64,
-    bg: Color,
-    text_color: Color,
-    border: Option<(Color, f64)>,
+    bg_fn: fn(&Theme) -> Color,
+    text_color_fn: fn(&Theme) -> Color,
+    border_fn: Option<fn(&Theme) -> Color>,
 ) -> impl Widget<UIDataAdapter> {
-    Painter::new(move |ctx, _: &UIDataAdapter, _| {
+    Painter::new(move |ctx, _: &UIDataAdapter, env| {
+        let theme = theme_from_env(env);
         let size = ctx.size();
         let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
-        ctx.fill(rr, &bg);
-        if let Some((ref bc, bw)) = border {
-            ctx.stroke(rr, bc, bw);
+        ctx.fill(rr, &bg_fn(&theme));
+        if let Some(border_f) = border_fn {
+            ctx.stroke(rr, &border_f(&theme), 0.5);
         }
-        draw_centered_text(ctx, t(key), 13.0, &text_color);
+        draw_centered_text(ctx, t(key), 13.0, &text_color_fn(&theme));
     })
     .fix_size(width, height)
 }
 
-/// Build a piet text layout with the given font size and color.
-fn make_text_layout(ctx: &mut druid::PaintCtx, text: &str, font_size: f64, color: &Color) -> druid::piet::PietTextLayout {
+fn make_text_layout(
+    ctx: &mut druid::PaintCtx,
+    text: &str,
+    font_size: f64,
+    color: &Color,
+) -> druid::piet::PietTextLayout {
     ctx.text()
         .new_text_layout(text.to_owned())
         .font(FontFamily::SYSTEM_UI, font_size)
@@ -94,7 +98,6 @@ fn make_text_layout(ctx: &mut druid::PaintCtx, text: &str, font_size: f64, color
         .unwrap()
 }
 
-/// Build a text layout and draw it centered in the current widget size.
 fn draw_centered_text(ctx: &mut druid::PaintCtx, text: &str, font_size: f64, color: &Color) {
     let layout = make_text_layout(ctx, text, font_size, color);
     let size = ctx.size();
@@ -107,55 +110,66 @@ fn draw_centered_text(ctx: &mut druid::PaintCtx, text: &str, font_size: f64, col
     );
 }
 
-/// A "+" or "−" icon button for list add/remove actions.
 fn symbol_btn(symbol: &'static str) -> impl Widget<UIDataAdapter> {
-    Painter::new(move |ctx, _: &UIDataAdapter, _| {
-        draw_centered_text(ctx, symbol, 18.0, &TEXT_PRIMARY);
+    Painter::new(move |ctx, _: &UIDataAdapter, env| {
+        let theme = theme_from_env(env);
+        draw_centered_text(ctx, symbol, 18.0, &theme.text_primary);
     })
     .fix_size(44.0, 44.0)
 }
 
-/// A "−" remove button with a left divider, disabled when `is_enabled_fn` returns false.
 fn remove_btn(is_enabled_fn: fn(&UIDataAdapter) -> bool) -> impl Widget<UIDataAdapter> {
-    Painter::new(move |ctx, data: &UIDataAdapter, _| {
+    Painter::new(move |ctx, data: &UIDataAdapter, env| {
+        let theme = theme_from_env(env);
         let size = ctx.size();
         let color = if is_enabled_fn(data) {
-            TEXT_PRIMARY
+            theme.text_primary
         } else {
             Color::rgb8(187, 187, 187)
         };
-        ctx.fill(Rect::new(0.0, 10.0, 0.5, size.height - 10.0), &DIVIDER);
+        ctx.fill(
+            Rect::new(0.0, 10.0, 0.5, size.height - 10.0),
+            &theme.divider,
+        );
         draw_centered_text(ctx, "−", 18.0, &color);
     })
     .fix_size(44.0, 44.0)
 }
 
-/// A small toolbar-style text button, optionally with a left or right divider.
 fn toolbar_btn(key: &'static str, divider: Option<&'static str>) -> impl Widget<UIDataAdapter> {
-    Painter::new(move |ctx, _: &UIDataAdapter, _| {
+    Painter::new(move |ctx, _: &UIDataAdapter, env| {
+        let theme = theme_from_env(env);
         let size = ctx.size();
         if let Some(side) = divider {
-            let x = if side == "left" { 0.0 } else { size.width - 0.5 };
-            ctx.fill(Rect::new(x, 10.0, x + 0.5, size.height - 10.0), &DIVIDER);
+            let x = if side == "left" {
+                0.0
+            } else {
+                size.width - 0.5
+            };
+            ctx.fill(
+                Rect::new(x, 10.0, x + 0.5, size.height - 10.0),
+                &theme.divider,
+            );
         }
-        draw_centered_text(ctx, t(key), 12.0, &TEXT_PRIMARY);
+        draw_centered_text(ctx, t(key), 12.0, &theme.text_primary);
     })
     .fix_size(60.0, 44.0)
 }
 
-/// A full-width horizontal divider (0.5px).
 fn h_divider() -> impl Widget<UIDataAdapter> {
-    Painter::new(|ctx, _: &UIDataAdapter, _| {
+    Painter::new(|ctx, _: &UIDataAdapter, env| {
+        let theme = theme_from_env(env);
         let w = ctx.size().width;
-        ctx.fill(Rect::new(0.0, 0.0, w, 0.5), &DIVIDER);
+        ctx.fill(Rect::new(0.0, 0.0, w, 0.5), &theme.divider);
     })
     .fix_height(0.5)
     .expand_width()
 }
 
 fn section_label(key: &'static str) -> impl Widget<UIDataAdapter> {
-    Painter::new(move |ctx, _data: &UIDataAdapter, _env| {
-        let layout = make_text_layout(ctx, &t(key).to_uppercase(), 11.0, &TEXT_SECTION);
+    Painter::new(move |ctx, _data: &UIDataAdapter, env| {
+        let theme = theme_from_env(env);
+        let layout = make_text_layout(ctx, &t(key).to_uppercase(), 11.0, &theme.text_section);
         let h = ctx.size().height;
         ctx.draw_text(&layout, (0.0, (h - layout.size().height) / 2.0));
     })
@@ -165,9 +179,10 @@ fn section_label(key: &'static str) -> impl Widget<UIDataAdapter> {
 }
 
 fn card_divider() -> impl Widget<UIDataAdapter> {
-    Painter::new(|ctx, _data: &UIDataAdapter, _env| {
+    Painter::new(|ctx, _data: &UIDataAdapter, env| {
+        let theme = theme_from_env(env);
         let w = ctx.size().width;
-        ctx.fill(Rect::new(14.0, 0.0, w - 14.0, 0.5), &DIVIDER);
+        ctx.fill(Rect::new(14.0, 0.0, w - 14.0, 0.5), &theme.divider);
     })
     .fix_height(0.5)
     .expand_width()
@@ -190,19 +205,22 @@ fn settings_row<TW: Widget<UIDataAdapter> + 'static>(
 
 fn settings_card<TW: Widget<UIDataAdapter> + 'static>(inner: TW) -> impl Widget<UIDataAdapter> {
     Container::new(inner)
-        .background(CARD_BG)
-        .border(CARD_BORDER, 0.5)
+        .background(Painter::new(|ctx, _, env| {
+            let theme = theme_from_env(env);
+            let rect = ctx.size().to_rect();
+            let rr = RoundedRect::from_rect(rect, 10.0);
+            ctx.fill(rr, &theme.card_bg);
+            ctx.stroke(rr, &theme.card_border, 0.5);
+        }))
         .rounded(10.0)
 }
 
-/// A start-aligned column with standard tab padding.
 fn tab_body() -> Flex<UIDataAdapter> {
     Flex::column().cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
 }
 
 const TAB_PADDING: (f64, f64, f64, f64) = (24.0, 20.0, 24.0, 24.0);
 
-/// A card with a label/subtitle header and a segmented control beneath.
 fn option_group<SW: Widget<UIDataAdapter> + 'static>(
     header: impl Widget<UIDataAdapter> + 'static,
     control: SW,
@@ -218,7 +236,6 @@ fn option_group<SW: Widget<UIDataAdapter> + 'static>(
     )
 }
 
-/// A vertical-only scroll wrapper.
 fn v_scroll<W: Widget<UIDataAdapter> + 'static>(inner: W) -> Scroll<UIDataAdapter, W> {
     let mut scroll = Scroll::new(inner);
     scroll.set_enabled_scrollbars(druid::scroll_component::ScrollbarsEnabled::Vertical);
@@ -226,7 +243,6 @@ fn v_scroll<W: Widget<UIDataAdapter> + 'static>(inner: W) -> Scroll<UIDataAdapte
     scroll
 }
 
-/// A card with a scrollable list and a bottom toolbar row.
 fn list_card(
     list: impl Widget<UIDataAdapter> + 'static,
     toolbar: impl Widget<UIDataAdapter> + 'static,
@@ -237,12 +253,16 @@ fn list_card(
             .with_child(h_divider())
             .with_child(toolbar.expand_width()),
     )
-    .background(CARD_BG)
-    .border(CARD_BORDER, 0.5)
+    .background(Painter::new(|ctx, _, env| {
+        let theme = theme_from_env(env);
+        let rect = ctx.size().to_rect();
+        let rr = RoundedRect::from_rect(rect, 10.0);
+        ctx.fill(rr, &theme.card_bg);
+        ctx.stroke(rr, &theme.card_border, 0.5);
+    }))
     .rounded(10.0)
 }
 
-/// A green (enabled) or gray (disabled) action button with centered label.
 fn action_btn(
     key: &'static str,
     enabled_fn: fn(&UIDataAdapter) -> bool,
@@ -250,14 +270,17 @@ fn action_btn(
     Painter::new(move |ctx, data: &UIDataAdapter, _| {
         let size = ctx.size();
         let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 7.0);
-        let bg = if enabled_fn(data) { GREEN } else { Color::rgb8(150, 150, 150) };
+        let bg = if enabled_fn(data) {
+            GREEN
+        } else {
+            Color::rgb8(150, 150, 150)
+        };
         ctx.fill(rr, &bg);
         draw_centered_text(ctx, t(key), 13.0, &Color::WHITE);
     })
     .fix_size(70.0, 30.0)
 }
 
-/// A right-aligned Cancel + Action button row for dialogs.
 fn dialog_buttons(
     cancel: impl Widget<UIDataAdapter> + 'static,
     action: impl Widget<UIDataAdapter> + 'static,
@@ -270,18 +293,16 @@ fn dialog_buttons(
         .expand_width()
 }
 
-/// Cancel button used across dialogs.
 fn cancel_btn() -> impl Widget<UIDataAdapter> {
     centered_btn(
         "button.cancel",
-        90.0, 30.0,
-        BTN_RESET_BG,
-        Color::rgb8(51, 51, 51),
-        Some((BTN_RESET_BORDER, 0.5)),
+        90.0,
+        30.0,
+        |t| t.btn_reset_bg,
+        |t| t.btn_reset_text,
+        Some(|t| t.btn_reset_border),
     )
 }
-
-// ── Tab content ────────────────────────────────────────────────────────────────
 
 fn general_tab() -> impl Widget<UIDataAdapter> {
     let input_mode_card = settings_card(
@@ -329,44 +350,37 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
 
     let language_card = option_group(
         title_subtitle_column("general.ui_language", "general.ui_language_desc"),
-        U32SegmentedControl::new(vec![
-            ("Auto", 0),
-            ("Tiếng Việt", 1),
-            ("English", 2),
-        ])
-        .lens(UIDataAdapter::ui_language),
+        U32SegmentedControl::new(vec![("Auto", 0), ("Tiếng Việt", 1), ("English", 2)])
+            .lens(UIDataAdapter::ui_language),
     );
 
-    let edit_shortcut_btn = Painter::new(|ctx, _: &UIDataAdapter, _| {
+    let edit_shortcut_btn = Painter::new(|ctx, _: &UIDataAdapter, env| {
+        let theme = theme_from_env(env);
         let size = ctx.size();
         let cx = size.width / 2.0;
         let cy = size.height / 2.0;
-        // Pencil icon drawn with BezPath
-        // Body: a thin parallelogram rotated ~45°
         let mut pencil = druid::kurbo::BezPath::new();
-        pencil.move_to((cx - 1.5, cy + 6.0)); // bottom-left tip base
-        pencil.line_to((cx - 6.0, cy + 1.5)); // top-left
-        pencil.line_to((cx + 1.5, cy - 6.0)); // top-right
-        pencil.line_to((cx + 6.0, cy - 1.5)); // bottom-right
+        pencil.move_to((cx - 1.5, cy + 6.0));
+        pencil.line_to((cx - 6.0, cy + 1.5));
+        pencil.line_to((cx + 1.5, cy - 6.0));
+        pencil.line_to((cx + 6.0, cy - 1.5));
         pencil.close_path();
-        ctx.fill(pencil, &TEXT_SECONDARY);
+        ctx.fill(pencil, &theme.text_secondary);
 
-        // Eraser nib at top
         let mut nib = druid::kurbo::BezPath::new();
         nib.move_to((cx + 1.5, cy - 6.0));
         nib.line_to((cx + 6.0, cy - 1.5));
         nib.line_to((cx + 7.5, cy - 3.0));
         nib.line_to((cx + 3.0, cy - 7.5));
         nib.close_path();
-        ctx.fill(nib, &TEXT_PRIMARY);
+        ctx.fill(nib, &theme.text_primary);
 
-        // Tip point at bottom
         let mut tip = druid::kurbo::BezPath::new();
         tip.move_to((cx - 1.5, cy + 6.0));
         tip.line_to((cx - 6.0, cy + 1.5));
         tip.line_to((cx - 8.0, cy + 8.0));
         tip.close_path();
-        ctx.fill(tip, &TEXT_SECONDARY);
+        ctx.fill(tip, &theme.text_secondary);
     })
     .fix_size(24.0, 24.0)
     .on_click(|ctx, _: &mut UIDataAdapter, _| {
@@ -385,18 +399,26 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
     let footer = dialog_buttons(
         centered_btn(
             "general.reset_defaults",
-            120.0, 30.0,
-            BTN_RESET_BG,
-            Color::rgb8(51, 51, 51),
-            Some((BTN_RESET_BORDER, 0.5)),
+            120.0,
+            30.0,
+            |t| t.btn_reset_bg,
+            |t| t.btn_reset_text,
+            Some(|t| t.btn_reset_border),
         )
         .on_click(|ctx, _data: &mut UIDataAdapter, _env| {
             ctx.submit_command(super::selectors::RESET_DEFAULTS);
         }),
-        centered_btn("general.done", 70.0, 30.0, GREEN, Color::WHITE, None)
-            .on_click(|ctx, _data: &mut UIDataAdapter, _env| {
-                ctx.window().hide();
-            }),
+        centered_btn(
+            "general.done",
+            70.0,
+            30.0,
+            |_| GREEN,
+            |_| Color::WHITE,
+            None,
+        )
+        .on_click(|ctx, _data: &mut UIDataAdapter, _env| {
+            ctx.window().hide();
+        }),
     );
 
     tab_body()
@@ -420,12 +442,12 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
 fn apps_tab() -> impl Widget<UIDataAdapter> {
     let description = title_label("apps.description");
 
-    let legend = Painter::new(|ctx, _: &UIDataAdapter, _| {
+    let legend = Painter::new(|ctx, _: &UIDataAdapter, env| {
+        let theme = theme_from_env(env);
         let mut x = 0.0;
         let bh = 22.0;
         let badge_y = (26.0 - bh) / 2.0;
 
-        // Draw badge + label pairs for VI and EN
         for (badge_text, badge_bg, badge_border, label_key) in [
             ("VI", BADGE_VI_BG, BADGE_VI_BORDER, "apps.vietnamese"),
             ("EN", BADGE_EN_BG, BADGE_EN_BORDER, "apps.english"),
@@ -444,7 +466,7 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
             );
             x += bw + 8.0;
 
-            let label = make_text_layout(ctx, t(label_key), 13.0, &TEXT_PRIMARY);
+            let label = make_text_layout(ctx, t(label_key), 13.0, &theme.text_primary);
             ctx.draw_text(&label, (x, (26.0 - label.size().height) / 2.0));
             x += label.size().width + 20.0;
         }
@@ -462,8 +484,8 @@ fn apps_tab() -> impl Widget<UIDataAdapter> {
         }));
     });
 
-    let remove_btn = remove_btn(|d| d.selected_app_index >= 0)
-        .on_click(|ctx, data: &mut UIDataAdapter, _| {
+    let remove_btn =
+        remove_btn(|d| d.selected_app_index >= 0).on_click(|ctx, data: &mut UIDataAdapter, _| {
             if data.selected_app_index >= 0 {
                 ctx.submit_command(DELETE_SELECTED_APP.to(Target::Global));
             }
@@ -520,8 +542,8 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         ctx.submit_command(SHOW_ADD_MACRO_DIALOG.to(Target::Global));
     });
 
-    let remove_btn = remove_btn(|d| d.selected_macro_index >= 0)
-        .on_click(|ctx, data: &mut UIDataAdapter, _| {
+    let remove_btn =
+        remove_btn(|d| d.selected_macro_index >= 0).on_click(|ctx, data: &mut UIDataAdapter, _| {
             if data.selected_macro_index >= 0 {
                 ctx.submit_command(DELETE_SELECTED_MACRO.to(Target::Global));
             }
@@ -533,18 +555,16 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
             .with_child(add_btn)
             .with_child(remove_btn)
             .with_flex_spacer(1.0)
-            .with_child(
-                toolbar_btn("macro.load", Some("left"))
-                    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
-                        ctx.submit_command(LOAD_MACROS_FROM_FILE.to(Target::Global));
-                    }),
-            )
-            .with_child(
-                toolbar_btn("macro.export", None)
-                    .on_click(|ctx, _data: &mut UIDataAdapter, _| {
-                        ctx.submit_command(EXPORT_MACROS_TO_FILE.to(Target::Global));
-                    }),
-            ),
+            .with_child(toolbar_btn("macro.load", Some("left")).on_click(
+                |ctx, _data: &mut UIDataAdapter, _| {
+                    ctx.submit_command(LOAD_MACROS_FROM_FILE.to(Target::Global));
+                },
+            ))
+            .with_child(toolbar_btn("macro.export", None).on_click(
+                |ctx, _data: &mut UIDataAdapter, _| {
+                    ctx.submit_command(EXPORT_MACROS_TO_FILE.to(Target::Global));
+                },
+            )),
     );
 
     tab_body()
@@ -559,8 +579,6 @@ fn advanced_tab() -> impl Widget<UIDataAdapter> {
         .expand()
         .padding(TAB_PADDING)
 }
-
-// ── List row helpers ───────────────────────────────────────────────────────────
 
 fn macro_row_item() -> impl Widget<MacroEntry> {
     Flex::row()
@@ -588,10 +606,8 @@ fn macro_row_item() -> impl Widget<MacroEntry> {
         .border(Color::rgb8(224, 224, 224), 0.5)
 }
 
-// ── Public UI builders ─────────────────────────────────────────────────────────
-
 pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
-    Flex::column()
+    let inner = Flex::column()
         .with_child(
             TabBar::new()
                 .lens(UIDataAdapter::active_tab)
@@ -609,27 +625,35 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
             .expand(),
             1.0,
         )
-        .background(WIN_BG)
-        .controller(UIController)
+        .background(Painter::new(|ctx, _, env| {
+            let theme = theme_from_env(env);
+            let size = ctx.size();
+            ctx.fill(size.to_rect(), &theme.win_bg);
+        }))
+        .controller(UIController);
+
+    EnvScope::new(
+        |env, data: &UIDataAdapter| {
+            env.set(IS_DARK.clone(), data.is_dark);
+        },
+        inner,
+    )
 }
 
 pub fn permission_request_ui_builder() -> impl Widget<()> {
-    use super::colors::{CARD_BORDER, GREEN, TEXT_PRIMARY, TEXT_SECONDARY, WIN_BG};
     let image_data = ImageBuf::from_data(include_bytes!("../../assets/accessibility.png")).unwrap();
 
     let title_label = Label::new(t("perm.title"))
-        .with_text_color(TEXT_PRIMARY)
+        .with_text_color(Color::rgb8(17, 17, 17))
         .with_font(druid::FontDescriptor::new(FontFamily::SYSTEM_UI).with_size(13.0))
         .with_line_break_mode(LineBreaking::WordWrap);
 
-    let img_container = Container::new(
-        Image::new(image_data).fill_mode(FillStrat::Cover)
-    )
-    .rounded(8.0)
-    .border(CARD_BORDER, 1.0);
+    let img_container = Container::new(Image::new(image_data).fill_mode(FillStrat::Cover))
+        .rounded(8.0)
+        .border(Color::rgba8(0, 0, 0, 30), 1.0);
 
     let subtitle_label = Label::new(t("perm.subtitle"))
-        .with_text_color(TEXT_SECONDARY)
+        .with_text_color(Color::rgb8(102, 102, 102))
         .with_font(druid::FontDescriptor::new(FontFamily::SYSTEM_UI).with_size(12.0))
         .with_line_break_mode(LineBreaking::WordWrap);
 
@@ -658,7 +682,7 @@ pub fn permission_request_ui_builder() -> impl Widget<()> {
         .with_flex_spacer(1.0)
         .with_child(buttons)
         .padding((24.0, 20.0, 24.0, 20.0))
-        .background(WIN_BG)
+        .background(Color::rgb8(255, 255, 255))
 }
 
 pub fn macro_editor_ui_builder() -> impl Widget<UIDataAdapter> {
@@ -705,12 +729,8 @@ pub fn center_window_position() -> (f64, f64) {
     (x, y)
 }
 
-// ── Add Macro Dialog ───────────────────────────────────────────────────────────
-
 pub const ADD_MACRO_DIALOG_WIDTH: f64 = 340.0;
 pub const ADD_MACRO_DIALOG_HEIGHT: f64 = 208.0;
-
-// ── Edit Shortcut Dialog ───────────────────────────────────────────────────────
 
 pub const EDIT_SHORTCUT_DIALOG_WIDTH: f64 = 340.0;
 pub const EDIT_SHORTCUT_DIALOG_HEIGHT: f64 = 200.0;
@@ -762,7 +782,6 @@ pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
         .with_spacer(4.0)
         .with_child(
             Container::new(styled_text_input("nope").lens(UIDataAdapter::new_macro_from))
-                .background(Color::WHITE)
                 .border(Color::rgb8(204, 204, 204), 1.0)
                 .rounded(8.0)
                 .expand_width(),
@@ -772,7 +791,6 @@ pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
         .with_spacer(4.0)
         .with_child(
             Container::new(styled_text_input("dạ, thưa sếp").lens(UIDataAdapter::new_macro_to))
-                .background(Color::WHITE)
                 .border(Color::rgb8(204, 204, 204), 1.0)
                 .rounded(8.0)
                 .expand_width(),
@@ -780,22 +798,26 @@ pub fn add_macro_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
         .with_flex_spacer(1.0)
         .with_child(buttons)
         .padding((24.0, 20.0, 24.0, 20.0))
-        .background(WIN_BG)
+        .background(Painter::new(|ctx, _, env| {
+            let theme = theme_from_env(env);
+            let size = ctx.size();
+            ctx.fill(size.to_rect(), &theme.win_bg);
+        }))
         .expand()
 }
 
 pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
-    use super::{colors::TEXT_SECONDARY, selectors::SAVE_SHORTCUT};
+    use super::selectors::SAVE_SHORTCUT;
 
     let title_label = subtitle_label("shortcut.new");
-    let hint_label = text_label("shortcut.hint", 11.0, TEXT_SECONDARY, 14.0);
+    let hint_label = text_label("shortcut.hint", 11.0, |t| t.text_secondary, 14.0);
 
     let buttons = dialog_buttons(
         cancel_btn().on_click(|ctx, _: &mut UIDataAdapter, _| {
             ctx.window().close();
         }),
-        action_btn("button.save", |d| !d.pending_shortcut_display.is_empty())
-            .on_click(|ctx, data: &mut UIDataAdapter, _| {
+        action_btn("button.save", |d| !d.pending_shortcut_display.is_empty()).on_click(
+            |ctx, data: &mut UIDataAdapter, _| {
                 if !data.pending_shortcut_display.is_empty() {
                     ctx.submit_command(
                         SAVE_SHORTCUT
@@ -810,7 +832,8 @@ pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
                     );
                     ctx.window().close();
                 }
-            }),
+            },
+        ),
     );
 
     Flex::column()
@@ -821,7 +844,6 @@ pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
         .with_spacer(16.0)
         .with_child(
             Container::new(ShortcutCaptureWidget::new())
-                .background(Color::WHITE)
                 .border(Color::rgb8(204, 204, 204), 1.0)
                 .rounded(8.0)
                 .fix_height(52.0)
@@ -830,6 +852,10 @@ pub fn edit_shortcut_dialog_ui_builder() -> impl Widget<UIDataAdapter> {
         .with_flex_spacer(1.0)
         .with_child(buttons)
         .padding((24.0, 20.0, 24.0, 20.0))
-        .background(WIN_BG)
+        .background(Painter::new(|ctx, _, env| {
+            let theme = theme_from_env(env);
+            let size = ctx.size();
+            ctx.fill(size.to_rect(), &theme.win_bg);
+        }))
         .expand()
 }

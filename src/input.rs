@@ -77,8 +77,7 @@ fn apply_cap_pattern(s: &str, pattern: CapPattern) -> String {
 fn mask_standalone_w(buffer: &str) -> String {
     // Characters that can accept Horn (w) modification: u, o and all their toned forms.
     // Characters that can accept Breve (w) modification: a and all its toned forms.
-    const HORN_BREVE_ELIGIBLE: &str =
-        "uoaUOA\u{01b0}\u{01a1}\u{0103}\
+    const HORN_BREVE_ELIGIBLE: &str = "uoaUOA\u{01b0}\u{01a1}\u{0103}\
          \u{00fa}\u{00f3}\u{00e1}\u{00f9}\u{00f2}\u{00e0}\
          \u{1ee7}\u{1ecf}\u{1ea3}\u{0169}\u{00f5}\u{00e3}\u{1ecd}\u{1ea1}\
          \u{00da}\u{00d3}\u{00c1}\u{00d9}\u{00d2}\u{00c0}\
@@ -640,7 +639,9 @@ impl InputState {
             let mut output = String::new();
             let transform_result = match method {
                 TypingMethod::VNI => vi::vni::transform_buffer(buffer.chars(), &mut output),
-                TypingMethod::Telex | TypingMethod::TelexVNI => vi::telex::transform_buffer(buffer.chars(), &mut output),
+                TypingMethod::Telex | TypingMethod::TelexVNI => {
+                    vi::telex::transform_buffer(buffer.chars(), &mut output)
+                }
             };
             // Restore masked standalone w's back to literal 'w'/'W'
             let output = if is_w_literal {
@@ -1046,5 +1047,4 @@ mod tracking_tests {
         assert!(state.is_tracking());
         assert_eq!(state.get_typing_buffer(), "test");
     }
-
 }

@@ -9,18 +9,13 @@ use druid::{
 };
 
 use super::{
-    locale::t,
     colors::{
-        BADGE_BG, BADGE_BORDER, BADGE_EN_BG, BADGE_EN_BORDER, BADGE_VI_BG, BADGE_VI_BORDER,
-        DIVIDER, GREEN, GREEN_BG, TEXT_PRIMARY, TEXT_SECONDARY,
+        theme_from_env, BADGE_EN_BG, BADGE_EN_BORDER, BADGE_VI_BG, BADGE_VI_BORDER, GREEN, GREEN_BG,
     },
     data::UIDataAdapter,
+    locale::t,
     selectors::TOGGLE_APP_MODE,
 };
-
-// ══════════════════════════════════════════════════════════════════════════════
-// ToggleSwitch
-// ══════════════════════════════════════════════════════════════════════════════
 
 pub(super) struct ToggleSwitch;
 
@@ -61,15 +56,12 @@ impl Widget<bool> for ToggleSwitch {
         Size::new(36.0, 20.0)
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &bool, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &bool, env: &Env) {
+        let theme = theme_from_env(env);
         let size = ctx.size();
         let radius = size.height / 2.0;
         let track_rect = RoundedRect::new(0.0, 0.0, size.width, size.height, radius);
-        let track_color = if *data {
-            GREEN
-        } else {
-            Color::rgb8(187, 187, 187)
-        };
+        let track_color = if *data { GREEN } else { theme.toggle_off };
         ctx.fill(track_rect, &track_color);
 
         let knob_r = radius - 2.0;
@@ -80,10 +72,6 @@ impl Widget<bool> for ToggleSwitch {
         );
     }
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// StyledCheckbox
-// ══════════════════════════════════════════════════════════════════════════════
 
 pub(super) struct StyledCheckbox;
 
@@ -124,7 +112,8 @@ impl Widget<bool> for StyledCheckbox {
         Size::new(18.0, 18.0)
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &bool, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &bool, env: &Env) {
+        let theme = theme_from_env(env);
         let box_rect = RoundedRect::new(1.0, 1.0, 17.0, 17.0, 4.0);
         if *data {
             ctx.fill(box_rect, &GREEN);
@@ -134,15 +123,11 @@ impl Widget<bool> for StyledCheckbox {
             path.line_to((14.0, 5.5));
             ctx.stroke(path, &Color::WHITE, 1.8);
         } else {
-            ctx.fill(box_rect, &Color::WHITE);
-            ctx.stroke(box_rect, &Color::rgb8(204, 204, 204), 1.0);
+            ctx.fill(box_rect, &theme.input_bg);
+            ctx.stroke(box_rect, &theme.checkbox_border, 1.0);
         }
     }
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// InfoTooltip
-// ══════════════════════════════════════════════════════════════════════════════
 
 pub(super) struct InfoTooltip {
     text: &'static str,
@@ -151,7 +136,10 @@ pub(super) struct InfoTooltip {
 
 impl InfoTooltip {
     pub fn new(text: &'static str) -> Self {
-        Self { text, is_hovered: false }
+        Self {
+            text,
+            is_hovered: false,
+        }
     }
 }
 
@@ -161,9 +149,6 @@ impl<T: druid::Data> Widget<T> for InfoTooltip {
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, _data: &T, _env: &Env) {
         if let LifeCycle::HotChanged(hot) = event {
             self.is_hovered = *hot;
-            // Invalidate both the widget rect and the tooltip area above it.
-            // Tooltip is rendered at negative y (above the widget) via paint_with_z_index,
-            // so the repaint region must cover that area or it won't be cleared.
             ctx.request_paint_rect(Rect::new(-260.0, -100.0, 20.0, 20.0));
         }
     }
@@ -171,34 +156,35 @@ impl<T: druid::Data> Widget<T> for InfoTooltip {
     fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &T, _data: &T, _env: &Env) {}
 
     fn layout(&mut self, ctx: &mut LayoutCtx, _bc: &BoxConstraints, _data: &T, _env: &Env) -> Size {
-        // Tell Druid this widget paints outside its layout bounds (tooltip above/left).
-        // This propagates up through parent widgets (Padding, Flex, Container) so
-        // the parent's paint_insets expand to include the tooltip area, allowing
-        // request_paint_rect with negative coords to survive merge_up clipping.
         ctx.set_paint_insets(druid::Insets::new(260.0, 100.0, 0.0, 0.0));
         Size::new(18.0, 18.0)
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, _data: &T, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, _data: &T, env: &Env) {
+        let theme = theme_from_env(env);
         let size = ctx.size();
         let cx = size.width / 2.0;
         let cy = size.height / 2.0;
         let circle = Circle::new((cx, cy), 8.0);
-        ctx.stroke(circle, &TEXT_SECONDARY, 1.0);
+        ctx.stroke(circle, &theme.text_secondary, 1.0);
         let layout = ctx
             .text()
             .new_text_layout("?")
             .font(FontFamily::SYSTEM_UI, 11.0)
-            .text_color(TEXT_SECONDARY)
+            .text_color(theme.text_secondary)
             .build()
             .unwrap();
         ctx.draw_text(
             &layout,
-            (cx - layout.size().width / 2.0, cy - layout.size().height / 2.0),
+            (
+                cx - layout.size().width / 2.0,
+                cy - layout.size().height / 2.0,
+            ),
         );
 
         if self.is_hovered {
             let tooltip_text = self.text;
+            let tooltip_bg = theme.tooltip_bg;
             ctx.paint_with_z_index(10, move |ctx| {
                 let text_layout = ctx
                     .text()
@@ -212,22 +198,15 @@ impl<T: druid::Data> Widget<T> for InfoTooltip {
                 let padding = 8.0;
                 let box_w = text_size.width + padding * 2.0;
                 let box_h = text_size.height + padding * 2.0;
-                // Widget-local coords: (0,0) is this widget's top-left.
-                // Right-align tooltip to the icon's right edge (18px wide),
-                // and place it above the icon with a small gap.
                 let box_x = 18.0 - box_w;
                 let box_y = -box_h - 4.0;
                 let bg_rect = RoundedRect::new(box_x, box_y, box_x + box_w, box_y + box_h, 6.0);
-                ctx.fill(bg_rect, &Color::rgb8(40, 40, 40));
+                ctx.fill(bg_rect, &tooltip_bg);
                 ctx.draw_text(&text_layout, (box_x + padding, box_y + padding));
             });
         }
     }
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// SegmentedControl
-// ══════════════════════════════════════════════════════════════════════════════
 
 pub(super) struct SegmentedControl {
     options: Vec<(String, TypingMethod)>,
@@ -301,25 +280,25 @@ impl Widget<TypingMethod> for SegmentedControl {
         Size::new(w, h)
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &TypingMethod, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &TypingMethod, env: &Env) {
+        let theme = theme_from_env(env);
         for (i, (label, method)) in self.options.iter().enumerate() {
             let rect = self.rects[i];
             let is_active = method == data;
             let rr = RoundedRect::new(rect.x0, rect.y0, rect.x1, rect.y1, 8.0);
 
-            ctx.fill(rr, &Color::WHITE);
-            ctx.stroke(rr, &Color::rgb8(221, 221, 221), 1.5);
+            ctx.fill(rr, &theme.segmented_bg);
+            ctx.stroke(rr, &theme.segmented_border, 1.5);
 
             if is_active {
                 ctx.fill(rr, &GREEN_BG);
                 ctx.stroke(rr, &GREEN, 1.5);
             }
 
-            // Label text
             let text_color = if is_active {
                 GREEN
             } else {
-                Color::rgb8(136, 136, 136)
+                theme.segmented_text
             };
             let layout = ctx
                 .text()
@@ -332,13 +311,12 @@ impl Widget<TypingMethod> for SegmentedControl {
             let text_y = rect.y0 + (rect.height() - layout.size().height) / 2.0 - 1.0;
             ctx.draw_text(&layout, (text_x, text_y));
 
-            // Radio dot
             let dot_cx = text_x - 14.0;
             let dot_cy = rect.y0 + rect.height() / 2.0;
             let ring_color = if is_active {
                 GREEN
             } else {
-                Color::rgb8(187, 187, 187)
+                theme.segmented_ring
             };
             ctx.stroke(Circle::new((dot_cx, dot_cy), 5.0), &ring_color, 1.5);
             if is_active {
@@ -347,10 +325,6 @@ impl Widget<TypingMethod> for SegmentedControl {
         }
     }
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// U32SegmentedControl
-// ══════════════════════════════════════════════════════════════════════════════
 
 pub(super) struct U32SegmentedControl {
     options: Vec<(&'static str, u32)>,
@@ -387,7 +361,13 @@ impl Widget<u32> for U32SegmentedControl {
         }
     }
 
-    fn layout(&mut self, _ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &u32, _env: &Env) -> Size {
+    fn layout(
+        &mut self,
+        _ctx: &mut LayoutCtx,
+        bc: &BoxConstraints,
+        _data: &u32,
+        _env: &Env,
+    ) -> Size {
         let w = bc.max().width;
         let h = 34.0;
         let n = self.options.len() as f64;
@@ -402,14 +382,15 @@ impl Widget<u32> for U32SegmentedControl {
         Size::new(w, h)
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &u32, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &u32, env: &Env) {
+        let theme = theme_from_env(env);
         for (i, (label, value)) in self.options.iter().enumerate() {
             let rect = self.rects[i];
             let is_active = value == data;
             let rr = RoundedRect::new(rect.x0, rect.y0, rect.x1, rect.y1, 8.0);
 
-            ctx.fill(rr, &Color::WHITE);
-            ctx.stroke(rr, &Color::rgb8(221, 221, 221), 1.5);
+            ctx.fill(rr, &theme.segmented_bg);
+            ctx.stroke(rr, &theme.segmented_border, 1.5);
 
             if is_active {
                 ctx.fill(rr, &GREEN_BG);
@@ -419,7 +400,7 @@ impl Widget<u32> for U32SegmentedControl {
             let text_color = if is_active {
                 GREEN
             } else {
-                Color::rgb8(136, 136, 136)
+                theme.segmented_text
             };
             let layout = ctx
                 .text()
@@ -437,7 +418,7 @@ impl Widget<u32> for U32SegmentedControl {
             let ring_color = if is_active {
                 GREEN
             } else {
-                Color::rgb8(187, 187, 187)
+                theme.segmented_ring
             };
             ctx.stroke(Circle::new((dot_cx, dot_cy), 5.0), &ring_color, 1.5);
             if is_active {
@@ -446,10 +427,6 @@ impl Widget<u32> for U32SegmentedControl {
         }
     }
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// TabBar
-// ══════════════════════════════════════════════════════════════════════════════
 
 pub(super) struct TabBar {
     tab_rects: Vec<Rect>,
@@ -483,7 +460,6 @@ impl TabBar {
     }
 
     fn draw_icon_text_expansion(ctx: &mut PaintCtx, cx: f64, cy: f64, color: &Color) {
-        // "{" left brace
         let mut brace = BezPath::new();
         brace.move_to((cx - 9.0, cy - 4.5));
         brace.line_to((cx - 11.0, cy - 4.5));
@@ -493,7 +469,6 @@ impl TabBar {
         brace.line_to((cx - 11.0, cy + 4.5));
         brace.line_to((cx - 9.0, cy + 4.5));
         ctx.stroke(brace, color, 1.3);
-        // Arrow →
         let mut arrow = BezPath::new();
         arrow.move_to((cx - 6.0, cy));
         arrow.line_to((cx + 2.0, cy));
@@ -501,7 +476,6 @@ impl TabBar {
         arrow.line_to((cx + 2.5, cy));
         arrow.line_to((cx - 1.0, cy + 2.5));
         ctx.stroke(arrow, color, 1.3);
-        // "}" right brace
         let mut brace2 = BezPath::new();
         brace2.move_to((cx + 5.0, cy - 4.5));
         brace2.line_to((cx + 7.0, cy - 4.5));
@@ -551,12 +525,13 @@ impl Widget<u32> for TabBar {
         Size::new(w, h)
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &u32, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &u32, env: &Env) {
         use druid::kurbo::Line;
+        let theme = theme_from_env(env);
         let size = ctx.size();
         ctx.stroke(
             Line::new((0.0, size.height), (size.width, size.height)),
-            &Color::rgb8(221, 221, 221),
+            &theme.tab_border,
             0.5,
         );
 
@@ -569,11 +544,7 @@ impl Widget<u32> for TabBar {
 
         for (i, rect) in self.tab_rects.iter().enumerate() {
             let is_active = i as u32 == *data;
-            let color = if is_active {
-                GREEN
-            } else {
-                Color::rgb8(153, 153, 153)
-            };
+            let color = if is_active { GREEN } else { theme.tab_inactive };
             let cx = rect.x0 + rect.width() / 2.0;
             let icon_cy = rect.y0 + 18.0;
 
@@ -597,10 +568,6 @@ impl Widget<u32> for TabBar {
         }
     }
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// KeyBadge
-// ══════════════════════════════════════════════════════════════════════════════
 
 pub(super) struct KeyBadge {
     label: String,
@@ -630,17 +597,18 @@ impl Widget<()> for KeyBadge {
         Size::new((char_w + 14.0).max(26.0), 24.0)
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, _data: &(), _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, _data: &(), env: &Env) {
+        let theme = theme_from_env(env);
         let size = ctx.size();
         let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 5.0);
-        ctx.fill(rr, &BADGE_BG);
-        ctx.stroke(rr, &BADGE_BORDER, 0.5);
+        ctx.fill(rr, &theme.badge_bg);
+        ctx.stroke(rr, &theme.badge_border, 0.5);
 
         let layout = ctx
             .text()
             .new_text_layout(self.label.clone())
             .font(FontFamily::SYSTEM_UI, 12.0)
-            .text_color(Color::rgb8(85, 85, 85))
+            .text_color(theme.badge_text)
             .build()
             .unwrap();
         let lw = layout.size().width;
@@ -648,10 +616,6 @@ impl Widget<()> for KeyBadge {
         ctx.draw_text(&layout, ((size.width - lw) / 2.0, (size.height - lh) / 2.0));
     }
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// HotkeyBadgesWidget
-// ══════════════════════════════════════════════════════════════════════════════
 
 pub(super) struct HotkeyBadgesWidget {
     badges: Vec<WidgetPod<(), KeyBadge>>,
@@ -749,7 +713,6 @@ impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
             return;
         }
 
-        // Detect double-click to enter recording mode
         if let Event::MouseDown(mouse) = event {
             if mouse.count == 2 {
                 self.recording = true;
@@ -822,6 +785,7 @@ impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
     }
 
     fn paint(&mut self, ctx: &mut PaintCtx, data: &UIDataAdapter, env: &Env) {
+        let theme = theme_from_env(env);
         if self.recording {
             let size = ctx.size();
             let label = if self.pending_display.is_empty() {
@@ -830,9 +794,9 @@ impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
                 self.pending_display.clone()
             };
             let text_color = if self.pending_display.is_empty() {
-                Color::rgba8(0, 0, 0, 80)
+                theme.input_placeholder
             } else {
-                Color::rgb8(85, 85, 85)
+                theme.input_text
             };
             let layout = ctx
                 .text()
@@ -855,10 +819,6 @@ impl Widget<UIDataAdapter> for HotkeyBadgesWidget {
         }
     }
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-// MacroListWidget
-// ══════════════════════════════════════════════════════════════════════════════
 
 pub(super) struct MacroListWidget {
     row_rects: Vec<Rect>,
@@ -932,15 +892,15 @@ impl Widget<UIDataAdapter> for MacroListWidget {
         )
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &UIDataAdapter, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &UIDataAdapter, env: &Env) {
+        let theme = theme_from_env(env);
         let size = ctx.size();
 
-        // Header row
         let shorthand_header = ctx
             .text()
             .new_text_layout(t("macro.shorthand"))
             .font(FontFamily::SYSTEM_UI, 11.0)
-            .text_color(TEXT_SECONDARY)
+            .text_color(theme.text_secondary)
             .build()
             .unwrap();
         ctx.draw_text(
@@ -955,7 +915,7 @@ impl Widget<UIDataAdapter> for MacroListWidget {
             .text()
             .new_text_layout(t("macro.replacement"))
             .font(FontFamily::SYSTEM_UI, 11.0)
-            .text_color(TEXT_SECONDARY)
+            .text_color(theme.text_secondary)
             .build()
             .unwrap();
         let to_x = size.width / 2.0 + 20.0;
@@ -967,7 +927,6 @@ impl Widget<UIDataAdapter> for MacroListWidget {
             ),
         );
 
-        // Header bottom divider
         ctx.fill(
             Rect::new(
                 0.0,
@@ -975,7 +934,7 @@ impl Widget<UIDataAdapter> for MacroListWidget {
                 size.width,
                 MACRO_HEADER_HEIGHT,
             ),
-            &DIVIDER,
+            &theme.divider,
         );
 
         for (i, entry) in data.macro_table.iter().enumerate() {
@@ -985,23 +944,22 @@ impl Widget<UIDataAdapter> for MacroListWidget {
             if is_selected {
                 ctx.fill(
                     RoundedRect::new(rect.x0, rect.y0, rect.x1, rect.y1, 0.0),
-                    &Color::rgba8(0, 0, 0, 8),
+                    &theme.list_row_hover,
                 );
             }
 
             if i > 0 {
                 ctx.fill(
                     Rect::new(14.0, rect.y0, size.width - 14.0, rect.y0 + 0.5),
-                    &DIVIDER,
+                    &theme.divider,
                 );
             }
 
-            // "From" label (shorthand)
             let from_layout = ctx
                 .text()
                 .new_text_layout(entry.from.clone())
                 .font(FontFamily::SYSTEM_UI, 13.0)
-                .text_color(TEXT_PRIMARY)
+                .text_color(theme.text_primary)
                 .build()
                 .unwrap();
             ctx.draw_text(
@@ -1012,12 +970,11 @@ impl Widget<UIDataAdapter> for MacroListWidget {
                 ),
             );
 
-            // Arrow "→" separator
             let arrow_layout = ctx
                 .text()
                 .new_text_layout("→")
                 .font(FontFamily::SYSTEM_UI, 12.0)
-                .text_color(TEXT_SECONDARY)
+                .text_color(theme.text_secondary)
                 .build()
                 .unwrap();
             let arrow_x = size.width / 2.0 - arrow_layout.size().width / 2.0;
@@ -1029,12 +986,11 @@ impl Widget<UIDataAdapter> for MacroListWidget {
                 ),
             );
 
-            // "To" label (replacement)
             let to_layout = ctx
                 .text()
                 .new_text_layout(entry.to.clone())
                 .font(FontFamily::SYSTEM_UI, 13.0)
-                .text_color(TEXT_PRIMARY)
+                .text_color(theme.text_primary)
                 .build()
                 .unwrap();
             ctx.draw_text(
@@ -1048,10 +1004,6 @@ impl Widget<UIDataAdapter> for MacroListWidget {
     }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// AppsListWidget
-// ══════════════════════════════════════════════════════════════════════════════
-
 pub(super) struct CombinedAppEntry {
     pub(super) display_name: String,
     pub(super) full_name: String,
@@ -1062,7 +1014,6 @@ pub(super) struct AppsListWidget {
     row_rects: Vec<Rect>,
     badge_rects: Vec<Rect>,
     avatar_colors: Vec<Color>,
-    /// Cached RGBA pixel data per app path. `None` means we tried and failed.
     icon_cache: HashMap<String, Option<(Vec<u8>, u32, u32)>>,
 }
 
@@ -1083,7 +1034,6 @@ impl AppsListWidget {
             icon_cache: HashMap::new(),
         }
     }
-
 
     pub(super) fn build_entries(data: &UIDataAdapter) -> Vec<CombinedAppEntry> {
         let to_entry = |e: &crate::ui::data::AppEntry, is_vn: bool| CombinedAppEntry {
@@ -1122,7 +1072,6 @@ impl AppsListWidget {
 impl Widget<UIDataAdapter> for AppsListWidget {
     fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut UIDataAdapter, _env: &Env) {
         if let Event::MouseDown(mouse) = event {
-            // Check badge option clicks first (badge_rects has 2 entries per row: [vi, en])
             let entries = Self::build_entries(data);
             for i in 0..entries.len() {
                 let vi_rect = self.badge_rects.get(i * 2);
@@ -1143,7 +1092,6 @@ impl Widget<UIDataAdapter> for AppsListWidget {
                     return;
                 }
             }
-            // Row selection
             for (i, rect) in self.row_rects.iter().enumerate() {
                 if rect.contains(mouse.pos) {
                     data.selected_app_index = i as i32;
@@ -1186,7 +1134,6 @@ impl Widget<UIDataAdapter> for AppsListWidget {
     ) -> Size {
         let entries = Self::build_entries(data);
         let w = bc.max().width;
-        // Segmented VI | EN toggle: each option ~28px wide, 22px tall, 2px gap, right-padded 14px
         let opt_w = 28.0_f64;
         let bh = 22.0_f64;
         let gap = 2.0_f64;
@@ -1216,12 +1163,11 @@ impl Widget<UIDataAdapter> for AppsListWidget {
         Size::new(w, (entries.len() as f64 * ROW_HEIGHT).max(0.0))
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &UIDataAdapter, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &UIDataAdapter, env: &Env) {
+        let theme = theme_from_env(env);
         let entries = Self::build_entries(data);
         let size = ctx.size();
 
-        // Preload icons into cache before the paint loop.
-        // Request 72px (2x) so icons are sharp on Retina displays.
         for entry in &entries {
             if !self.icon_cache.contains_key(&entry.full_name) {
                 let icon = crate::platform::get_app_icon_rgba(&entry.full_name, 72);
@@ -1236,41 +1182,36 @@ impl Widget<UIDataAdapter> for AppsListWidget {
             if is_selected {
                 ctx.fill(
                     RoundedRect::new(rect.x0, rect.y0, rect.x1, rect.y1, 0.0),
-                    &Color::rgba8(0, 0, 0, 8),
+                    &theme.list_row_hover,
                 );
             }
 
             if i > 0 {
                 ctx.fill(
                     Rect::new(54.0, rect.y0, size.width - 14.0, rect.y0 + 0.5),
-                    &DIVIDER,
+                    &theme.divider,
                 );
             }
 
-            // Avatar — use app icon if available, fall back to colored initials
             let avatar_x = 14.0;
             let avatar_y = rect.y0 + (ROW_HEIGHT - 36.0) / 2.0;
             let avatar_rect =
                 RoundedRect::new(avatar_x, avatar_y, avatar_x + 36.0, avatar_y + 36.0, 8.0);
 
-            let icon_drawn = if let Some(Some((pixels, w, h))) =
-                self.icon_cache.get(&entry.full_name)
-            {
-                if let Ok(image) = ctx.make_image(
-                    *w as usize,
-                    *h as usize,
-                    pixels,
-                    ImageFormat::RgbaPremul,
-                ) {
-                    let dst = Rect::new(avatar_x, avatar_y, avatar_x + 36.0, avatar_y + 36.0);
-                    ctx.draw_image(&image, dst, InterpolationMode::Bilinear);
-                    true
+            let icon_drawn =
+                if let Some(Some((pixels, w, h))) = self.icon_cache.get(&entry.full_name) {
+                    if let Ok(image) =
+                        ctx.make_image(*w as usize, *h as usize, pixels, ImageFormat::RgbaPremul)
+                    {
+                        let dst = Rect::new(avatar_x, avatar_y, avatar_x + 36.0, avatar_y + 36.0);
+                        ctx.draw_image(&image, dst, InterpolationMode::Bilinear);
+                        true
+                    } else {
+                        false
+                    }
                 } else {
                     false
-                }
-            } else {
-                false
-            };
+                };
 
             if !icon_drawn {
                 ctx.fill(
@@ -1294,12 +1235,11 @@ impl Widget<UIDataAdapter> for AppsListWidget {
                 );
             }
 
-            // App name
             let name_layout = ctx
                 .text()
                 .new_text_layout(entry.display_name.clone())
                 .font(FontFamily::SYSTEM_UI, 14.0)
-                .text_color(TEXT_PRIMARY)
+                .text_color(theme.text_primary)
                 .build()
                 .unwrap();
             ctx.draw_text(
@@ -1310,7 +1250,6 @@ impl Widget<UIDataAdapter> for AppsListWidget {
                 ),
             );
 
-            // Segmented VI | EN toggle
             let opt_w = 28.0_f64;
             let bh = 22.0_f64;
             let gap = 2.0_f64;
@@ -1344,13 +1283,13 @@ impl Widget<UIDataAdapter> for AppsListWidget {
                     ctx.stroke(opt_rect, active_border, 1.0);
                 } else {
                     ctx.fill(opt_rect, &Color::rgba8(0, 0, 0, 0));
-                    ctx.stroke(opt_rect, &Color::rgb8(210, 210, 210), 1.0);
+                    ctx.stroke(opt_rect, &theme.segmented_border, 1.0);
                 }
 
                 let text_color = if *is_active {
                     *active_border
                 } else {
-                    Color::rgb8(170, 170, 170)
+                    theme.segmented_text
                 };
                 let opt_layout = ctx
                     .text()
@@ -1371,17 +1310,8 @@ impl Widget<UIDataAdapter> for AppsListWidget {
     }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// ShortcutCaptureWidget
-// ══════════════════════════════════════════════════════════════════════════════
-
-/// A widget that captures keyboard input to define a new shortcut.
-/// Modifier-only shortcuts (e.g. Ctrl+Shift) are supported: they are committed
-/// when all modifier keys are released after being held together.
 pub(super) struct ShortcutCaptureWidget {
     focused: bool,
-    /// Modifiers captured during the last KeyDown — used when committing on KeyUp,
-    /// because by then the OS may have already cleared some modifier bits.
     last_mods_super: bool,
     last_mods_ctrl: bool,
     last_mods_alt: bool,
@@ -1405,17 +1335,21 @@ impl Widget<UIDataAdapter> for ShortcutCaptureWidget {
         match event {
             Event::MouseDown(_) => {
                 ctx.request_focus();
+                data.pending_shortcut_display = String::new();
+                data.pending_shortcut_super = false;
+                data.pending_shortcut_ctrl = false;
+                data.pending_shortcut_alt = false;
+                data.pending_shortcut_shift = false;
+                data.pending_shortcut_letter = String::new();
                 ctx.set_handled();
             }
             Event::KeyDown(key_event) if self.focused => {
                 use druid::KbKey;
-                // Snapshot modifiers now — they are reliably set during key-down.
                 self.last_mods_super = key_event.mods.meta();
                 self.last_mods_ctrl = key_event.mods.ctrl();
                 self.last_mods_alt = key_event.mods.alt();
                 self.last_mods_shift = key_event.mods.shift();
 
-                // Build a live display string from currently held keys
                 let mut parts: Vec<&str> = Vec::new();
                 if key_event.mods.ctrl() {
                     parts.push("⌃");
@@ -1434,47 +1368,25 @@ impl Widget<UIDataAdapter> for ShortcutCaptureWidget {
                     KbKey::Character(s) => s.to_uppercase(),
                     KbKey::Enter => "Enter".to_string(),
                     KbKey::Tab => "Tab".to_string(),
-                    KbKey::Backspace => "Del".to_string(),
-                    KbKey::Escape => "Esc".to_string(),
-                    KbKey::Control | KbKey::Shift | KbKey::Alt | KbKey::Meta | KbKey::Super => {
-                        String::new()
-                    }
-                    _ => String::new(),
-                };
-                let display = if key_str.is_empty() {
-                    parts.join(" ")
-                } else {
-                    parts.join(" ") + if parts.is_empty() { "" } else { " " } + &key_str
-                };
-                data.pending_shortcut_display = display;
-
-                // Commit the full shortcut on KeyDown so it's ready even if Save is
-                // clicked before the key is released.
-                data.pending_shortcut_super = self.last_mods_super;
-                data.pending_shortcut_ctrl = self.last_mods_ctrl;
-                data.pending_shortcut_alt = self.last_mods_alt;
-                data.pending_shortcut_shift = self.last_mods_shift;
-                data.pending_shortcut_letter = match &key_event.key {
-                    KbKey::Character(s) => super::format_letter_key(s.chars().last()),
-                    KbKey::Enter => "Enter".to_string(),
-                    KbKey::Tab => "Tab".to_string(),
                     KbKey::Backspace => "Delete".to_string(),
                     KbKey::Escape => "Esc".to_string(),
-                    // Pure modifier — letter stays empty
-                    KbKey::Control
-                    | KbKey::Shift
-                    | KbKey::Alt
-                    | KbKey::Meta
-                    | KbKey::Super => String::new(),
                     _ => String::new(),
                 };
-
+                if !key_str.is_empty() {
+                    data.pending_shortcut_display =
+                        parts.join(" ") + if parts.is_empty() { "" } else { " " } + &key_str;
+                    data.pending_shortcut_super = self.last_mods_super;
+                    data.pending_shortcut_ctrl = self.last_mods_ctrl;
+                    data.pending_shortcut_alt = self.last_mods_alt;
+                    data.pending_shortcut_shift = self.last_mods_shift;
+                    data.pending_shortcut_letter = key_str;
+                }
                 ctx.request_paint();
                 ctx.set_handled();
             }
             Event::KeyUp(key_event) if self.focused => {
                 use druid::KbKey;
-                let is_modifier = matches!(
+                let is_modifier_only = matches!(
                     &key_event.key,
                     KbKey::Control
                         | KbKey::Shift
@@ -1483,44 +1395,14 @@ impl Widget<UIDataAdapter> for ShortcutCaptureWidget {
                         | KbKey::CapsLock
                         | KbKey::Super
                 );
-
-                if is_modifier {
-                    // Only update modifier fields when it's a pure modifier-only shortcut
-                    // (no letter key was captured). If a letter was already committed on
-                    // KeyDown, leave everything as-is.
-                    let remaining_mods_empty = !key_event.mods.ctrl()
-                        && !key_event.mods.shift()
-                        && !key_event.mods.alt()
-                        && !key_event.mods.meta();
-                    if remaining_mods_empty
-                        && !data.pending_shortcut_display.is_empty()
-                        && data.pending_shortcut_letter.is_empty()
-                    {
-                        data.pending_shortcut_super = self.last_mods_super
-                            || matches!(&key_event.key, KbKey::Meta | KbKey::Super);
-                        data.pending_shortcut_ctrl = self.last_mods_ctrl
-                            || matches!(&key_event.key, KbKey::Control);
-                        data.pending_shortcut_alt =
-                            self.last_mods_alt || matches!(&key_event.key, KbKey::Alt);
-                        data.pending_shortcut_shift =
-                            self.last_mods_shift || matches!(&key_event.key, KbKey::Shift);
-                    }
-                } else {
-                    // Non-modifier key released → commit using snapshotted modifiers.
+                if is_modifier_only && !data.pending_shortcut_display.is_empty() {
                     data.pending_shortcut_super = self.last_mods_super;
                     data.pending_shortcut_ctrl = self.last_mods_ctrl;
                     data.pending_shortcut_alt = self.last_mods_alt;
                     data.pending_shortcut_shift = self.last_mods_shift;
-                    data.pending_shortcut_letter = match &key_event.key {
-                        KbKey::Character(s) => super::format_letter_key(s.chars().last()),
-                        KbKey::Enter => "Enter".to_string(),
-                        KbKey::Tab => "Tab".to_string(),
-                        KbKey::Backspace => "Delete".to_string(),
-                        KbKey::Escape => "Esc".to_string(),
-                        _ => data.pending_shortcut_letter.clone(),
-                    };
+                    self.focused = false;
+                    ctx.resign_focus();
                 }
-                ctx.request_paint();
                 ctx.set_handled();
             }
             _ => {}
@@ -1535,12 +1417,13 @@ impl Widget<UIDataAdapter> for ShortcutCaptureWidget {
         _env: &Env,
     ) {
         match event {
-            LifeCycle::WidgetAdded => {
-                ctx.register_for_focus();
+            LifeCycle::FocusChanged(true) => {
+                self.focused = true;
+                ctx.request_paint();
             }
-            LifeCycle::FocusChanged(gained) => {
-                self.focused = *gained;
-                ctx.request_layout();
+            LifeCycle::FocusChanged(false) => {
+                self.focused = false;
+                ctx.request_paint();
             }
             _ => {}
         }
@@ -1549,13 +1432,11 @@ impl Widget<UIDataAdapter> for ShortcutCaptureWidget {
     fn update(
         &mut self,
         ctx: &mut UpdateCtx,
-        old_data: &UIDataAdapter,
-        data: &UIDataAdapter,
+        _old: &UIDataAdapter,
+        _data: &UIDataAdapter,
         _env: &Env,
     ) {
-        if old_data.pending_shortcut_display != data.pending_shortcut_display {
-            ctx.request_paint();
-        }
+        ctx.request_paint();
     }
 
     fn layout(
@@ -1568,35 +1449,30 @@ impl Widget<UIDataAdapter> for ShortcutCaptureWidget {
         Size::new(bc.max().width, 52.0)
     }
 
-    fn paint(&mut self, ctx: &mut PaintCtx, data: &UIDataAdapter, _env: &Env) {
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &UIDataAdapter, env: &Env) {
+        let theme = theme_from_env(env);
         let size = ctx.size();
 
-        // Focus ring
-        if self.focused {
-            let rr = RoundedRect::new(0.0, 0.0, size.width, size.height, 8.0);
-            ctx.stroke(rr, &super::colors::GREEN, 2.0);
-        }
-
-        let (label, text_color) = if data.pending_shortcut_display.is_empty() {
-            (
-                if self.focused {
-                    t("shortcut.press_keys").to_string()
-                } else {
-                    t("shortcut.click_and_press").to_string()
-                },
-                Color::rgba8(0, 0, 0, 80),
-            )
+        let display = if self.focused {
+            if data.pending_shortcut_display.is_empty() {
+                t("shortcut.press_keys").to_string()
+            } else {
+                data.pending_shortcut_display.clone()
+            }
         } else {
-            (
-                data.pending_shortcut_display.clone(),
-                Color::rgb8(17, 17, 17),
-            )
+            t("shortcut.click_to_record").to_string()
+        };
+
+        let text_color = if self.focused && data.pending_shortcut_display.is_empty() {
+            theme.input_placeholder
+        } else {
+            theme.input_text
         };
 
         let layout = ctx
             .text()
-            .new_text_layout(label)
-            .font(FontFamily::SYSTEM_UI, 14.0)
+            .new_text_layout(display)
+            .font(FontFamily::SYSTEM_UI, 13.0)
             .text_color(text_color)
             .build()
             .unwrap();
