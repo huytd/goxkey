@@ -8,7 +8,7 @@ mod widgets;
 
 use druid::Selector;
 
-pub use colors::{get_theme, THEME};
+pub use colors::{get_theme, IS_DARK, THEME};
 pub use data::UIDataAdapter;
 pub use views::{
     add_macro_dialog_ui_builder, center_window_position, edit_shortcut_dialog_ui_builder,

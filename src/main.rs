@@ -15,13 +15,13 @@ use input::{
 use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
-    add_app_change_callback, dispatch_set_systray_title, ensure_accessibility_permission,
-    is_dark_mode, run_event_listener, send_arrow_left, send_arrow_right, send_backspace,
-    send_string, EventTapType, Handle, KeyModifier, PressedKey, KEY_DELETE, KEY_ENTER, KEY_ESCAPE,
-    KEY_SPACE, KEY_TAB, RAW_ARROW_DOWN, RAW_ARROW_LEFT, RAW_ARROW_RIGHT, RAW_ARROW_UP,
-    RAW_KEY_GLOBE,
+    add_app_change_callback, add_appearance_change_callback, dispatch_set_systray_title,
+    ensure_accessibility_permission, run_event_listener, send_arrow_left, send_arrow_right,
+    send_backspace, send_string, EventTapType, Handle, KeyModifier, PressedKey, KEY_DELETE,
+    KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, RAW_ARROW_DOWN, RAW_ARROW_LEFT, RAW_ARROW_RIGHT,
+    RAW_ARROW_UP, RAW_KEY_GLOBE,
 };
-use ui::{get_theme, UIDataAdapter, THEME, UPDATE_UI};
+use ui::{get_theme, UIDataAdapter, IS_DARK, THEME, UPDATE_UI};
 
 static UI_EVENT_SINK: OnceCell<ExtEventSink> = OnceCell::new();
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -499,7 +499,6 @@ fn main() {
         ui::locale::init_lang(config.get_ui_language());
     }
     let skip_permission = std::env::args().any(|a| a == "--skip-permission");
-    let is_dark = is_dark_mode();
     if !skip_permission && !ensure_accessibility_permission() {
         // Show the Accessibility Permission Request screen
         let win = WindowDesc::new(ui::permission_request_ui_builder())
@@ -526,10 +525,15 @@ fn main() {
         add_app_change_callback(|| {
             unsafe { auto_toggle_vietnamese() };
         });
-        let theme = get_theme(is_dark);
+        add_appearance_change_callback(|| {
+            if let Some(sink) = UI_EVENT_SINK.get() {
+                _ = sink.submit_command(UPDATE_UI, (), Target::Auto);
+            }
+        });
         _ = app
-            .configure_env(move |env: &mut druid::Env, _| {
-                env.set(THEME.clone(), std::sync::Arc::new(theme));
+            .configure_env(|env: &mut druid::Env, data: &UIDataAdapter| {
+                env.set(THEME.clone(), std::sync::Arc::new(get_theme(data.is_dark)));
+                env.set(IS_DARK.clone(), data.is_dark);
             })
             .launch(UIDataAdapter::new());
     }

@@ -36,6 +36,7 @@ pub struct Theme {
 }
 
 pub static THEME: Key<Arc<Theme>> = Key::new("goxkey.theme");
+pub static IS_DARK: Key<bool> = Key::new("goxkey.is_dark");
 
 pub fn light_theme() -> Theme {
     Theme {
@@ -110,7 +111,7 @@ pub fn get_theme(is_dark: bool) -> Theme {
 }
 
 pub fn theme_from_env(env: &Env) -> Theme {
-    (*env.get(&THEME)).clone()
+    get_theme(env.get(&IS_DARK))
 }
 
 pub const BADGE_VI_BG: Color = Color::rgba8(26, 138, 110, 20);

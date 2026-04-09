@@ -3,8 +3,8 @@ use druid::{
     kurbo::RoundedRect,
     piet::{FontFamily, Text, TextLayout, TextLayoutBuilder},
     widget::{
-        Button, Container, FillStrat, Flex, Image, Label, LineBreaking, List, Painter, Scroll,
-        TextBox, ViewSwitcher,
+        Button, Container, EnvScope, FillStrat, Flex, Image, Label, LineBreaking, List, Painter,
+        Scroll, TextBox, ViewSwitcher,
     },
     Application, Color, ImageBuf, Rect, RenderContext, Screen, Target, Widget, WidgetExt,
 };
@@ -12,6 +12,7 @@ use druid::{
 use super::{
     colors::{
         theme_from_env, Theme, BADGE_EN_BG, BADGE_EN_BORDER, BADGE_VI_BG, BADGE_VI_BORDER, GREEN,
+        IS_DARK,
     },
     controllers::UIController,
     data::{MacroEntry, UIDataAdapter},
@@ -606,7 +607,7 @@ fn macro_row_item() -> impl Widget<MacroEntry> {
 }
 
 pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
-    Flex::column()
+    let inner = Flex::column()
         .with_child(
             TabBar::new()
                 .lens(UIDataAdapter::active_tab)
@@ -629,7 +630,14 @@ pub fn main_ui_builder() -> impl Widget<UIDataAdapter> {
             let size = ctx.size();
             ctx.fill(size.to_rect(), &theme.win_bg);
         }))
-        .controller(UIController)
+        .controller(UIController);
+
+    EnvScope::new(
+        |env, data: &UIDataAdapter| {
+            env.set(IS_DARK.clone(), data.is_dark);
+        },
+        inner,
+    )
 }
 
 pub fn permission_request_ui_builder() -> impl Widget<()> {

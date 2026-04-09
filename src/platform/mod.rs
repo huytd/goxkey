@@ -7,7 +7,8 @@ use std::fmt::Display;
 
 use bitflags::bitflags;
 pub use os::{
-    add_app_change_callback, defer_open_app_file_picker, defer_open_text_file_picker,
+    add_app_change_callback, add_appearance_change_callback, defer_open_app_file_picker,
+    defer_open_text_file_picker,
     defer_save_text_file_picker, dispatch_set_systray_title, ensure_accessibility_permission,
     get_active_app_name, get_app_icon_rgba, get_home_dir, get_preferred_language, is_dark_mode,
     is_in_text_selection, is_launch_on_login, run_event_listener, send_arrow_left,

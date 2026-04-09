@@ -278,6 +278,13 @@ where
     macos_ext::add_app_change_callback(cb);
 }
 
+pub fn add_appearance_change_callback<F>(cb: F)
+where
+    F: Fn() + Send + 'static,
+{
+    macos_ext::add_appearance_change_callback(cb);
+}
+
 pub fn run_event_listener(callback: &CallbackFn) {
     let current = CFRunLoop::get_current();
     if let Ok(event_tap) = new_tap::CGEventTap::new(
