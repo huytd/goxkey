@@ -1,10 +1,9 @@
-use crate::{
-    input::{rebuild_keyboard_layout_map, INPUT_STATE},
-    platform::{
-        defer_open_text_file_picker, defer_save_text_file_picker, update_launch_on_login,
-        KeyModifier,
-    },
+use goxkey_core::INPUT_STATE;
+use crate::platform::{
+    defer_open_text_file_picker, defer_save_text_file_picker, rebuild_keyboard_layout_map,
+    update_launch_on_login,
 };
+use goxkey_core::KeyModifier;
 use druid::{Env, Event, EventCtx, Screen, UpdateCtx, Widget, WindowDesc, WindowLevel};
 use log::error;
 
@@ -205,7 +204,7 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                         if !INPUT_STATE.is_enabled() {
                             INPUT_STATE.toggle_vietnamese();
                         }
-                        INPUT_STATE.set_method(crate::input::TypingMethod::Telex);
+                        INPUT_STATE.set_method(goxkey_core::TypingMethod::Telex);
                         INPUT_STATE.set_hotkey("ctrl+space");
                     }
                     if let Err(err) = update_launch_on_login(true) {
@@ -289,7 +288,7 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                     2 => "en",
                     _ => "auto",
                 };
-                crate::config::CONFIG_MANAGER
+                goxkey_core::CONFIG_MANAGER
                     .lock()
                     .unwrap()
                     .set_ui_language(lang_str);

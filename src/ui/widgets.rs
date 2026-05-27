@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::input::TypingMethod;
+use goxkey_core::TypingMethod;
 use druid::{
     kurbo::{BezPath, Circle, RoundedRect},
     piet::{FontFamily, ImageFormat, InterpolationMode, Text, TextLayout, TextLayoutBuilder},

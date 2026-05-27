@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use goxkey_core::{TypingMethod, INPUT_STATE};
 use crate::{
-    input::{TypingMethod, INPUT_STATE},
     platform::{is_dark_mode, is_launch_on_login, SystemTray, SystemTrayMenuItemKey},
     update_systray_title_immediately, UI_EVENT_SINK,
 };
@@ -118,7 +118,7 @@ impl UIDataAdapter {
             self.is_w_literal_enabled = INPUT_STATE.is_w_literal_enabled();
             self.launch_on_login = is_launch_on_login();
             self.is_dark = is_dark_mode();
-            let config = crate::config::CONFIG_MANAGER.lock().unwrap();
+            let config = goxkey_core::CONFIG_MANAGER.lock().unwrap();
             self.ui_language = match config.get_ui_language() {
                 "vi" => 1,
                 "en" => 2,
