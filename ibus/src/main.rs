@@ -108,6 +108,7 @@ impl IBusEngine for GoxkeyEngine {
                 if input.is_enabled() && !input.is_buffer_empty() {
                     self.commit_and_clear(&se).await?;
                 }
+                input.new_word();
                 return Ok(false);
             }
 
