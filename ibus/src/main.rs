@@ -27,11 +27,13 @@ fn is_input_char(c: char) -> bool {
 }
 
 #[derive(Debug, Clone)]
-struct GoxkeyEngine;
+struct GoxkeyEngine {
+    last_preedit: String,
+}
 
 impl GoxkeyEngine {
     async unsafe fn update_and_show_preedit(
-        &self,
+        &mut self,
         se: &SignalEmitter<'_>,
     ) -> Result<(), ZbusError> {
         let input = &mut *INPUT_STATE;
@@ -40,13 +42,26 @@ impl GoxkeyEngine {
                 input.replace(transformed);
             }
         }
-        let display = input.get_displaying_word().to_string();
+        let display = input.get_displaying_word();
+        if display == self.last_preedit {
+            return Ok(());
+        }
+        self.last_preedit = display.to_string();
         let len = display.len() as u32;
-        GoxkeyEngine::update_preedit_text(se, display, len, true, IBusPreeditFocusMode::Clear)
-            .await
+        GoxkeyEngine::update_preedit_text(
+            se,
+            display.to_string(),
+            len,
+            true,
+            IBusPreeditFocusMode::Clear,
+        )
+        .await
     }
 
-    async unsafe fn commit_and_clear(&self, se: &SignalEmitter<'_>) -> Result<(), ZbusError> {
+    async unsafe fn commit_and_clear(
+        &mut self,
+        se: &SignalEmitter<'_>,
+    ) -> Result<(), ZbusError> {
         let input = &mut *INPUT_STATE;
         let to_commit = if input.should_restore_word() {
             debug!("Restoring word");
@@ -59,6 +74,7 @@ impl GoxkeyEngine {
             GoxkeyEngine::commit_text(se, to_commit).await?;
         }
         input.new_word();
+        self.last_preedit.clear();
         Ok(())
     }
 }
@@ -83,6 +99,7 @@ impl IBusEngine for GoxkeyEngine {
                 if input.is_enabled() && !input.is_buffer_empty() {
                     input.pop();
                     if input.is_buffer_empty() {
+                        self.last_preedit.clear();
                         GoxkeyEngine::update_preedit_text(
                             &se,
                             String::new(),
@@ -183,7 +200,9 @@ impl IBusFactory<GoxkeyEngine> for GoxkeyFactory {
     fn create_engine(&mut self, name: String) -> Result<GoxkeyEngine, String> {
         debug!("Creating engine: {:?}", name);
         if name == "goxkey" {
-            Ok(GoxkeyEngine)
+            Ok(GoxkeyEngine {
+                last_preedit: String::new(),
+            })
         } else {
             Err(format!("unknown engine: {}", name))
         }

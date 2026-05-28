@@ -57,6 +57,20 @@ fn apply_cap_pattern(s: &str, pattern: CapPattern) -> String {
     }
 }
 
+fn contains_case_insensitive_ascii(haystack: &str, needle: &str) -> bool {
+    if needle.is_empty() {
+        return true;
+    }
+    if needle.len() > haystack.len() {
+        return false;
+    }
+    let needle = needle.as_bytes();
+    haystack
+        .as_bytes()
+        .windows(needle.len())
+        .any(|w| w.iter().zip(needle).all(|(a, b)| a.eq_ignore_ascii_case(b)))
+}
+
 fn mask_standalone_w(buffer: &str) -> String {
     const HORN_BREVE_ELIGIBLE: &str = "uoaUOA\u{01b0}\u{01a1}\u{0103}\
          \u{00fa}\u{00f3}\u{00e1}\u{00f9}\u{00f2}\u{00e0}\
@@ -562,7 +576,13 @@ impl InputState {
     }
 
     pub fn previous_word_is_stop_tracking_words(&self) -> bool {
-        STOP_TRACKING_WORDS.contains(&self.previous_word.as_str())
+        if self.previous_word.len() != 1 {
+            return false;
+        }
+        matches!(
+            self.previous_word.as_bytes()[0],
+            b';' | b'\'' | b'?' | b'/'
+        )
     }
 
     pub fn should_stop_tracking(&mut self) -> bool {
@@ -570,11 +590,9 @@ impl InputState {
         if len > MAX_POSSIBLE_WORD_LENGTH {
             return true;
         }
-        let buf = &self.buffer;
         if TONE_DUPLICATE_PATTERNS
             .iter()
-            .find(|p| buf.to_ascii_lowercase().contains(*p))
-            .is_some()
+            .any(|p| contains_case_insensitive_ascii(&self.buffer, p))
         {
             return true;
         }
