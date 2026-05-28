@@ -47,12 +47,26 @@ impl GoxkeyEngine {
             return Ok(());
         }
         self.last_preedit = display.to_string();
-        let len = display.len() as u32;
+        let cursor_pos = display.chars().count() as u32;
         GoxkeyEngine::update_preedit_text(
             se,
             display.to_string(),
-            len,
+            cursor_pos,
             true,
+            IBusPreeditFocusMode::Clear,
+        )
+        .await
+    }
+
+    async unsafe fn hide_preedit(
+        &self,
+        se: &SignalEmitter<'_>,
+    ) -> Result<(), ZbusError> {
+        GoxkeyEngine::update_preedit_text(
+            se,
+            String::new(),
+            0,
+            false,
             IBusPreeditFocusMode::Clear,
         )
         .await
@@ -70,6 +84,7 @@ impl GoxkeyEngine {
             input.get_displaying_word().to_string()
         };
         if !to_commit.is_empty() {
+            self.hide_preedit(se).await?;
             debug!("Committing: {:?}", to_commit);
             GoxkeyEngine::commit_text(se, to_commit).await?;
         }
@@ -100,14 +115,7 @@ impl IBusEngine for GoxkeyEngine {
                     input.pop();
                     if input.is_buffer_empty() {
                         self.last_preedit.clear();
-                        GoxkeyEngine::update_preedit_text(
-                            &se,
-                            String::new(),
-                            0,
-                            false,
-                            IBusPreeditFocusMode::Clear,
-                        )
-                        .await?;
+                        self.hide_preedit(&se).await?;
                     } else {
                         self.update_and_show_preedit(&se).await?;
                     }
@@ -168,25 +176,28 @@ impl IBusEngine for GoxkeyEngine {
         }
     }
 
-    async fn focus_out(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
+    async fn focus_out(&mut self, se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
         debug!("Focus out");
         unsafe {
+            self.hide_preedit(&se).await.unwrap_or_default();
             INPUT_STATE.new_word();
         }
         Ok(())
     }
 
-    async fn reset(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
+    async fn reset(&mut self, se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
         debug!("Reset");
         unsafe {
+            self.hide_preedit(&se).await.unwrap_or_default();
             INPUT_STATE.new_word();
         }
         Ok(())
     }
 
-    async fn disable(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
+    async fn disable(&mut self, se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
         info!("Engine disabled");
         unsafe {
+            self.hide_preedit(&se).await.unwrap_or_default();
             INPUT_STATE.new_word();
         }
         Ok(())
