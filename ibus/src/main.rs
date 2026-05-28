@@ -137,6 +137,17 @@ impl IBusEngine for GoxkeyEngine {
                 return Ok(false);
             }
 
+            if keyval.is_cursor_key() {
+                if input.is_enabled() && !input.is_buffer_empty() {
+                    let raw = input.get_typing_buffer().to_string();
+                    self.hide_preedit(&se).await?;
+                    GoxkeyEngine::commit_text(&se, raw).await?;
+                    input.new_word();
+                    self.last_preedit.clear();
+                }
+                return Ok(false);
+            }
+
             if !input.is_enabled() {
                 return Ok(false);
             }
