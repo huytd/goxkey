@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 goxkey-core = { path = "../core", default-features = false, features = [] }
-librush = "0.2"
+librush = { path = "../librush" }
 xkeysym = "0.2"
 zbus = "5"
 tokio = { version = "1", features = ["rt", "macros"] }

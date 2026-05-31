@@ -7,7 +7,6 @@ use xkeysym::{KeyCode, Keysym};
 use goxkey_core::INPUT_STATE;
 use librush::ibus::{
     get_ibus_addr, IBus, IBusEngine, IBusEngineBackend, IBusFactory, IBusModifierState,
-    IBusPreeditFocusMode,
 };
 use zbus::{fdo, object_server::SignalEmitter, ObjectServer, Error as ZbusError};
 
@@ -28,11 +27,16 @@ fn is_input_char(c: char) -> bool {
 
 #[derive(Debug, Clone)]
 struct GoxkeyEngine {
-    last_preedit: String,
+    last_committed_len: usize,
 }
 
 impl GoxkeyEngine {
-    async unsafe fn update_and_show_preedit(
+    /// Commit the current transformed word in-place by first erasing
+    /// whatever we previously committed (via delete_surrounding_text),
+    /// then committing the new transformation.
+    /// This avoids the preedit underline since every keystroke instantly
+    /// commits — there is no preedit text, only committed text.
+    async unsafe fn commit_in_place(
         &mut self,
         se: &SignalEmitter<'_>,
     ) -> Result<(), ZbusError> {
@@ -42,54 +46,23 @@ impl GoxkeyEngine {
                 input.replace(transformed);
             }
         }
-        let display = input.get_displaying_word();
-        if display == self.last_preedit {
-            return Ok(());
+        let display = input.get_displaying_word().to_string();
+
+        if self.last_committed_len > 0 {
+            GoxkeyEngine::delete_surrounding_text(
+                se,
+                -(self.last_committed_len as i32),
+                self.last_committed_len as u32,
+            )
+            .await?;
         }
-        self.last_preedit = display.to_string();
-        let cursor_pos = display.chars().count() as u32;
-        GoxkeyEngine::update_preedit_text(
-            se,
-            display.to_string(),
-            cursor_pos,
-            true,
-            IBusPreeditFocusMode::Clear,
-        )
-        .await
-    }
 
-    async unsafe fn hide_preedit(
-        &self,
-        se: &SignalEmitter<'_>,
-    ) -> Result<(), ZbusError> {
-        GoxkeyEngine::update_preedit_text(
-            se,
-            String::new(),
-            0,
-            false,
-            IBusPreeditFocusMode::Clear,
-        )
-        .await
-    }
-
-    async unsafe fn commit_and_clear(
-        &mut self,
-        se: &SignalEmitter<'_>,
-    ) -> Result<(), ZbusError> {
-        let input = &mut *INPUT_STATE;
-        let to_commit = if input.should_restore_word() {
-            debug!("Restoring word");
-            input.get_typing_buffer().to_string()
+        if !display.is_empty() {
+            self.last_committed_len = display.chars().count();
+            GoxkeyEngine::commit_text(se, display).await?;
         } else {
-            input.get_displaying_word().to_string()
-        };
-        if !to_commit.is_empty() {
-            self.hide_preedit(se).await?;
-            debug!("Committing: {:?}", to_commit);
-            GoxkeyEngine::commit_text(se, to_commit).await?;
+            self.last_committed_len = 0;
         }
-        input.new_word();
-        self.last_preedit.clear();
         Ok(())
     }
 }
@@ -114,10 +87,17 @@ impl IBusEngine for GoxkeyEngine {
                 if input.is_enabled() && !input.is_buffer_empty() {
                     input.pop();
                     if input.is_buffer_empty() {
-                        self.last_preedit.clear();
-                        self.hide_preedit(&se).await?;
+                        if self.last_committed_len > 0 {
+                            GoxkeyEngine::delete_surrounding_text(
+                                &se,
+                                -(self.last_committed_len as i32),
+                                self.last_committed_len as u32,
+                            )
+                            .await?;
+                            self.last_committed_len = 0;
+                        }
                     } else {
-                        self.update_and_show_preedit(&se).await?;
+                        self.commit_in_place(&se).await?;
                     }
                     debug!("Backspace -> buffer: {:?}", input.get_typing_buffer());
                     return Ok(true);
@@ -131,19 +111,41 @@ impl IBusEngine for GoxkeyEngine {
                 || keyval == Keysym::Escape
             {
                 if input.is_enabled() && !input.is_buffer_empty() {
-                    self.commit_and_clear(&se).await?;
+                    if input.should_restore_word() {
+                        debug!("Restoring word");
+                        let raw = input.get_typing_buffer().to_string();
+                        if self.last_committed_len > 0 {
+                            GoxkeyEngine::delete_surrounding_text(
+                                &se,
+                                -(self.last_committed_len as i32),
+                                self.last_committed_len as u32,
+                            )
+                            .await?;
+                        }
+                        if !raw.is_empty() {
+                            GoxkeyEngine::commit_text(&se, raw).await?;
+                        }
+                    }
+                    input.new_word();
+                    self.last_committed_len = 0;
                 }
-                input.new_word();
                 return Ok(false);
             }
 
             if keyval.is_cursor_key() {
                 if input.is_enabled() && !input.is_buffer_empty() {
                     let raw = input.get_typing_buffer().to_string();
-                    self.hide_preedit(&se).await?;
+                    if self.last_committed_len > 0 {
+                        GoxkeyEngine::delete_surrounding_text(
+                            &se,
+                            -(self.last_committed_len as i32),
+                            self.last_committed_len as u32,
+                        )
+                        .await?;
+                    }
                     GoxkeyEngine::commit_text(&se, raw).await?;
                     input.new_word();
-                    self.last_preedit.clear();
+                    self.last_committed_len = 0;
                 }
                 return Ok(false);
             }
@@ -161,17 +163,11 @@ impl IBusEngine for GoxkeyEngine {
                     if input.is_tracking() {
                         debug!("Pushing: {:?}", c);
                         input.push(c);
+                        self.commit_in_place(&se).await?;
 
                         if input.should_stop_tracking() {
-                            if let Ok((transformed, _)) = input.transform_keys() {
-                                if !transformed.is_empty() {
-                                    debug!("Committing (stop tracking): {:?}", transformed);
-                                    GoxkeyEngine::commit_text(&se, transformed).await?;
-                                }
-                            }
                             input.stop_tracking();
-                        } else {
-                            self.update_and_show_preedit(&se).await?;
+                            self.last_committed_len = 0;
                         }
                         return Ok(true);
                     }
@@ -179,7 +175,23 @@ impl IBusEngine for GoxkeyEngine {
                 }
 
                 if input.is_enabled() && !input.is_buffer_empty() {
-                    self.commit_and_clear(&se).await?;
+                    if input.should_restore_word() {
+                        debug!("Restoring word");
+                        let raw = input.get_typing_buffer().to_string();
+                        if self.last_committed_len > 0 {
+                            GoxkeyEngine::delete_surrounding_text(
+                                &se,
+                                -(self.last_committed_len as i32),
+                                self.last_committed_len as u32,
+                            )
+                            .await?;
+                        }
+                        if !raw.is_empty() {
+                            GoxkeyEngine::commit_text(&se, raw).await?;
+                        }
+                    }
+                    input.new_word();
+                    self.last_committed_len = 0;
                 }
             }
 
@@ -187,30 +199,30 @@ impl IBusEngine for GoxkeyEngine {
         }
     }
 
-    async fn focus_out(&mut self, se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
+    async fn focus_out(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
         debug!("Focus out");
         unsafe {
-            self.hide_preedit(&se).await.unwrap_or_default();
             INPUT_STATE.new_word();
         }
+        self.last_committed_len = 0;
         Ok(())
     }
 
-    async fn reset(&mut self, se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
+    async fn reset(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
         debug!("Reset");
         unsafe {
-            self.hide_preedit(&se).await.unwrap_or_default();
             INPUT_STATE.new_word();
         }
+        self.last_committed_len = 0;
         Ok(())
     }
 
-    async fn disable(&mut self, se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
+    async fn disable(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
         info!("Engine disabled");
         unsafe {
-            self.hide_preedit(&se).await.unwrap_or_default();
             INPUT_STATE.new_word();
         }
+        self.last_committed_len = 0;
         Ok(())
     }
 }
@@ -223,7 +235,7 @@ impl IBusFactory<GoxkeyEngine> for GoxkeyFactory {
         debug!("Creating engine: {:?}", name);
         if name == "goxkey" {
             Ok(GoxkeyEngine {
-                last_preedit: String::new(),
+                last_committed_len: 0,
             })
         } else {
             Err(format!("unknown engine: {}", name))

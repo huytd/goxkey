@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - run: cargo fmt --check
+
+    - run: cargo build --verbose
+    - run: cargo test --verbose
+    - run: cargo doc
+
+    # host: x86_64-unknown-linux-gnu
+    - run: cargo build --release
+
+    - run: |
+        tar --zstd -cvf librush_release_x86_64-unknown-linux-gnu.tar.zst \
+        target/release/ibrus
+    - uses: actions/upload-artifact@v6
+      with:
+        name: librush_release_x86_64-unknown-linux-gnu
+        path: librush_release_x86_64-unknown-linux-gnu.tar.zst
+
+    # target: aarch64-unknown-linux-gnu
+    - run: |
+        sudo apt-get update && \
+        sudo apt-get -y install \
+        binutils-aarch64-linux-gnu \
+        gcc-aarch64-linux-gnu \
+        g++-aarch64-linux-gnu
+
+    - run: rustup target add aarch64-unknown-linux-gnu
+
+    - run: cargo build --release --target aarch64-unknown-linux-gnu
+      env:
+        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+        CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+
+    - run: |
+        tar --zstd -cvf librush_release_aarch64-unknown-linux-gnu.tar.zst \
+        target/aarch64-unknown-linux-gnu/release/ibrus
+    - uses: actions/upload-artifact@v6
+      with:
+        name: librush_release_aarch64-unknown-linux-gnu
+        path: librush_release_aarch64-unknown-linux-gnu.tar.zst
+
+    # build rpm (fedora toolbox rpm-build)
+    - run: sudo apt-get -y install podman-toolbox
+    # Fedora 43
+    - run: toolbox create -y -d fedora -r 43
+      env:
+        SHELL: /usr/bin/bash
+    - run: |
+        toolbox run -c fedora-toolbox-43 \
+        sudo dnf install -y rpm-build rpm-devel rpmdevtools
+      env:
+        SHELL: /usr/bin/bash
+    - run: |
+        toolbox run -c fedora-toolbox-43 \
+        rpmdev-setuptree
+      env:
+        SHELL: /usr/bin/bash
+    # copy files
+    - run: |
+        cp rpm/ibrus.spec ~/rpmbuild/SPECS/ && \
+        cp aur/pmim_ibrus.xml ~/rpmbuild/SOURCES/ && \
+        cp target/release/ibrus ~/rpmbuild/SOURCES/
+    # build rpm
+    - run: |
+        toolbox run -c fedora-toolbox-43 \
+        rpmbuild -bb ~/rpmbuild/SPECS/ibrus.spec
+      env:
+        SHELL: /usr/bin/bash
+
+    - uses: actions/upload-artifact@v6
+      with:
+        name: ibrus-0.2.2-1.fc43.x86_64.rpm
+        path: ~/rpmbuild/RPMS/x86_64/ibrus-0.2.2-1.fc43.x86_64.rpm
+
+    # Fedora 42
+    - run: toolbox create -y -d fedora -r 42
+      env:
+        SHELL: /usr/bin/bash
+    - run: |
+        toolbox run -c fedora-toolbox-42 \
+        sudo dnf install -y rpm-build rpm-devel rpmdevtools
+      env:
+        SHELL: /usr/bin/bash
+    - run: |
+        toolbox run -c fedora-toolbox-42 \
+        rpmbuild -bb ~/rpmbuild/SPECS/ibrus.spec
+      env:
+        SHELL: /usr/bin/bash
+
+    - uses: actions/upload-artifact@v6
+      with:
+        name: ibrus-0.2.2-1.fc42.x86_64.rpm
+        path: ~/rpmbuild/RPMS/x86_64/ibrus-0.2.2-1.fc42.x86_64.rpm

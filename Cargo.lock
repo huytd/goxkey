@@ -1533,8 +1533,6 @@ dependencies = [
 [[package]]
 name = "librush"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9524559a9867b98a36a14ee4e6e5f0f8842bb174edec9232d9313af049f71727"
 dependencies = [
  "arbitrary-int",
  "bitbybit",
