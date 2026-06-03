@@ -536,10 +536,12 @@ impl InputState {
     }
 
     pub fn push(&mut self, c: char) {
-        if let Some(first_char) = self.buffer.chars().next() {
-            if first_char.is_numeric() {
-                self.buffer.remove(0);
-                self.display_buffer.remove(0);
+        if matches!(self.method, TypingMethod::VNI | TypingMethod::TelexVNI) {
+            if let Some(first_char) = self.buffer.chars().next() {
+                if first_char.is_numeric() && !c.is_numeric() {
+                    self.buffer.remove(0);
+                    self.display_buffer.remove(0);
+                }
             }
         }
         if self.buffer.len() <= MAX_POSSIBLE_WORD_LENGTH {
