@@ -110,9 +110,35 @@ impl IBusEngine for GoxkeyEngine {
                 || keyval == Keysym::Tab
                 || keyval == Keysym::Escape
             {
-                if input.is_enabled() && !input.is_buffer_empty() {
-                    if input.should_restore_word() {
-                        debug!("Restoring word");
+                if input.is_enabled() {
+                    if !input.is_buffer_empty() {
+                        if input.should_restore_word() {
+                            debug!("Restoring word");
+                            let raw = input.get_typing_buffer().to_string();
+                            if self.last_committed_len > 0 {
+                                GoxkeyEngine::delete_surrounding_text(
+                                    &se,
+                                    -(self.last_committed_len as i32),
+                                    self.last_committed_len as u32,
+                                )
+                                .await?;
+                            }
+                            if !raw.is_empty() {
+                                GoxkeyEngine::commit_text(&se, raw).await?;
+                            }
+                        }
+                        input.new_word();
+                        self.last_committed_len = 0;
+                    } else if !input.is_tracking() {
+                        input.new_word();
+                    }
+                }
+                return Ok(false);
+            }
+
+            if keyval.is_cursor_key() {
+                if input.is_enabled() {
+                    if !input.is_buffer_empty() {
                         let raw = input.get_typing_buffer().to_string();
                         if self.last_committed_len > 0 {
                             GoxkeyEngine::delete_surrounding_text(
@@ -122,30 +148,12 @@ impl IBusEngine for GoxkeyEngine {
                             )
                             .await?;
                         }
-                        if !raw.is_empty() {
-                            GoxkeyEngine::commit_text(&se, raw).await?;
-                        }
+                        GoxkeyEngine::commit_text(&se, raw).await?;
+                        input.new_word();
+                        self.last_committed_len = 0;
+                    } else if !input.is_tracking() {
+                        input.new_word();
                     }
-                    input.new_word();
-                    self.last_committed_len = 0;
-                }
-                return Ok(false);
-            }
-
-            if keyval.is_cursor_key() {
-                if input.is_enabled() && !input.is_buffer_empty() {
-                    let raw = input.get_typing_buffer().to_string();
-                    if self.last_committed_len > 0 {
-                        GoxkeyEngine::delete_surrounding_text(
-                            &se,
-                            -(self.last_committed_len as i32),
-                            self.last_committed_len as u32,
-                        )
-                        .await?;
-                    }
-                    GoxkeyEngine::commit_text(&se, raw).await?;
-                    input.new_word();
-                    self.last_committed_len = 0;
                 }
                 return Ok(false);
             }
@@ -174,24 +182,28 @@ impl IBusEngine for GoxkeyEngine {
                     return Ok(false);
                 }
 
-                if input.is_enabled() && !input.is_buffer_empty() {
-                    if input.should_restore_word() {
-                        debug!("Restoring word");
-                        let raw = input.get_typing_buffer().to_string();
-                        if self.last_committed_len > 0 {
-                            GoxkeyEngine::delete_surrounding_text(
-                                &se,
-                                -(self.last_committed_len as i32),
-                                self.last_committed_len as u32,
-                            )
-                            .await?;
+                if input.is_enabled() {
+                    if !input.is_buffer_empty() {
+                        if input.should_restore_word() {
+                            debug!("Restoring word");
+                            let raw = input.get_typing_buffer().to_string();
+                            if self.last_committed_len > 0 {
+                                GoxkeyEngine::delete_surrounding_text(
+                                    &se,
+                                    -(self.last_committed_len as i32),
+                                    self.last_committed_len as u32,
+                                )
+                                .await?;
+                            }
+                            if !raw.is_empty() {
+                                GoxkeyEngine::commit_text(&se, raw).await?;
+                            }
                         }
-                        if !raw.is_empty() {
-                            GoxkeyEngine::commit_text(&se, raw).await?;
-                        }
+                        input.new_word();
+                        self.last_committed_len = 0;
+                    } else if !input.is_tracking() {
+                        input.new_word();
                     }
-                    input.new_word();
-                    self.last_committed_len = 0;
                 }
             }
 
