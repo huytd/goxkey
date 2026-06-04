@@ -165,6 +165,10 @@ impl IBusEngine for GoxkeyEngine {
             }
 
             if state.has_special_modifiers() {
+                if !input.is_buffer_empty() {
+                    input.new_word();
+                }
+                self.last_committed_len = 0;
                 return Ok(false);
             }
 
