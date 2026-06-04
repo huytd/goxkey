@@ -123,7 +123,7 @@ pub fn get_diff_parts<'a>(old: &str, new: &'a str) -> (usize, &'a str) {
 
 #[allow(clippy::upper_case_acronyms)]
 #[cfg_attr(feature = "druid", derive(druid::Data))]
-#[derive(PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Debug, Clone, Copy)]
 pub enum TypingMethod {
     VNI,
     Telex,
@@ -367,6 +367,10 @@ impl InputState {
             .lock()
             .unwrap()
             .set_method(&method.to_string());
+    }
+
+    pub fn set_method_im(&mut self, method: TypingMethod) {
+        self.method = method;
     }
 
     pub fn get_method(&self) -> TypingMethod {
@@ -886,5 +890,52 @@ mod tracking_tests {
         assert!(state.try_resume_previous_word());
         assert!(state.is_tracking());
         assert_eq!(state.get_typing_buffer(), "test");
+    }
+
+    #[test]
+    fn set_method_im_switches_transformation() {
+        use super::TypingMethod;
+        let mut state = InputState::new();
+        state.set_method_im(TypingMethod::VNI);
+        assert_eq!(state.get_method(), TypingMethod::VNI);
+
+        state.push('a');
+        state.push('1');
+        let (out, _) = state.transform_keys().unwrap();
+        assert_eq!(out, "á");
+    }
+
+    #[test]
+    fn vni_full_word_transform() {
+        use super::TypingMethod;
+        let mut state = InputState::new();
+        state.set_method_im(TypingMethod::VNI);
+
+        for c in "viet65".chars() {
+            state.push(c);
+        }
+        let (out, _) = state.transform_keys().unwrap();
+        assert_eq!(out, "việt");
+    }
+
+    #[test]
+    fn switching_between_telex_and_vni() {
+        use super::TypingMethod;
+        let mut state = InputState::new();
+
+        state.set_method_im(TypingMethod::VNI);
+        for c in "viet65".chars() {
+            state.push(c);
+        }
+        let (out_vni, _) = state.transform_keys().unwrap();
+        assert_eq!(out_vni, "việt");
+
+        state.new_word();
+        state.set_method_im(TypingMethod::Telex);
+        for c in "vietj".chars() {
+            state.push(c);
+        }
+        let (out_telex, _) = state.transform_keys().unwrap();
+        assert_eq!(out_telex, "việt");
     }
 }

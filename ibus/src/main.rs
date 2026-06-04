@@ -4,7 +4,7 @@ use std::time::Duration;
 use log::{debug, info};
 use xkeysym::{KeyCode, Keysym};
 
-use goxkey_core::INPUT_STATE;
+use goxkey_core::{TypingMethod, INPUT_STATE};
 use librush::ibus::{
     get_ibus_addr, IBus, IBusEngine, IBusEngineBackend, IBusFactory, IBusModifierState,
 };
@@ -28,6 +28,7 @@ fn is_input_char(c: char) -> bool {
 #[derive(Debug, Clone)]
 struct GoxkeyEngine {
     last_committed_len: usize,
+    method: TypingMethod,
 }
 
 impl GoxkeyEngine {
@@ -82,6 +83,7 @@ impl IBusEngine for GoxkeyEngine {
 
         unsafe {
             let input = &mut *INPUT_STATE;
+            input.set_method_im(self.method);
 
             if keyval == Keysym::BackSpace {
                 if input.is_enabled() && !input.is_buffer_empty() {
@@ -245,12 +247,16 @@ struct GoxkeyFactory;
 impl IBusFactory<GoxkeyEngine> for GoxkeyFactory {
     fn create_engine(&mut self, name: String) -> Result<GoxkeyEngine, String> {
         debug!("Creating engine: {:?}", name);
-        if name == "goxkey" {
-            Ok(GoxkeyEngine {
+        match name.as_str() {
+            "goxkey-telex" => Ok(GoxkeyEngine {
                 last_committed_len: 0,
-            })
-        } else {
-            Err(format!("unknown engine: {}", name))
+                method: TypingMethod::Telex,
+            }),
+            "goxkey-vni" => Ok(GoxkeyEngine {
+                last_committed_len: 0,
+                method: TypingMethod::VNI,
+            }),
+            _ => Err(format!("unknown engine: {}", name)),
         }
     }
 }

@@ -2,6 +2,7 @@
 use std::error::Error;
 use std::future::Future;
 use std::marker::Send;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use pm_bin::log::info;
 use xkeysym::{KeyCode, Keysym};
@@ -668,7 +669,8 @@ impl<T: IBusEngine + 'static> Engine<T> {
     pub async fn new(c: &Connection, e: T) -> Result<String, Box<dyn Error>> {
         // 源文件: `ibus/src/ibusfactory.c`
         // 函数: `ibus_factory_real_create_engine()`
-        let object_path = format!("/org/freedesktop/IBus/Engine/{}", 1);
+        let id = ENGINE_ID.fetch_add(1, Ordering::SeqCst);
+        let object_path = format!("/org/freedesktop/IBus/Engine/{}", id);
 
         let o = Engine {
             e,
@@ -681,3 +683,5 @@ impl<T: IBusEngine + 'static> Engine<T> {
         Ok(object_path)
     }
 }
+
+static ENGINE_ID: AtomicU64 = AtomicU64::new(1);

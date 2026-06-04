@@ -66,13 +66,23 @@ ibus-install-xml:
 	  echo '  <textdomain>goxkey</textdomain>'; \
 	  echo '  <engines>'; \
 	  echo '    <engine>'; \
-	  echo '      <name>goxkey</name>'; \
+	  echo '      <name>goxkey-telex</name>'; \
 	  echo '      <language>vi</language>'; \
 	  echo '      <license>MIT</license>'; \
 	  echo '      <author>Huy Tran</author>'; \
 	  echo '      <layout>us</layout>'; \
-	  echo '      <longname>GoKey Vietnamese</longname>'; \
-	  echo '      <description>Vietnamese Input Method (Telex, VNI, Telex+VNI)</description>'; \
+	  echo '      <longname>GoKey Vietnamese Telex</longname>'; \
+	  echo '      <description>Vietnamese Telex Input Method</description>'; \
+	  echo '      <rank>0</rank>'; \
+	  echo '    </engine>'; \
+	  echo '    <engine>'; \
+	  echo '      <name>goxkey-vni</name>'; \
+	  echo '      <language>vi</language>'; \
+	  echo '      <license>MIT</license>'; \
+	  echo '      <author>Huy Tran</author>'; \
+	  echo '      <layout>us</layout>'; \
+	  echo '      <longname>GoKey Vietnamese VNI</longname>'; \
+	  echo '      <description>Vietnamese VNI Input Method</description>'; \
 	  echo '      <rank>0</rank>'; \
 	  echo '    </engine>'; \
 	  echo '  </engines>'; \

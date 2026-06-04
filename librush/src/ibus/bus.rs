@@ -21,8 +21,6 @@ pub struct IBus<T: IBusEngine, U: IBusFactory<T>> {
 
 impl<T: IBusEngine + 'static, U: IBusFactory<T> + 'static> IBus<T, U> {
     /// connect to ibus and init
-    ///
-    /// only support 1 engine now.
     pub async fn new(addr: String, factory: U, name: String) -> Result<Self, Box<dyn Error>> {
         let c = 连接ibus(addr).await?;
         debug!("连接到 ibus 成功");
