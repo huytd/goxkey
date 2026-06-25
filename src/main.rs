@@ -19,7 +19,7 @@ use platform::{
     ensure_accessibility_permission, run_event_listener, send_arrow_left, send_arrow_right,
     send_backspace, send_string, EventTapType, Handle, KeyModifier, PressedKey, KEY_DELETE,
     KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, RAW_ARROW_DOWN, RAW_ARROW_LEFT, RAW_ARROW_RIGHT,
-    RAW_ARROW_UP, RAW_KEY_GLOBE,
+    RAW_ARROW_UP,
 };
 use ui::{get_theme, UIDataAdapter, IS_DARK, THEME, UPDATE_UI};
 
@@ -285,10 +285,6 @@ fn event_handler(
             Some(pressed_key) => {
                 match pressed_key {
                     PressedKey::Raw(raw_keycode) => {
-                        if raw_keycode == RAW_KEY_GLOBE {
-                            toggle_vietnamese();
-                            return true;
-                        }
                         if raw_keycode == RAW_ARROW_UP || raw_keycode == RAW_ARROW_DOWN {
                             INPUT_STATE.new_word();
                         }
