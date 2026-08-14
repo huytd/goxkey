@@ -932,7 +932,7 @@ mod tracking_tests {
 
         state.new_word();
         state.set_method_im(TypingMethod::Telex);
-        for c in "vietj".chars() {
+        for c in "vieetj".chars() {
             state.push(c);
         }
         let (out_telex, _) = state.transform_keys().unwrap();
