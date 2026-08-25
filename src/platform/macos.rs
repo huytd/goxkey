@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::env::current_exe;
 use std::path::Path;
 use std::{env, path::PathBuf, ptr};
@@ -16,7 +17,10 @@ use core_graphics::{
     },
     sys,
 };
+use log::debug;
 use objc::{class, msg_send, sel, sel_impl};
+use once_cell::sync::{Lazy, OnceCell};
+use rdev::{Keyboard, KeyboardState};
 
 pub use macos_ext::defer_open_app_file_picker;
 pub use macos_ext::defer_open_text_file_picker;
@@ -24,9 +28,7 @@ pub use macos_ext::defer_save_text_file_picker;
 pub use macos_ext::dispatch_set_systray_title;
 pub use macos_ext::SystemTray;
 pub use macos_ext::SystemTrayMenuItemKey;
-use once_cell::sync::Lazy;
 
-use crate::input::KEYBOARD_LAYOUT_CHARACTER_MAP;
 use accessibility::{AXAttribute, AXUIElement};
 use accessibility_sys::{kAXFocusedUIElementAttribute, kAXSelectedTextAttribute};
 use core_foundation::{
@@ -106,6 +108,96 @@ macro_rules! nsstring_to_string {
 
 pub fn get_home_dir() -> Option<PathBuf> {
     env::var("HOME").ok().map(PathBuf::from)
+}
+
+const PREDEFINED_CHARS: [char; 47] = [
+    'a', '`', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'q', 'w', 'e', 'r', 't',
+    'y', 'u', 'i', 'o', 'p', '[', ']', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '\\',
+    'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/',
+];
+
+fn get_key_from_char(c: char) -> rdev::Key {
+    use rdev::Key::*;
+    match &c {
+        'a' => KeyA,
+        '`' => BackQuote,
+        '1' => Num1,
+        '2' => Num2,
+        '3' => Num3,
+        '4' => Num4,
+        '5' => Num5,
+        '6' => Num6,
+        '7' => Num7,
+        '8' => Num8,
+        '9' => Num9,
+        '0' => Num0,
+        '-' => Minus,
+        '=' => Equal,
+        'q' => KeyQ,
+        'w' => KeyW,
+        'e' => KeyE,
+        'r' => KeyR,
+        't' => KeyT,
+        'y' => KeyY,
+        'u' => KeyU,
+        'i' => KeyI,
+        'o' => KeyO,
+        'p' => KeyP,
+        '[' => LeftBracket,
+        ']' => RightBracket,
+        's' => KeyS,
+        'd' => KeyD,
+        'f' => KeyF,
+        'g' => KeyG,
+        'h' => KeyH,
+        'j' => KeyJ,
+        'k' => KeyK,
+        'l' => KeyL,
+        ';' => SemiColon,
+        '\'' => Quote,
+        '\\' => BackSlash,
+        'z' => KeyZ,
+        'x' => KeyX,
+        'c' => KeyC,
+        'v' => KeyV,
+        'b' => KeyB,
+        'n' => KeyN,
+        'm' => KeyM,
+        ',' => Comma,
+        '.' => Dot,
+        '/' => Slash,
+        _ => Unknown(0),
+    }
+}
+
+pub static mut KEYBOARD_LAYOUT_CHARACTER_MAP: OnceCell<HashMap<char, char>> = OnceCell::new();
+
+fn build_keyboard_layout_map(map: &mut HashMap<char, char>) {
+    map.clear();
+    let mut kb = Keyboard::new().unwrap();
+    for c in PREDEFINED_CHARS {
+        let key = rdev::EventType::KeyPress(get_key_from_char(c));
+        if let Some(s) = kb.add(&key) {
+            let ch = s.chars().last().unwrap();
+            map.insert(c, ch);
+        }
+    }
+}
+
+pub fn rebuild_keyboard_layout_map() {
+    unsafe {
+        if let Some(map) = KEYBOARD_LAYOUT_CHARACTER_MAP.get_mut() {
+            debug!("Rebuild keyboard layout map...");
+            build_keyboard_layout_map(map);
+            debug!("Done");
+        } else {
+            debug!("Creating keyboard layout map...");
+            let mut map = HashMap::new();
+            build_keyboard_layout_map(&mut map);
+            _ = KEYBOARD_LAYOUT_CHARACTER_MAP.set(map);
+            debug!("Done");
+        }
+    }
 }
 
 // List of keycode: https://eastmanreference.com/complete-list-of-applescript-key-codes

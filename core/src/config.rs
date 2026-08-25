@@ -10,9 +10,20 @@ use std::{
 
 use once_cell::sync::Lazy;
 
-use crate::platform::get_home_dir;
-
 pub static CONFIG_MANAGER: Lazy<Mutex<ConfigStore>> = Lazy::new(|| Mutex::new(ConfigStore::new()));
+
+const HOTKEY_CONFIG_KEY: &str = "hotkey";
+const TYPING_METHOD_CONFIG_KEY: &str = "method";
+const VN_APPS_CONFIG_KEY: &str = "vn-apps";
+const EN_APPS_CONFIG_KEY: &str = "en-apps";
+const MACRO_ENABLED_CONFIG_KEY: &str = "is_macro_enabled";
+const MACRO_AUTOCAP_ENABLED_CONFIG_KEY: &str = "is_macro_autocap_enabled";
+const AUTOS_TOGGLE_ENABLED_CONFIG_KEY: &str = "is_auto_toggle_enabled";
+const MACROS_CONFIG_KEY: &str = "macros";
+const GOX_MODE_CONFIG_KEY: &str = "is_gox_mode_enabled";
+const W_LITERAL_CONFIG_KEY: &str = "is_w_literal_enabled";
+const UI_LANGUAGE_CONFIG_KEY: &str = "ui_language";
+const ALLOWED_WORDS_CONFIG_KEY: &str = "allowed_words";
 
 pub struct ConfigStore {
     hotkey: String,
@@ -53,15 +64,16 @@ pub(crate) fn build_kv_string(k: &str, v: &str) -> String {
     )
 }
 
-impl ConfigStore {
-    fn get_config_path() -> PathBuf {
-        get_home_dir()
-            .expect("Cannot read home directory!")
-            .join(".goxkey")
-    }
+fn get_config_path() -> PathBuf {
+    std::env::var("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_default()
+        .join(".goxkey")
+}
 
+impl ConfigStore {
     fn write_config_data(&mut self) -> Result<()> {
-        let mut file = File::create(ConfigStore::get_config_path())?;
+        let mut file = File::create(get_config_path())?;
 
         writeln!(file, "{} = {}", HOTKEY_CONFIG_KEY, self.hotkey)?;
         writeln!(file, "{} = {}", TYPING_METHOD_CONFIG_KEY, self.method)?;
@@ -121,7 +133,7 @@ impl ConfigStore {
             allowed_words: vec!["đc".to_string()],
         };
 
-        let config_path = ConfigStore::get_config_path();
+        let config_path = get_config_path();
 
         if let Ok(file) = File::open(config_path) {
             let reader = io::BufReader::new(file);
@@ -130,8 +142,12 @@ impl ConfigStore {
                     match left {
                         HOTKEY_CONFIG_KEY => config.hotkey = right.to_string(),
                         TYPING_METHOD_CONFIG_KEY => config.method = right.to_string(),
-                        VN_APPS_CONFIG_KEY => config.vn_apps = parse_vec_string(right.to_string()),
-                        EN_APPS_CONFIG_KEY => config.en_apps = parse_vec_string(right.to_string()),
+                        VN_APPS_CONFIG_KEY => {
+                            config.vn_apps = parse_vec_string(right.to_string())
+                        }
+                        EN_APPS_CONFIG_KEY => {
+                            config.en_apps = parse_vec_string(right.to_string())
+                        }
                         ALLOWED_WORDS_CONFIG_KEY => {
                             config.allowed_words = parse_vec_string(right.to_string())
                         }
@@ -165,7 +181,6 @@ impl ConfigStore {
         config
     }
 
-    // Hotkey
     pub fn get_hotkey(&self) -> &str {
         &self.hotkey
     }
@@ -175,7 +190,6 @@ impl ConfigStore {
         self.save();
     }
 
-    // Method
     pub fn get_method(&self) -> &str {
         &self.method
     }
@@ -293,31 +307,17 @@ impl ConfigStore {
         &self.macro_table
     }
 
-    pub fn add_macro(&mut self, from: String, to: String) {
-        self.macro_table.insert(from, to);
-        self.save();
-    }
-
     pub fn delete_macro(&mut self, from: &String) {
         self.macro_table.remove(from);
         self.save();
     }
 
-    // Save config to file
+    pub fn add_macro(&mut self, from: String, to: String) {
+        self.macro_table.insert(from, to);
+        self.save();
+    }
+
     fn save(&mut self) {
         self.write_config_data().expect("Failed to write config");
     }
 }
-
-const HOTKEY_CONFIG_KEY: &str = "hotkey";
-const TYPING_METHOD_CONFIG_KEY: &str = "method";
-const VN_APPS_CONFIG_KEY: &str = "vn-apps";
-const EN_APPS_CONFIG_KEY: &str = "en-apps";
-const MACRO_ENABLED_CONFIG_KEY: &str = "is_macro_enabled";
-const MACRO_AUTOCAP_ENABLED_CONFIG_KEY: &str = "is_macro_autocap_enabled";
-const AUTOS_TOGGLE_ENABLED_CONFIG_KEY: &str = "is_auto_toggle_enabled";
-const MACROS_CONFIG_KEY: &str = "macros";
-const GOX_MODE_CONFIG_KEY: &str = "is_gox_mode_enabled";
-const W_LITERAL_CONFIG_KEY: &str = "is_w_literal_enabled";
-const UI_LANGUAGE_CONFIG_KEY: &str = "ui_language";
-const ALLOWED_WORDS_CONFIG_KEY: &str = "allowed_words";

@@ -1,0 +1,15 @@
+pkgbase = librush-bin
+	pkgdesc = ibus module for pmim (a Chinese pinyin input method)
+	pkgver = 0.2.2
+	pkgrel = 1
+	url = https://github.com/fm-elpac/librush
+	arch = x86_64
+	license = LGPL-2.1-or-later OR GPL-3.0-or-later
+	depends = ibus>=1.5.33
+	optdepends = flatpak: install pmim from flathub
+	source = ibrus
+	source = pmim_ibrus.xml
+	sha256sums = SKIP
+	sha256sums = SKIP
+
+pkgname = librush-bin

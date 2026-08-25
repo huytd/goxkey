@@ -1,4 +1,5 @@
-use crate::{input::TypingMethod, platform::defer_open_app_file_picker, UI_EVENT_SINK};
+use goxkey_core::TypingMethod;
+use crate::{platform::defer_open_app_file_picker, UI_EVENT_SINK};
 use druid::{
     kurbo::RoundedRect,
     piet::{FontFamily, Text, TextLayout, TextLayoutBuilder},

@@ -1,0 +1,13 @@
+[package]
+name = "goxkey-ibus"
+version = "0.3.1"
+edition = "2021"
+
+[dependencies]
+goxkey-core = { path = "../core", default-features = false, features = [] }
+librush = { path = "../librush" }
+xkeysym = "0.2"
+zbus = "5"
+tokio = { version = "1", features = ["rt", "macros"] }
+log = "0.4"
+env_logger = "0.10"

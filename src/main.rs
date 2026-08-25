@@ -1,6 +1,3 @@
-mod config;
-mod hotkey;
-mod input;
 mod platform;
 mod scripting;
 mod ui;
@@ -8,15 +5,16 @@ mod ui;
 use std::thread;
 
 use druid::{AppLauncher, ExtEventSink, Target, WindowDesc};
-use input::{
-    get_diff_parts, rebuild_keyboard_layout_map, TypingMethod, HOTKEY_MATCHING,
-    HOTKEY_MATCHING_CIRCUIT_BREAK, HOTKEY_MODIFIERS, INPUT_STATE,
+use goxkey_core::{
+    get_diff_parts, TypingMethod, HOTKEY_MATCHING, HOTKEY_MATCHING_CIRCUIT_BREAK, HOTKEY_MODIFIERS,
+    INPUT_STATE,
 };
 use log::debug;
 use once_cell::sync::OnceCell;
 use platform::{
     add_app_change_callback, add_appearance_change_callback, dispatch_set_systray_title,
-    ensure_accessibility_permission, run_event_listener, send_arrow_left, send_arrow_right,
+    ensure_accessibility_permission, get_active_app_name, is_in_text_selection,
+    rebuild_keyboard_layout_map, run_event_listener, send_arrow_left, send_arrow_right,
     send_backspace, send_string, EventTapType, Handle, KeyModifier, PressedKey, KEY_DELETE,
     KEY_ENTER, KEY_ESCAPE, KEY_SPACE, KEY_TAB, RAW_ARROW_DOWN, RAW_ARROW_LEFT, RAW_ARROW_RIGHT,
     RAW_ARROW_UP, RAW_KEY_GLOBE,
@@ -49,36 +47,16 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
             let output = apply_capslock_to_output(raw_output, is_capslock);
             debug!("Transformed: {:?}", output);
             if should_send_event || is_delete {
-                // This is a workaround for Firefox-based browsers, where macOS's Accessibility API cannot work.
-                // We cannot get the selected text in the address bar, so we will go with another
-                // hacky way: Always send a space and delete it immediately. This will dismiss the
-                // current pre-selected URL and fix the double character issue.
                 if INPUT_STATE.should_dismiss_selection_if_needed() {
                     _ = send_string(handle, " ");
                     _ = send_backspace(handle, 1);
                 }
 
-                // Compute the minimal diff between what is currently displayed
-                // and the new output.  Only delete and retype the diverging
-                // suffix — the common prefix stays on screen untouched, which
-                // eliminates flicker in Chromium/Electron apps (e.g. Messenger)
-                // caused by a VSync frame landing between the backspace burst
-                // and the reinsertion of the full word.
-                //
-                // Exception: when `is_delete` is true the caller wants the
-                // entire word erased (e.g. the user pressed Delete/Backspace),
-                // so we fall back to full-replace in that case.
                 let (backspace_count, suffix_offset, screen_char_count) = if is_delete {
-                    let bs = INPUT_STATE.get_backspace_count(is_delete);
+                    let bs = INPUT_STATE.get_backspace_count(is_delete, is_in_text_selection());
                     (bs, 0usize, bs)
                 } else {
-                    // Clone the display buffer so we hold no borrow into INPUT_STATE
-                    // while calling get_diff_parts, which borrows `output`.
                     let displaying = INPUT_STATE.get_displaying_word().to_owned();
-                    // `push(c)` was called just before this function, appending the
-                    // typed char to display_buffer.  That char has NOT yet appeared on
-                    // screen because we are about to block the key event and replace it
-                    // ourselves.  Strip it so `old` reflects the true on-screen state.
                     let screen_end = displaying
                         .char_indices()
                         .next_back()
@@ -93,18 +71,10 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
                 let suffix = &output[suffix_offset..];
                 debug!("Backspace count: {}", backspace_count);
 
-                // When the entire on-screen word would be erased (no common
-                // prefix), Chromium/Electron apps fire an "empty value" event
-                // that swallows subsequent keystrokes.  Avoid this by keeping
-                // one sentinel char on screen: type the new text first, then
-                // navigate back to delete the sentinel.
                 let needs_sentinel =
                     !is_delete && backspace_count > 1 && backspace_count == screen_char_count;
 
                 if needs_sentinel {
-                    // Keep one old char as a sentinel so the field never
-                    // empties (Chromium/Electron kill pending events on
-                    // empty).  Build the new word left-to-right:
                     let first_char_end = suffix
                         .char_indices()
                         .nth(1)
@@ -112,17 +82,11 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
                         .unwrap_or(suffix.len());
                     let first_char = &suffix[..first_char_end];
                     let rest = &suffix[first_char_end..];
-                    // 1. Delete all old chars except the last (sentinel)
                     _ = send_backspace(handle, backspace_count - 1);
-                    // 2. Type the first char of the new output
                     _ = send_string(handle, first_char);
-                    // 3. Move left behind the first char (before sentinel)
                     _ = send_arrow_left(handle, 1);
-                    // 4. Delete the sentinel
                     _ = send_backspace(handle, 1);
-                    // 5. Move right past the first char
                     _ = send_arrow_right(handle, 1);
-                    // 6. Type the rest of the output
                     if !rest.is_empty() {
                         _ = send_string(handle, rest);
                     }
@@ -148,7 +112,7 @@ fn do_transform_keys(handle: Handle, is_delete: bool, is_capslock: bool) -> bool
 
 fn do_restore_word(handle: Handle, is_capslock: bool) {
     unsafe {
-        let backspace_count = INPUT_STATE.get_backspace_count(true);
+        let backspace_count = INPUT_STATE.get_backspace_count(true, is_in_text_selection());
         debug!("Backspace count: {}", backspace_count);
         _ = send_backspace(handle, backspace_count);
         let typing_buffer = INPUT_STATE.get_typing_buffer();
@@ -171,7 +135,6 @@ fn should_restore_transformed_word(
         return false;
     }
 
-    // Keep VNI shorthand words (like d9m -> đm) when ending a word with space/tab/enter.
     let is_vni_numeric_shortcut =
         method == TypingMethod::VNI && typing_buffer.chars().any(|c| c.is_numeric());
     !is_vni_numeric_shortcut
@@ -179,7 +142,7 @@ fn should_restore_transformed_word(
 
 fn do_macro_replace(handle: Handle, target: &String) {
     unsafe {
-        let backspace_count = INPUT_STATE.get_backspace_count(true);
+        let backspace_count = INPUT_STATE.get_backspace_count(true, is_in_text_selection());
         debug!("Backspace count: {}", backspace_count);
         _ = send_backspace(handle, backspace_count);
         _ = send_string(handle, target);
@@ -188,8 +151,6 @@ fn do_macro_replace(handle: Handle, target: &String) {
     }
 }
 
-/// Compute the tray title from the current INPUT_STATE and dispatch it
-/// directly to the main queue, so the status bar updates instantly.
 pub unsafe fn update_systray_title_immediately() {
     let is_enabled = INPUT_STATE.is_enabled();
     let is_gox = INPUT_STATE.is_gox_mode_enabled();
@@ -225,7 +186,7 @@ unsafe fn auto_toggle_vietnamese() {
     if !INPUT_STATE.is_auto_toggle_enabled() {
         return;
     }
-    let has_change = INPUT_STATE.update_active_app().is_some();
+    let has_change = INPUT_STATE.update_active_app(&get_active_app_name()).is_some();
     if !has_change {
         return;
     }
@@ -251,7 +212,6 @@ fn event_handler(
 
         if event_type == EventTapType::FlagsChanged {
             if modifiers.is_empty() {
-                // Modifier keys are released
                 if HOTKEY_MATCHING && !HOTKEY_MATCHING_CIRCUIT_BREAK {
                     toggle_vietnamese();
                 }
@@ -271,10 +231,6 @@ fn event_handler(
         }
         HOTKEY_MATCHING = is_hotkey_matched;
 
-        // If the hotkey matched on a key press, toggle immediately and
-        // suppress the event so macOS does not insert the character
-        // (e.g. Option+Z → Ω).  Set HOTKEY_MATCHING_CIRCUIT_BREAK so
-        // the FlagsChanged handler does not toggle again on key release.
         if is_hotkey_matched && pressed_key_code.is_some() {
             toggle_vietnamese();
             HOTKEY_MATCHING_CIRCUIT_BREAK = true;
@@ -293,7 +249,6 @@ fn event_handler(
                             INPUT_STATE.new_word();
                         }
                         if raw_keycode == RAW_ARROW_LEFT || raw_keycode == RAW_ARROW_RIGHT {
-                            // TODO: Implement a better cursor tracking on each word here
                             INPUT_STATE.new_word();
                         }
                     }
@@ -320,7 +275,8 @@ fn event_handler(
                                     }
 
                                     if keycode == KEY_TAB || keycode == KEY_SPACE {
-                                        if let Some(macro_target) = INPUT_STATE.get_macro_target() {
+                                        if let Some(macro_target) = INPUT_STATE.get_macro_target()
+                                        {
                                             debug!("Macro: {}", macro_target);
                                             do_macro_replace(handle, &macro_target)
                                         }
@@ -328,7 +284,9 @@ fn event_handler(
 
                                     let had_content = !INPUT_STATE.is_buffer_empty();
                                     INPUT_STATE.new_word();
-                                    if had_content && (keycode == KEY_SPACE || keycode == KEY_TAB) {
+                                    if had_content
+                                        && (keycode == KEY_SPACE || keycode == KEY_TAB)
+                                    {
                                         INPUT_STATE.mark_resumable();
                                     }
                                 }
@@ -336,12 +294,6 @@ fn event_handler(
                                     if !modifiers.is_empty() && !modifiers.is_shift() {
                                         INPUT_STATE.new_word();
                                     } else if INPUT_STATE.is_buffer_empty() {
-                                        // Buffer is empty — the user just started a new
-                                        // word (e.g. after space).  Try to resume editing
-                                        // the previous word so backspace + retype works.
-                                        // If resume fails, reset to a fresh tracking state
-                                        // so the next keystrokes are processed (e.g. after
-                                        // stop_tracking from a duplicate pattern like "ww").
                                         if !INPUT_STATE.try_resume_previous_word() {
                                             INPUT_STATE.new_word();
                                         }
@@ -360,13 +312,11 @@ fn event_handler(
                                     if "()[]{}<>/\\!@#$%^&*-_=+|~`,.;'\"/".contains(c)
                                         || (c.is_numeric() && modifiers.is_shift())
                                     {
-                                        // If special characters detected, dismiss the current tracking word
                                         if c.is_numeric() {
                                             INPUT_STATE.push(c);
                                         }
                                         INPUT_STATE.new_word();
                                     } else {
-                                        // Otherwise, process the character
                                         if modifiers.is_super() || modifiers.is_alt() {
                                             INPUT_STATE.new_word();
                                         } else if INPUT_STATE.is_tracking() {
@@ -423,7 +373,7 @@ fn event_handler(
 #[cfg(test)]
 mod tests {
     use super::{apply_capslock_to_output, normalize_input_char, should_restore_transformed_word};
-    use crate::input::TypingMethod;
+    use goxkey_core::TypingMethod;
 
     #[test]
     fn restore_when_invalid_and_not_allowed() {
@@ -483,8 +433,6 @@ mod tests {
 
     #[test]
     fn no_send_needed_for_plain_letter_with_capslock_only_case_change() {
-        // For plain letters with Caps Lock, OS already inserts uppercase characters.
-        // We should not treat case-only difference as a transform event.
         let mut transformed = String::new();
         vi::telex::transform_buffer("z".chars(), &mut transformed);
         assert_eq!(transformed, "z");
@@ -495,12 +443,11 @@ fn main() {
     let app_title = format!("gõkey v{APP_VERSION}");
     env_logger::init();
     {
-        let config = crate::config::CONFIG_MANAGER.lock().unwrap();
+        let config = goxkey_core::CONFIG_MANAGER.lock().unwrap();
         ui::locale::init_lang(config.get_ui_language());
     }
     let skip_permission = std::env::args().any(|a| a == "--skip-permission");
     if !skip_permission && !ensure_accessibility_permission() {
-        // Show the Accessibility Permission Request screen
         let win = WindowDesc::new(ui::permission_request_ui_builder())
             .title(app_title)
             .window_size((500.0, 360.0))
@@ -508,7 +455,6 @@ fn main() {
         let app = AppLauncher::with_window(win);
         _ = app.launch(());
     } else {
-        // Start the GõKey application
         rebuild_keyboard_layout_map();
         let win = WindowDesc::new(ui::main_ui_builder())
             .title(app_title)
