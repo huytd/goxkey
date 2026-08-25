@@ -71,15 +71,15 @@ fn is_word_separator_key(keysym: Keysym) -> bool {
     )
 }
 
-/// Text to commit for a separator key, if any.
+/// Text to insert ourselves for a separator key, if any.
 ///
-/// Returning `None` means the key should be forwarded to the client
-/// (e.g. Escape) rather than inserted as text.
+/// Only Space is committed via `commit_text`. Forwarding Space races with a
+/// pending `delete_surrounding_text` from the previous keystroke, which can
+/// eat the space. Return/Enter/Tab/Escape must be forwarded so apps still
+/// receive the real key (e.g. chat send on Enter, focus change on Tab).
 fn separator_commit_text(keysym: Keysym) -> Option<&'static str> {
     match keysym {
         Keysym::space | Keysym::KP_Space => Some(" "),
-        Keysym::Tab | Keysym::KP_Tab => Some("\t"),
-        Keysym::Return | Keysym::KP_Enter | Keysym::Linefeed => Some("\n"),
         _ => None,
     }
 }
@@ -206,13 +206,14 @@ impl IBusEngine for GoxkeyEngine {
 
             // Word separators (Space, Return, Tab, Escape, etc.)
             //
-            // Insert printable separators via commit_text and consume the key
-            // (return true). Forwarding Space with return false races with a
-            // pending delete_surrounding_text from the previous word's last
-            // keystroke — the delayed delete can eat the space, so the next
-            // word sticks to the previous one (e.g. "xinchào").
+            // Space is inserted via commit_text and consumed so it stays
+            // ordered with any pending delete_surrounding_text. Other
+            // separators are forwarded (return false) so clients still get
+            // the real key event — Enter must reach chat boxes to send, etc.
             if is_word_separator_key(keyval) {
                 if input.is_enabled() {
+                    let sep = separator_commit_text(keyval);
+
                     if (keyval == Keysym::space || keyval == Keysym::Tab) && !input.is_buffer_empty()
                     {
                         if let Some(target) = input.get_macro_target() {
@@ -224,39 +225,48 @@ impl IBusEngine for GoxkeyEngine {
                                 )
                                 .await?;
                             }
-                            GoxkeyEngine::commit_text(&se, target).await?;
+                            // Fold space into the same commit to save a D-Bus round-trip.
+                            let text = match sep {
+                                Some(s) => format!("{target}{s}"),
+                                None => target,
+                            };
+                            GoxkeyEngine::commit_text(&se, text).await?;
                             input.new_word();
                             self.last_committed_len = 0;
-                            if let Some(sep) = separator_commit_text(keyval) {
-                                GoxkeyEngine::commit_text(&se, sep.to_string()).await?;
-                                return Ok(true);
-                            }
-                            return Ok(false);
+                            return Ok(sep.is_some());
                         }
                     }
 
-                    if !input.is_buffer_empty() {
-                        if input.should_restore_word() {
-                            debug!("Restoring word");
-                            let raw = input.get_typing_buffer().to_string();
-                            if self.last_committed_len > 0 {
-                                GoxkeyEngine::delete_surrounding_text(
-                                    &se,
-                                    -(self.last_committed_len as i32),
-                                    self.last_committed_len as u32,
-                                )
-                                .await?;
+                    if !input.is_buffer_empty() && input.should_restore_word() {
+                        debug!("Restoring word");
+                        let raw = input.get_typing_buffer().to_string();
+                        if self.last_committed_len > 0 {
+                            GoxkeyEngine::delete_surrounding_text(
+                                &se,
+                                -(self.last_committed_len as i32),
+                                self.last_committed_len as u32,
+                            )
+                            .await?;
+                        }
+                        if !raw.is_empty() || sep.is_some() {
+                            let text = match sep {
+                                Some(s) => format!("{raw}{s}"),
+                                None => raw,
+                            };
+                            if !text.is_empty() {
+                                GoxkeyEngine::commit_text(&se, text).await?;
                             }
-                            if !raw.is_empty() {
-                                GoxkeyEngine::commit_text(&se, raw).await?;
-                            }
+                            input.new_word();
+                            self.last_committed_len = 0;
+                            return Ok(sep.is_some());
                         }
                     }
+
                     input.new_word();
                     self.last_committed_len = 0;
 
-                    if let Some(sep) = separator_commit_text(keyval) {
-                        GoxkeyEngine::commit_text(&se, sep.to_string()).await?;
+                    if let Some(s) = sep {
+                        GoxkeyEngine::commit_text(&se, s.to_string()).await?;
                         return Ok(true);
                     }
                 }
@@ -464,11 +474,12 @@ mod tests {
     fn test_separator_commit_text() {
         assert_eq!(separator_commit_text(Keysym::space), Some(" "));
         assert_eq!(separator_commit_text(Keysym::KP_Space), Some(" "));
-        assert_eq!(separator_commit_text(Keysym::Tab), Some("\t"));
-        assert_eq!(separator_commit_text(Keysym::KP_Tab), Some("\t"));
-        assert_eq!(separator_commit_text(Keysym::Return), Some("\n"));
-        assert_eq!(separator_commit_text(Keysym::KP_Enter), Some("\n"));
-        assert_eq!(separator_commit_text(Keysym::Linefeed), Some("\n"));
+        // Action keys must be forwarded, not inserted as text.
+        assert_eq!(separator_commit_text(Keysym::Tab), None);
+        assert_eq!(separator_commit_text(Keysym::KP_Tab), None);
+        assert_eq!(separator_commit_text(Keysym::Return), None);
+        assert_eq!(separator_commit_text(Keysym::KP_Enter), None);
+        assert_eq!(separator_commit_text(Keysym::Linefeed), None);
         assert_eq!(separator_commit_text(Keysym::Escape), None);
         assert_eq!(separator_commit_text(Keysym::Clear), None);
     }
