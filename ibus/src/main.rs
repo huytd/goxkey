@@ -71,6 +71,19 @@ fn is_word_separator_key(keysym: Keysym) -> bool {
     )
 }
 
+/// Text to commit for a separator key, if any.
+///
+/// Returning `None` means the key should be forwarded to the client
+/// (e.g. Escape) rather than inserted as text.
+fn separator_commit_text(keysym: Keysym) -> Option<&'static str> {
+    match keysym {
+        Keysym::space | Keysym::KP_Space => Some(" "),
+        Keysym::Tab | Keysym::KP_Tab => Some("\t"),
+        Keysym::Return | Keysym::KP_Enter | Keysym::Linefeed => Some("\n"),
+        _ => None,
+    }
+}
+
 #[derive(Debug, Clone)]
 struct GoxkeyEngine {
     last_committed_len: usize,
@@ -192,9 +205,16 @@ impl IBusEngine for GoxkeyEngine {
             }
 
             // Word separators (Space, Return, Tab, Escape, etc.)
+            //
+            // Insert printable separators via commit_text and consume the key
+            // (return true). Forwarding Space with return false races with a
+            // pending delete_surrounding_text from the previous word's last
+            // keystroke — the delayed delete can eat the space, so the next
+            // word sticks to the previous one (e.g. "xinchào").
             if is_word_separator_key(keyval) {
                 if input.is_enabled() {
-                    if (keyval == Keysym::space || keyval == Keysym::Tab) && !input.is_buffer_empty() {
+                    if (keyval == Keysym::space || keyval == Keysym::Tab) && !input.is_buffer_empty()
+                    {
                         if let Some(target) = input.get_macro_target() {
                             if self.last_committed_len > 0 {
                                 GoxkeyEngine::delete_surrounding_text(
@@ -207,6 +227,10 @@ impl IBusEngine for GoxkeyEngine {
                             GoxkeyEngine::commit_text(&se, target).await?;
                             input.new_word();
                             self.last_committed_len = 0;
+                            if let Some(sep) = separator_commit_text(keyval) {
+                                GoxkeyEngine::commit_text(&se, sep.to_string()).await?;
+                                return Ok(true);
+                            }
                             return Ok(false);
                         }
                     }
@@ -230,6 +254,11 @@ impl IBusEngine for GoxkeyEngine {
                     }
                     input.new_word();
                     self.last_committed_len = 0;
+
+                    if let Some(sep) = separator_commit_text(keyval) {
+                        GoxkeyEngine::commit_text(&se, sep.to_string()).await?;
+                        return Ok(true);
+                    }
                 }
                 return Ok(false);
             }
@@ -429,5 +458,18 @@ mod tests {
         assert!(is_word_separator_key(Keysym::Tab));
         assert!(is_word_separator_key(Keysym::Escape));
         assert!(is_word_separator_key(Keysym::KP_Enter));
+    }
+
+    #[test]
+    fn test_separator_commit_text() {
+        assert_eq!(separator_commit_text(Keysym::space), Some(" "));
+        assert_eq!(separator_commit_text(Keysym::KP_Space), Some(" "));
+        assert_eq!(separator_commit_text(Keysym::Tab), Some("\t"));
+        assert_eq!(separator_commit_text(Keysym::KP_Tab), Some("\t"));
+        assert_eq!(separator_commit_text(Keysym::Return), Some("\n"));
+        assert_eq!(separator_commit_text(Keysym::KP_Enter), Some("\n"));
+        assert_eq!(separator_commit_text(Keysym::Linefeed), Some("\n"));
+        assert_eq!(separator_commit_text(Keysym::Escape), None);
+        assert_eq!(separator_commit_text(Keysym::Clear), None);
     }
 }
