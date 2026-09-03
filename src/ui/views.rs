@@ -342,11 +342,20 @@ fn general_tab() -> impl Widget<UIDataAdapter> {
         ToggleSwitch.lens(UIDataAdapter::is_w_literal_enabled),
     ));
 
-    let system_card = settings_card(settings_row(
-        "general.launch_at_login",
-        "general.launch_at_login_desc",
-        StyledCheckbox.lens(UIDataAdapter::launch_on_login),
-    ));
+    let system_card = settings_card(
+        Flex::column()
+            .with_child(settings_row(
+                "general.launch_at_login",
+                "general.launch_at_login_desc",
+                StyledCheckbox.lens(UIDataAdapter::launch_on_login),
+            ))
+            .with_child(card_divider())
+            .with_child(settings_row(
+                "general.sound_on_change",
+                "general.sound_on_change_desc",
+                StyledCheckbox.lens(UIDataAdapter::is_sound_enabled),
+            )),
+    );
 
     let language_card = option_group(
         title_subtitle_column("general.ui_language", "general.ui_language_desc"),

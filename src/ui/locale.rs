@@ -147,6 +147,16 @@ pub fn t(key: &'static str) -> &'static str {
         (Lang::Vi, "general.launch_at_login_desc") => "Tự động mở GõKey khi đăng nhập",
         (Lang::En, "general.launch_at_login_desc") => "Start gõkey when you log in",
 
+        (Lang::Vi, "general.sound_on_change") => "Âm thanh khi chuyển ngôn ngữ",
+        (Lang::En, "general.sound_on_change") => "Sound on language change",
+
+        (Lang::Vi, "general.sound_on_change_desc") => {
+            "Phát âm thanh hệ thống khi bật/tắt chế độ gõ"
+        }
+        (Lang::En, "general.sound_on_change_desc") => {
+            "Play the system sound when toggling input mode"
+        }
+
         (Lang::Vi, "general.toggle_shortcut") => "Bật/tắt tiếng Việt",
         (Lang::En, "general.toggle_shortcut") => "Toggle Vietnamese input",
 
