@@ -600,7 +600,7 @@ impl InputState {
     }
 
     pub fn transform_keys(&self) -> Result<(String, TransformResult), ()> {
-        // In w-literal mode (Telex only), replace standalone 'w' with a placeholder
+        // In w-literal mode (Telex and Telex+VNI), replace standalone 'w' with a placeholder
         // before feeding to the telex engine, then restore it in the output.
         // A 'w' is considered standalone if NOT preceded by a Horn/Breve-eligible vowel
         // (u, o for Horn; a for Breve). This preserves uw→ư, ow→ơ, aw→ă etc.
@@ -618,16 +618,17 @@ impl InputState {
             let buffer = effective_buffer;
             let result = std::panic::catch_unwind(move || {
                 let has_digits = buffer.chars().any(|c| c.is_ascii_digit());
-                if has_digits {
-                    let mut output = String::new();
-                    let transform_result = vi::vni::transform_buffer(buffer.chars(), &mut output);
-                    (output, transform_result)
+                let mut output = String::new();
+                let transform_result = if has_digits {
+                    vi::vni::transform_buffer(buffer.chars(), &mut output)
                 } else {
-                    let mut output = String::new();
-                    let transform_result = vi::telex::transform_buffer(buffer.chars(), &mut output);
-                    let output = output.replace('\x01', "w").replace('\x02', "W");
-                    (output, transform_result)
-                }
+                    vi::telex::transform_buffer(buffer.chars(), &mut output)
+                };
+                // Restore masked standalone 'w'/'W' placeholders regardless of
+                // which engine ran, so the VNI path (chosen when the buffer
+                // contains digits) does not leak \x01/\x02 into the output.
+                let output = output.replace('\x01', "w").replace('\x02', "W");
+                (output, transform_result)
             });
             return result.map_err(|_| ());
         }
@@ -980,6 +981,25 @@ mod mask_w_tests {
     fn mixed_case_ww_after_eligible() {
         assert_eq!(mask_standalone_w("aWW"), "aWW");
         assert_eq!(mask_standalone_w("AWw"), "AWw");
+    }
+}
+
+#[cfg(test)]
+mod telexvni_tests {
+    use super::{InputState, TypingMethod};
+
+    #[test]
+    fn vni_path_restores_masked_standalone_w() {
+        // In Telex+VNI mode with w-literal enabled, a digit makes the engine
+        // pick the VNI path.  The masked standalone 'w' must still be restored,
+        // otherwise \x01 leaks into the output.
+        let mut state = InputState::new();
+        state.method = TypingMethod::TelexVNI;
+        state.is_w_literal_enabled = true;
+        state.buffer = "w1".to_string();
+
+        let (output, _) = state.transform_keys().unwrap();
+        assert_eq!(output, "w1");
     }
 }
 
