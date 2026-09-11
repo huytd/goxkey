@@ -40,6 +40,18 @@ pub trait IBusEngine: Send + Sync {
         async { Ok(false) }
     }
 
+    /// 设置光标周围文本和位置
+    fn set_surrounding_text(
+        &mut self,
+        _se: SignalEmitter<'_>,
+        _server: &ObjectServer,
+        _text: Value<'_>,
+        _cursor_pos: u32,
+        _anchor_pos: u32,
+    ) -> impl Future<Output = fdo::Result<()>> + Send {
+        async { Ok(()) }
+    }
+
     /// 设置光标位置
     fn set_cursor_location(
         &mut self,
@@ -559,14 +571,17 @@ impl<T: IBusEngine + 'static> Engine<T> {
         self.e.cursor_down(se, server).await
     }
 
-    // 忽略
-    fn set_surrounding_text(
+    async fn set_surrounding_text(
         &mut self,
-        _text: Value,
-        _cursor_pos: u32,
-        _anchor_pos: u32,
+        #[zbus(signal_emitter)] se: SignalEmitter<'_>,
+        #[zbus(object_server)] server: &ObjectServer,
+        text: Value<'_>,
+        cursor_pos: u32,
+        anchor_pos: u32,
     ) -> fdo::Result<()> {
-        Ok(())
+        self.e
+            .set_surrounding_text(se, server, text, cursor_pos, anchor_pos)
+            .await
     }
 
     // 忽略 (用户界面相关)
@@ -659,8 +674,7 @@ impl<T: IBusEngine + 'static> Engine<T> {
 
     #[zbus(property)]
     fn active_surrounding_text(&self) -> bool {
-        // TODO
-        false
+        true
     }
 }
 

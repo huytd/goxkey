@@ -53,6 +53,23 @@ pub fn make_ibus_text(text: String) -> Value<'static> {
     Value::new(st2)
 }
 
+/// Extract string content from an IBus text variant or plain string
+pub fn extract_text_from_ibus_value(val: &Value<'_>) -> Option<String> {
+    match val {
+        Value::Str(s) => Some(s.as_str().to_string()),
+        Value::Structure(st) => {
+            let fields = st.fields();
+            if fields.len() >= 3 {
+                if let Value::Str(s) = &fields[2] {
+                    return Some(s.as_str().to_string());
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
 // 源文件: `ibus/src/ibustypes.h`
 #[bitfield(u32)]
 pub struct IBusModifierState {
@@ -154,5 +171,9 @@ mod test {
     fn ibus_text_zvariant_signature() {
         let v = make_ibus_text("test".into());
         assert_eq!(v.value_signature(), "(sa{sv}sv)");
+        assert_eq!(extract_text_from_ibus_value(&v), Some("test".to_string()));
+
+        let v_str = Value::from("plain text");
+        assert_eq!(extract_text_from_ibus_value(&v_str), Some("plain text".to_string()));
     }
 }
