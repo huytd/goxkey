@@ -6,8 +6,7 @@ use xkeysym::{KeyCode, Keysym};
 
 use goxkey_core::{get_diff_parts, TypingMethod, INPUT_STATE};
 use librush::ibus::{
-    extract_text_from_ibus_value, get_ibus_addr, IBus, IBusEngine, IBusEngineBackend, IBusFactory,
-    IBusModifierState,
+    get_ibus_addr, IBus, IBusEngine, IBusEngineBackend, IBusFactory, IBusModifierState,
 };
 use zbus::{
     fdo, object_server::SignalEmitter, zvariant::Value, Error as ZbusError, ObjectServer,
@@ -336,44 +335,10 @@ impl IBusEngine for GoxkeyEngine {
         &mut self,
         _se: SignalEmitter<'_>,
         _server: &ObjectServer,
-        text: Value<'_>,
-        cursor_pos: u32,
-        anchor_pos: u32,
+        _text: Value<'_>,
+        _cursor_pos: u32,
+        _anchor_pos: u32,
     ) -> fdo::Result<()> {
-        debug!(
-            "set_surrounding_text: cursor={}, anchor={}",
-            cursor_pos, anchor_pos
-        );
-
-        // If there is an active text selection, reset word tracking
-        if cursor_pos != anchor_pos {
-            unsafe {
-                let input = &mut *INPUT_STATE;
-                input.new_word();
-            }
-            self.last_committed.clear();
-            return Ok(());
-        }
-
-        // Check if cursor moved away from where we last committed
-        if let Some(s) = extract_text_from_ibus_value(&text) {
-            let chars_before: Vec<char> = s.chars().take(cursor_pos as usize).collect();
-            if !self.last_committed.is_empty() {
-                let last_chars: Vec<char> = self.last_committed.chars().collect();
-                if chars_before.ends_with(&last_chars) {
-                    // Cursor is still at the expected position right after our commit
-                    return Ok(());
-                }
-            }
-
-            // Cursor was repositioned by user (mouse click or external move)
-            unsafe {
-                let input = &mut *INPUT_STATE;
-                input.new_word();
-            }
-            self.last_committed.clear();
-        }
-
         Ok(())
     }
 
@@ -602,5 +567,28 @@ mod tests {
         let (bs, sfx) = get_diff_parts("viet", "việt");
         assert_eq!(bs, 2);
         assert_eq!(sfx, "ệt");
+    }
+
+    #[test]
+    fn test_words_ong_anh_viet_nam_tu_te_ong_nuoc() {
+        let cases = [
+            ("vieetj", "việt"),
+            ("nam", "nam"),
+            ("tuwr", "tử"),
+            ("tees", "tế"),
+            ("oongs", "ống"),
+            ("nuowcs", "nước"),
+            ("ongs", "óng"),
+            ("anhs", "ánh"),
+        ];
+
+        for (input_seq, expected) in cases {
+            let mut state = goxkey_core::InputState::new();
+            for c in input_seq.chars() {
+                state.push(c);
+            }
+            let (out, _) = state.transform_keys().unwrap();
+            assert_eq!(out, expected, "Failed for input sequence: {}", input_seq);
+        }
     }
 }
