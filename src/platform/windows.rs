@@ -45,3 +45,5 @@ pub fn update_launch_on_login(is_enable: bool) {
 pub fn is_launch_on_login() {
     todo!()
 }
+
+pub fn play_system_sound() {}

@@ -287,6 +287,29 @@ pub fn dispatch_set_systray_title(title: &str, is_vietnamese: bool) {
     }
 }
 
+/// Play one of macOS' built-in system sounds on the main queue.
+/// NSSound belongs to AppKit and should be used from the main thread.
+pub fn dispatch_play_system_sound() {
+    unsafe extern "C" fn work(_ctx: *mut c_void) {
+        use cocoa::base::nil;
+        use cocoa::foundation::NSString;
+
+        // "Tink" is one of the system sounds listed under
+        // System Preferences → Sound → Sound Effects.
+        let sound_name = NSString::alloc(nil).init_str("Tink");
+        let sound: id = msg_send![class!(NSSound), soundNamed: sound_name];
+        if sound.is_null() {
+            let _: () = msg_send![class!(NSSound), beep];
+        } else {
+            let _: () = msg_send![sound, play];
+        }
+    }
+
+    unsafe {
+        dispatch_async_f(&_dispatch_main_q, std::ptr::null_mut(), work);
+    }
+}
+
 pub type Handle = CGEventTapProxy;
 
 #[link(name = "CoreGraphics", kind = "framework")]

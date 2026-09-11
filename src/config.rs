@@ -25,6 +25,7 @@ pub struct ConfigStore {
     is_auto_toggle_enabled: bool,
     is_gox_mode_enabled: bool,
     is_w_literal_enabled: bool,
+    is_sound_enabled: bool,
     ui_language: String,
     allowed_words: Vec<String>,
 }
@@ -101,6 +102,11 @@ impl ConfigStore {
             "{} = {}",
             W_LITERAL_CONFIG_KEY, self.is_w_literal_enabled
         )?;
+        writeln!(
+            file,
+            "{} = {}",
+            SOUND_ENABLED_CONFIG_KEY, self.is_sound_enabled
+        )?;
         writeln!(file, "{} = {}", UI_LANGUAGE_CONFIG_KEY, self.ui_language)?;
         Ok(())
     }
@@ -117,6 +123,7 @@ impl ConfigStore {
             is_auto_toggle_enabled: false,
             is_gox_mode_enabled: false,
             is_w_literal_enabled: false,
+            is_sound_enabled: false,
             ui_language: "auto".to_string(),
             allowed_words: vec!["đc".to_string()],
         };
@@ -154,6 +161,9 @@ impl ConfigStore {
                         }
                         W_LITERAL_CONFIG_KEY => {
                             config.is_w_literal_enabled = matches!(right.trim(), "true")
+                        }
+                        SOUND_ENABLED_CONFIG_KEY => {
+                            config.is_sound_enabled = matches!(right.trim(), "true")
                         }
                         UI_LANGUAGE_CONFIG_KEY => config.ui_language = right.trim().to_string(),
                         _ => {}
@@ -262,6 +272,15 @@ impl ConfigStore {
         self.save();
     }
 
+    pub fn is_sound_enabled(&self) -> bool {
+        self.is_sound_enabled
+    }
+
+    pub fn set_sound_enabled(&mut self, flag: bool) {
+        self.is_sound_enabled = flag;
+        self.save();
+    }
+
     pub fn get_ui_language(&self) -> &str {
         &self.ui_language
     }
@@ -319,5 +338,6 @@ const AUTOS_TOGGLE_ENABLED_CONFIG_KEY: &str = "is_auto_toggle_enabled";
 const MACROS_CONFIG_KEY: &str = "macros";
 const GOX_MODE_CONFIG_KEY: &str = "is_gox_mode_enabled";
 const W_LITERAL_CONFIG_KEY: &str = "is_w_literal_enabled";
+const SOUND_ENABLED_CONFIG_KEY: &str = "is_sound_enabled";
 const UI_LANGUAGE_CONFIG_KEY: &str = "ui_language";
 const ALLOWED_WORDS_CONFIG_KEY: &str = "allowed_words";

@@ -304,6 +304,7 @@ pub struct InputState {
     is_auto_toggle_enabled: bool,
     is_gox_mode_enabled: bool,
     is_w_literal_enabled: bool,
+    is_sound_enabled: bool,
 }
 
 impl InputState {
@@ -328,6 +329,7 @@ impl InputState {
             is_auto_toggle_enabled: config.is_auto_toggle_enabled(),
             is_gox_mode_enabled: config.is_gox_mode_enabled(),
             is_w_literal_enabled: config.is_w_literal_enabled(),
+            is_sound_enabled: config.is_sound_enabled(),
         }
     }
 
@@ -338,6 +340,7 @@ impl InputState {
             return None;
         }
         self.active_app = current_active_app;
+        let previous_enabled = self.enabled;
         let config = CONFIG_MANAGER.lock().unwrap();
         // Only switch the input mode if we found the app in the config
         if config.is_vietnamese_app(&self.active_app) {
@@ -345,6 +348,10 @@ impl InputState {
         }
         if config.is_english_app(&self.active_app) {
             self.enabled = false;
+        }
+        drop(config);
+        if self.enabled != previous_enabled {
+            self.play_language_change_sound();
         }
         Some(())
     }
@@ -367,6 +374,24 @@ impl InputState {
             .lock()
             .unwrap()
             .set_w_literal_enabled(self.is_w_literal_enabled);
+    }
+
+    pub fn is_sound_enabled(&self) -> bool {
+        self.is_sound_enabled
+    }
+
+    pub fn toggle_sound_enabled(&mut self) {
+        self.is_sound_enabled = !self.is_sound_enabled;
+        CONFIG_MANAGER
+            .lock()
+            .unwrap()
+            .set_sound_enabled(self.is_sound_enabled);
+    }
+
+    fn play_language_change_sound(&self) {
+        if self.is_sound_enabled {
+            crate::platform::play_system_sound();
+        }
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -465,6 +490,7 @@ impl InputState {
             config.add_english_app(&self.active_app);
         }
         self.new_word();
+        self.play_language_change_sound();
     }
 
     pub fn add_vietnamese_app(&mut self, app_name: &str) {

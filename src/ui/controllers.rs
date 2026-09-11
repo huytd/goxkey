@@ -283,6 +283,10 @@ impl<W: Widget<UIDataAdapter>> druid::widget::Controller<UIDataAdapter, W> for U
                 INPUT_STATE.toggle_w_literal();
             }
 
+            if old_data.is_sound_enabled != data.is_sound_enabled {
+                INPUT_STATE.toggle_sound_enabled();
+            }
+
             if old_data.ui_language != data.ui_language {
                 let lang_str = match data.ui_language {
                     1 => "vi",

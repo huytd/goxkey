@@ -271,6 +271,10 @@ pub fn send_string(handle: Handle, string: &str) -> Result<(), ()> {
     Ok(())
 }
 
+pub fn play_system_sound() {
+    macos_ext::dispatch_play_system_sound();
+}
+
 pub fn add_app_change_callback<F>(cb: F)
 where
     F: Fn() + Send + 'static,
