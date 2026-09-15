@@ -20,7 +20,6 @@ pub use os::{
 pub use os::SystemTray;
 pub use os::SystemTrayMenuItemKey;
 
-pub const RAW_KEY_GLOBE: u16 = 0xb3;
 pub const RAW_ARROW_DOWN: u16 = 0x7d;
 pub const RAW_ARROW_UP: u16 = 0x7e;
 pub const RAW_ARROW_LEFT: u16 = 0x7b;
