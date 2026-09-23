@@ -65,6 +65,12 @@ pub trait IBusEngine: Send + Sync {
         async { Ok(()) }
     }
 
+    /// Client capabilities (`IBUS_CAP_*` bit flags), e.g. surrounding-text support.
+    fn set_capabilities(&mut self, _caps: u32) {}
+
+    /// Input purpose and hints (`IBusInputPurpose`, `IBusInputHints`) of the focused widget.
+    fn set_content_type(&mut self, _purpose: u32, _hints: u32) {}
+
     /// 获得焦点
     fn focus_in(
         &mut self,
@@ -81,6 +87,31 @@ pub trait IBusEngine: Send + Sync {
         _server: &ObjectServer,
     ) -> impl Future<Output = fdo::Result<()>> + Send {
         async { Ok(()) }
+    }
+
+    /// Focus in with the client's object path and name (e.g. `gtk3-im:firefox`).
+    ///
+    /// Defaults to [`IBusEngine::focus_in`].
+    fn focus_in_id(
+        &mut self,
+        se: SignalEmitter<'_>,
+        server: &ObjectServer,
+        _object_path: String,
+        _client: String,
+    ) -> impl Future<Output = fdo::Result<()>> + Send {
+        self.focus_in(se, server)
+    }
+
+    /// Focus out with the client's object path.
+    ///
+    /// Defaults to [`IBusEngine::focus_out`].
+    fn focus_out_id(
+        &mut self,
+        se: SignalEmitter<'_>,
+        server: &ObjectServer,
+        _object_path: String,
+    ) -> impl Future<Output = fdo::Result<()>> + Send {
+        self.focus_out(se, server)
     }
 
     /// 重置
@@ -406,7 +437,10 @@ pub(crate) struct Engine<T: IBusEngine + 'static> {
 //     <property name='ActiveSurroundingText' type='(b)' access='read' />
 //   </interface>
 // </node>
-#[interface(name = "org.freedesktop.IBus.Engine")]
+// `spawn = false`: dispatch calls in arrival order on the connection task.
+// Spawning a task per call lets fast key events race for the lock and be
+// processed out of order.
+#[interface(name = "org.freedesktop.IBus.Engine", spawn = false)]
 impl<T: IBusEngine + 'static> Engine<T> {
     async fn process_key_event(
         &mut self,
@@ -451,8 +485,8 @@ impl<T: IBusEngine + 'static> Engine<T> {
         Ok(())
     }
 
-    // 忽略
-    fn set_capabilities(&mut self, _caps: u32) -> fdo::Result<()> {
+    fn set_capabilities(&mut self, caps: u32) -> fdo::Result<()> {
+        self.e.set_capabilities(caps);
         Ok(())
     }
 
@@ -493,9 +527,14 @@ impl<T: IBusEngine + 'static> Engine<T> {
         self.e.focus_in(se, server).await
     }
 
-    fn focus_in_id(&mut self, _object_path: String, _client: String) -> fdo::Result<()> {
-        // TODO
-        Ok(())
+    async fn focus_in_id(
+        &mut self,
+        #[zbus(signal_emitter)] se: SignalEmitter<'_>,
+        #[zbus(object_server)] server: &ObjectServer,
+        object_path: String,
+        client: String,
+    ) -> fdo::Result<()> {
+        self.e.focus_in_id(se, server, object_path, client).await
     }
 
     async fn focus_out(
@@ -506,9 +545,13 @@ impl<T: IBusEngine + 'static> Engine<T> {
         self.e.focus_out(se, server).await
     }
 
-    fn focus_out_id(&mut self, _object_path: String) -> fdo::Result<()> {
-        // TODO
-        Ok(())
+    async fn focus_out_id(
+        &mut self,
+        #[zbus(signal_emitter)] se: SignalEmitter<'_>,
+        #[zbus(object_server)] server: &ObjectServer,
+        object_path: String,
+    ) -> fdo::Result<()> {
+        self.e.focus_out_id(se, server, object_path).await
     }
 
     async fn reset(
@@ -661,8 +704,8 @@ impl<T: IBusEngine + 'static> Engine<T> {
     }
 
     #[zbus(property)]
-    fn set_content_type(&mut self, _t: (u32, u32)) -> fdo::Result<()> {
-        // TODO
+    fn set_content_type(&mut self, t: (u32, u32)) -> fdo::Result<()> {
+        self.e.set_content_type(t.0, t.1);
         Ok(())
     }
 
