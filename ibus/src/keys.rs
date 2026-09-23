@@ -84,9 +84,7 @@ pub fn separator_commit_text(keysym: Keysym) -> Option<&'static str> {
 /// what it already committed, so that would delete the digits from the screen
 /// (typing "10am" gave "am"). Starting a new word before the push keeps them.
 pub fn ends_leading_number(method: TypingMethod, buffer: &str, c: char) -> bool {
-    method == TypingMethod::VNI
-        && buffer.starts_with(|ch: char| ch.is_numeric())
-        && !c.is_numeric()
+    method == TypingMethod::VNI && buffer.starts_with(|ch: char| ch.is_numeric()) && !c.is_numeric()
 }
 
 #[cfg(test)]

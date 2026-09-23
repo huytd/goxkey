@@ -42,13 +42,17 @@ The IBus engine lives in `ibus/` (`make ibus-setup` to build and install it). Th
 Each word is composed in one of two modes, chosen automatically per app:
 
 - **Surrounding text**: the word is committed as you type and corrected with `DeleteSurroundingText`, with no pre-edit
-  underline. Only used once the app has shown that it applies those deletes.
+  underline. Used once the app's surrounding-text report has matched a word we committed.
 - **Pre-edit**: the word is shown underlined and committed when it ends. It works everywhere, so it's used for apps
   that don't support surrounding text, apps that haven't been verified yet, terminals, and fields with inline
-  autocomplete.
+  autocomplete. If an app turns out to ignore a delete, the rest of that focus session uses pre-edit.
 
-The verdict for each app is cached in `~/.cache/goxkey/ibus-clients`. Delete a line (or the file) to have an app probed
-again. Run the engine with `RUST_LOG=debug` to see the capabilities and mode decisions for each app.
+Apps that passed the check are cached in `~/.cache/goxkey/ibus-clients`, keyed by IBus client name. On GNOME Wayland
+every app goes through gnome-shell, so they share one entry. Run the engine with `RUST_LOG=debug` to see the
+capabilities and mode decisions for each app.
+
+The engine's `FocusId` and `ActiveSurroundingText` D-Bus properties must be plain booleans. ibus-daemon caches them per
+engine name until it restarts, so after changing them run `ibus restart`.
 
 To get yourself familiar with IME, here are some good article on the topic:
 

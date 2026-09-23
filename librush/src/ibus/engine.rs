@@ -717,16 +717,19 @@ impl<T: IBusEngine + 'static> Engine<T> {
         Ok(())
     }
 
-    // Both properties are declared as `(b)` in libibus's introspection XML and
-    // the daemon unpacks them with that format, so return a 1-tuple, not `b`.
+    // Plain `b`, even though libibus's introspection XML says `(b)`: the
+    // daemon unwraps the Properties.Get variant and calls
+    // g_variant_get_boolean() on it (bus/engineproxy.c). It caches the result
+    // per engine name until it restarts, so a wrong type silently disables
+    // FocusInId and RequireSurroundingText.
     #[zbus(property)]
-    fn focus_id(&self) -> (bool,) {
-        (self.e.has_focus_id(),)
+    fn focus_id(&self) -> bool {
+        self.e.has_focus_id()
     }
 
     #[zbus(property)]
-    fn active_surrounding_text(&self) -> (bool,) {
-        (true,)
+    fn active_surrounding_text(&self) -> bool {
+        true
     }
 }
 

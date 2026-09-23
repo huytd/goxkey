@@ -1,5 +1,9 @@
-//! Whether a client really applies `DeleteSurroundingText`, remembered per
-//! client name so each app only has to be probed once.
+//! Whether a client's surrounding text can be trusted, remembered per client
+//! name so each app only has to be probed once.
+//!
+//! Only positive verdicts are stored. On Wayland every app shares the
+//! compositor's IBus client name, so a negative verdict for one app would
+//! push all of them to preedit; failures are handled per focus instead.
 
 use std::collections::HashMap;
 use std::fs;
@@ -12,10 +16,8 @@ use log::{debug, warn};
 pub enum Support {
     /// Not verified yet: compose in preedit until the client proves itself.
     Unknown,
-    /// Surrounding-text reports match what we committed; deletes work.
+    /// Surrounding-text reports matched what we committed.
     Works,
-    /// The client does not report or does not apply deletes: always preedit.
-    Broken,
 }
 
 impl Support {
@@ -23,14 +25,12 @@ impl Support {
         match self {
             Support::Unknown => "unknown",
             Support::Works => "works",
-            Support::Broken => "broken",
         }
     }
 
     fn parse(s: &str) -> Option<Self> {
         match s {
             "works" => Some(Support::Works),
-            "broken" => Some(Support::Broken),
             _ => None,
         }
     }

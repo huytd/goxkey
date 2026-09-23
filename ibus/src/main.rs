@@ -10,12 +10,10 @@ use xkeysym::{KeyCode, Keysym};
 
 use goxkey_core::TypingMethod;
 use librush::ibus::{
-    extract_text_from_ibus_value, get_ibus_addr, IBus, IBusEngine, IBusEngineBackend,
-    IBusFactory, IBusModifierState, IBusPreeditFocusMode,
+    extract_text_from_ibus_value, get_ibus_addr, IBus, IBusEngine, IBusEngineBackend, IBusFactory,
+    IBusModifierState, IBusPreeditFocusMode,
 };
-use zbus::{
-    fdo, object_server::SignalEmitter, zvariant::Value, Error as ZbusError, ObjectServer,
-};
+use zbus::{fdo, object_server::SignalEmitter, zvariant::Value, Error as ZbusError, ObjectServer};
 
 use composer::{Action, Composer};
 use support::ClientCache;
@@ -94,7 +92,11 @@ impl IBusEngine for GoxkeyEngine {
         true
     }
 
-    async fn focus_in(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
+    async fn focus_in(
+        &mut self,
+        _se: SignalEmitter<'_>,
+        _server: &ObjectServer,
+    ) -> fdo::Result<()> {
         debug!("Focus in");
         self.composer.focus_in(None);
         Ok(())
@@ -112,7 +114,11 @@ impl IBusEngine for GoxkeyEngine {
         Ok(())
     }
 
-    async fn focus_out(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
+    async fn focus_out(
+        &mut self,
+        _se: SignalEmitter<'_>,
+        _server: &ObjectServer,
+    ) -> fdo::Result<()> {
         debug!("Focus out");
         self.composer.discard_word();
         Ok(())

@@ -10,9 +10,12 @@
 //!   ends. Works in every client.
 //!
 //! Surrounding mode is only used once the client has proved it works: after a
-//! preedit word is committed, the next surrounding-text report must end with
-//! that word. A later report showing that a delete was ignored switches the
-//! client back to preedit. Verdicts are cached per client name.
+//! preedit word is committed, a later surrounding-text report must end with
+//! that word. Reports can lag several keys behind (on Wayland they travel
+//! app -> compositor -> IBus), so reports that don't match yet are ignored;
+//! a client that never confirms simply stays in preedit. A report showing that
+//! a delete was ignored switches the rest of that focus to preedit. Positive
+//! verdicts are cached per client name.
 
 use goxkey_core::{get_diff_parts, InputState, TypingMethod};
 use librush::ibus::IBusModifierState;
@@ -32,11 +35,12 @@ const PURPOSE_PASSWORD: u32 = 8;
 const PURPOSE_PIN: u32 = 9;
 const PURPOSE_TERMINAL: u32 = 10;
 
-/// Surrounding-text reports allowed to not confirm a committed word before
-/// the client is treated as not supporting surrounding text.
-const MAX_VERIFY_MISSES: u8 = 3;
-/// Reports to wait for before dropping an unresolved delete probe.
-const PROBE_REPORTS: u8 = 2;
+/// Reports to wait for before dropping an unresolved delete probe. Reports can
+/// lag a few keys behind, so allow several.
+const PROBE_REPORTS: u8 = 6;
+/// How far before the cursor to look for a probed edit, in characters beyond
+/// the probe text itself. Covers keys typed after the edit.
+const PROBE_SLACK: usize = 16;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Action {
@@ -77,12 +81,11 @@ pub struct Composer {
     client: String,
     support: Support,
     cache: ClientCache,
-    /// Text just committed from preedit that the next report should end with.
+    /// Text last committed from preedit, waiting for a report ending with it.
     pending_check: Option<String>,
-    misses: u8,
     probe: Option<DeleteProbe>,
-    /// Set when the client showed a selection mid-word (e.g. inline
-    /// autocomplete); later words in this focus use preedit.
+    /// Set when the client ignored a delete or showed a selection mid-word
+    /// (e.g. inline autocomplete); later words in this focus use preedit.
     prefer_preedit: bool,
 }
 
@@ -101,7 +104,6 @@ impl Composer {
             support: Support::Unknown,
             cache,
             pending_check: None,
-            misses: 0,
             probe: None,
             prefer_preedit: false,
         }
@@ -125,7 +127,6 @@ impl Composer {
             if client != self.client {
                 self.client = client.to_string();
                 self.support = self.cache.get(client).unwrap_or(Support::Unknown);
-                self.misses = 0;
                 debug!("Focus in {:?}: {:?}", client, self.support);
             }
         }
@@ -146,26 +147,22 @@ impl Composer {
     pub fn set_surrounding_text(&mut self, text: &str, cursor: u32, anchor: u32) {
         let before: String = text.chars().take(cursor as usize).collect();
 
-        if let Some(expected) = self.pending_check.take() {
-            if before.ends_with(&expected) {
+        if let Some(expected) = &self.pending_check {
+            if before.ends_with(expected.as_str()) {
+                self.pending_check = None;
                 self.set_support(Support::Works);
-            } else {
-                self.misses += 1;
-                debug!("Surrounding text did not confirm {:?} ({} misses)", expected, self.misses);
-                if self.misses >= MAX_VERIFY_MISSES {
-                    self.set_support(Support::Broken);
-                }
             }
         }
 
         if let Some(probe) = &mut self.probe {
-            if before.ends_with(&probe.ignored) {
-                debug!("Client ignored delete_surrounding_text");
+            let window = tail(&before, probe.ignored.chars().count() + PROBE_SLACK);
+            if window.contains(&probe.ignored) {
+                debug!("Client ignored delete_surrounding_text; using preedit for this focus");
                 self.probe = None;
-                self.set_support(Support::Broken);
+                self.prefer_preedit = true;
                 // The rest of this word cannot be fixed in place.
                 self.discard_word();
-            } else if before.ends_with(&probe.applied) {
+            } else if window.contains(&probe.applied) {
                 self.probe = None;
             } else {
                 probe.reports_left -= 1;
@@ -187,7 +184,12 @@ impl Composer {
         Outcome { actions, handled }
     }
 
-    fn handle_key(&mut self, keyval: Keysym, state: IBusModifierState, out: &mut Vec<Action>) -> bool {
+    fn handle_key(
+        &mut self,
+        keyval: Keysym,
+        state: IBusModifierState,
+        out: &mut Vec<Action>,
+    ) -> bool {
         if state.is_keyup() || is_shift_key(keyval) || self.is_passthrough() {
             return false;
         }
@@ -330,7 +332,10 @@ impl Composer {
 
     fn set_support(&mut self, support: Support) {
         if self.support != support {
-            debug!("Client {:?}: {:?} -> {:?}", self.client, self.support, support);
+            debug!(
+                "Client {:?}: {:?} -> {:?}",
+                self.client, self.support, support
+            );
         }
         self.support = support;
         self.cache.set(&self.client, support);
@@ -410,6 +415,15 @@ impl Composer {
     fn end_word_as_shown(&mut self, out: &mut Vec<Action>) {
         let shown = self.shown.clone();
         self.end_word(&shown, None, out);
+    }
+}
+
+/// The last `n` characters of `s`.
+fn tail(s: &str, n: usize) -> &str {
+    match s.char_indices().rev().nth(n.saturating_sub(1)) {
+        Some((i, _)) if n > 0 => &s[i..],
+        _ if n == 0 => "",
+        _ => s,
     }
 }
 
@@ -512,7 +526,10 @@ mod tests {
     fn no_surrounding_capability_uses_preedit_only() {
         let mut c = composer(TypingMethod::Telex, CAP_PREEDIT_TEXT);
         let mut client = FakeClient::new(false, false);
-        assert_eq!(type_into(&mut c, &mut client, "tieengs vieetj "), "tiếng việt ");
+        assert_eq!(
+            type_into(&mut c, &mut client, "tieengs vieetj "),
+            "tiếng việt "
+        );
         assert_eq!(client.deletes_seen, 0);
         assert_eq!(c.support, Support::Unknown);
     }
@@ -538,13 +555,16 @@ mod tests {
         type_into(&mut c, &mut client, "v");
         assert_eq!(c.support, Support::Works);
         type_into(&mut c, &mut client, "ieetj ");
-        assert_eq!(c.support, Support::Broken);
+        assert!(c.prefer_preedit);
         let before = client.visible();
-        assert_eq!(type_into(&mut c, &mut client, "nguowif "), format!("{before}người "));
+        assert_eq!(
+            type_into(&mut c, &mut client, "nguowif "),
+            format!("{before}người ")
+        );
     }
 
     #[test]
-    fn silent_client_falls_back_after_misses() {
+    fn client_that_never_confirms_stays_in_preedit() {
         let mut c = composer(TypingMethod::Telex, CAP_PREEDIT_TEXT | CAP_SURROUNDING_TEXT);
         // Reports arrive but never contain our text (e.g. a stale buffer).
         let mut client = FakeClient::new(true, false);
@@ -552,9 +572,47 @@ mod tests {
             type_into(&mut c, &mut client, word);
             c.set_surrounding_text("", 0, 0);
         }
-        assert_eq!(c.support, Support::Broken);
+        assert_eq!(c.support, Support::Unknown);
         assert_eq!(client.visible(), "một hai ba bốn ");
         assert_eq!(client.deletes_seen, 0);
+    }
+
+    #[test]
+    fn late_reports_still_verify() {
+        let mut c = composer(TypingMethod::Telex, CAP_PREEDIT_TEXT | CAP_SURROUNDING_TEXT);
+        let mut client = FakeClient::new(true, false);
+        type_into(&mut c, &mut client, "mootj ");
+        // Reports from before the commit arrive first (Wayland latency).
+        c.set_surrounding_text("", 0, 0);
+        c.set_surrounding_text("m", 1, 1);
+        assert_eq!(c.support, Support::Unknown);
+        c.set_surrounding_text("một ", 4, 4);
+        assert_eq!(c.support, Support::Works);
+    }
+
+    #[test]
+    fn ignored_delete_detected_from_late_report() {
+        let cache = ClientCache::in_memory();
+        cache.set("app", Support::Works);
+        let mut c = Composer::new(TypingMethod::Telex, cache);
+        c.focus_in(Some("app"));
+        // No automatic reports: the report arrives after more keys.
+        let mut client = FakeClient::new(false, false);
+        type_into(&mut c, &mut client, "tieen");
+        assert!(!c.prefer_preedit);
+        c.set_surrounding_text(
+            &client.text,
+            client.text.chars().count() as u32,
+            client.text.chars().count() as u32,
+        );
+        assert!(c.prefer_preedit);
+    }
+
+    #[test]
+    fn tail_takes_last_chars() {
+        assert_eq!(tail("tiếng việt", 4), "việt");
+        assert_eq!(tail("ab", 5), "ab");
+        assert_eq!(tail("ab", 0), "");
     }
 
     #[test]
@@ -584,7 +642,10 @@ mod tests {
     fn password_fields_pass_keys_through() {
         let mut c = composer(TypingMethod::Telex, CAP_PREEDIT_TEXT);
         c.set_content_type(PURPOSE_PASSWORD, 0);
-        assert_eq!(type_into(&mut c, &mut FakeClient::new(true, false), "aas"), "aas");
+        assert_eq!(
+            type_into(&mut c, &mut FakeClient::new(true, false), "aas"),
+            "aas"
+        );
     }
 
     #[test]

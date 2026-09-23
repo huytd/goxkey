@@ -8,8 +8,18 @@ use goxkey_core::TypingMethod;
 
 /// Each row lists a vowel with no tone, then sắc, huyền, hỏi, ngã, nặng.
 const TONE_ROWS: [&str; 12] = [
-    "aáàảãạ", "ăắằẳẵặ", "âấầẩẫậ", "eéèẻẽẹ", "êếềểễệ", "iíìỉĩị", "oóòỏõọ", "ôốồổỗộ",
-    "ơớờởỡợ", "uúùủũụ", "ưứừửữự", "yýỳỷỹỵ",
+    "aáàảãạ",
+    "ăắằẳẵặ",
+    "âấầẩẫậ",
+    "eéèẻẽẹ",
+    "êếềểễệ",
+    "iíìỉĩị",
+    "oóòỏõọ",
+    "ôốồổỗộ",
+    "ơớờởỡợ",
+    "uúùủũụ",
+    "ưứừửữự",
+    "yýỳỷỹỵ",
 ];
 
 /// Split a lowercase character into its toneless form and tone index
@@ -25,16 +35,20 @@ fn split_tone(c: char) -> (char, usize) {
 
 /// Keys that produce a toneless lowercase letter, e.g. `ơ` -> "ow" / "o7".
 fn letter_keys(c: char, method: TypingMethod) -> Option<&'static str> {
-    let telex = method != TypingMethod::VNI;
-    Some(match c {
-        'ă' => if telex { "aw" } else { "a8" },
-        'â' => if telex { "aa" } else { "a6" },
-        'ê' => if telex { "ee" } else { "e6" },
-        'ô' => if telex { "oo" } else { "o6" },
-        'ơ' => if telex { "ow" } else { "o7" },
-        'ư' => if telex { "uw" } else { "u7" },
-        'đ' => if telex { "dd" } else { "d9" },
+    let (telex, vni) = match c {
+        'ă' => ("aw", "a8"),
+        'â' => ("aa", "a6"),
+        'ê' => ("ee", "e6"),
+        'ô' => ("oo", "o6"),
+        'ơ' => ("ow", "o7"),
+        'ư' => ("uw", "u7"),
+        'đ' => ("dd", "d9"),
         _ => return None,
+    };
+    Some(if method == TypingMethod::VNI {
+        vni
+    } else {
+        telex
     })
 }
 
@@ -53,7 +67,10 @@ fn tone_key(tone: usize, method: TypingMethod) -> char {
 pub fn respell(word: &str, method: TypingMethod) -> String {
     let mut keys = String::with_capacity(word.len() + 2);
     let mut tone = 0;
-    let all_upper = word.chars().filter(|c| c.is_alphabetic()).all(char::is_uppercase);
+    let all_upper = word
+        .chars()
+        .filter(|c| c.is_alphabetic())
+        .all(char::is_uppercase);
 
     for c in word.chars() {
         let upper = c.is_uppercase();
@@ -74,7 +91,11 @@ pub fn respell(word: &str, method: TypingMethod) -> String {
 
     if tone != 0 {
         let key = tone_key(tone, method);
-        keys.push(if all_upper { key.to_ascii_uppercase() } else { key });
+        keys.push(if all_upper {
+            key.to_ascii_uppercase()
+        } else {
+            key
+        });
     }
     keys
 }
