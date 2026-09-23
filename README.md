@@ -80,3 +80,12 @@ cargo r -- --lang en
 Do you know how to type gõkey in Telex?
 
 Do this: `gox<cmd>key`
+
+## How to install gõkey for Linux 
+
+The iBus version (https://github.com/huytd/goxkey/pull/155) is still in development but now ready for testing. Featuring the automatic switch between surrounding text and pre-edit mode.
+
+To install, checkout the `ibus-implementation` branch, then run `make ibus-setup`. You will be able to select gõkey VNI or Telex in the Keyboard Settings:
+
+<img width="1128" height="1184" alt="image" src="https://github.com/user-attachments/assets/d0917bff-9924-486d-b023-172f671ea328" />
+
