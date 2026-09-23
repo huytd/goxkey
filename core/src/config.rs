@@ -6,6 +6,7 @@ use std::{
     io::{Result, Write},
     path::PathBuf,
     sync::Mutex,
+    time::SystemTime,
 };
 
 use once_cell::sync::Lazy;
@@ -38,6 +39,10 @@ pub struct ConfigStore {
     is_w_literal_enabled: bool,
     ui_language: String,
     allowed_words: Vec<String>,
+    /// Modification time of the config file when it was last read or written.
+    loaded_mtime: Option<SystemTime>,
+    /// Bumped every time the config is reloaded from disk.
+    generation: u64,
 }
 
 fn parse_vec_string(line: String) -> Vec<String> {
@@ -69,6 +74,12 @@ fn get_config_path() -> PathBuf {
         .map(PathBuf::from)
         .unwrap_or_default()
         .join(".goxkey")
+}
+
+fn config_mtime() -> Option<SystemTime> {
+    std::fs::metadata(get_config_path())
+        .and_then(|m| m.modified())
+        .ok()
 }
 
 impl ConfigStore {
@@ -131,6 +142,8 @@ impl ConfigStore {
             is_w_literal_enabled: false,
             ui_language: "auto".to_string(),
             allowed_words: vec!["đc".to_string()],
+            loaded_mtime: config_mtime(),
+            generation: 0,
         };
 
         let config_path = get_config_path();
@@ -317,7 +330,25 @@ impl ConfigStore {
         self.save();
     }
 
+    /// Re-read the config file if it changed on disk since it was last read
+    /// or written. Returns true when a reload happened.
+    pub fn reload_if_changed(&mut self) -> bool {
+        let mtime = config_mtime();
+        if mtime == self.loaded_mtime {
+            return false;
+        }
+        let generation = self.generation + 1;
+        *self = Self::new();
+        self.generation = generation;
+        true
+    }
+
+    pub fn generation(&self) -> u64 {
+        self.generation
+    }
+
     fn save(&mut self) {
         self.write_config_data().expect("Failed to write config");
+        self.loaded_mtime = config_mtime();
     }
 }

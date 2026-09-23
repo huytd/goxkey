@@ -97,6 +97,18 @@ fn mask_standalone_w(buffer: &str) -> String {
     result
 }
 
+/// True when `word` ends in a stop consonant (c, ch, p, t) but carries a
+/// huyền, hỏi or ngã tone. Vietnamese only allows sắc and nặng there, so
+/// words like "tẽt" (from typing "text") are not real syllables.
+fn violates_stop_final_tone(word: &str) -> bool {
+    const LEVEL_OR_FALLING_TONES: &str = "àằầèềìòồờùừỳ\
+         ảẳẩẻểỉỏổởủửỷ\
+         ãẵẫẽễĩõỗỡũữỹ";
+    let lower = word.to_lowercase();
+    let ends_in_stop = ["c", "ch", "p", "t"].iter().any(|f| lower.ends_with(f));
+    ends_in_stop && lower.chars().any(|c| LEVEL_OR_FALLING_TONES.contains(c))
+}
+
 /// Compute the minimal edit needed to transform what is currently displayed (`old`)
 /// into the desired output (`new`) by finding their longest common prefix.
 pub fn get_diff_parts<'a>(old: &str, new: &'a str) -> (usize, &'a str) {
@@ -175,6 +187,7 @@ pub struct InputState {
     is_auto_toggle_enabled: bool,
     is_gox_mode_enabled: bool,
     is_w_literal_enabled: bool,
+    config_generation: u64,
 }
 
 impl InputState {
@@ -199,6 +212,7 @@ impl InputState {
             is_auto_toggle_enabled: config.is_auto_toggle_enabled(),
             is_gox_mode_enabled: config.is_gox_mode_enabled(),
             is_w_literal_enabled: config.is_w_literal_enabled(),
+            config_generation: config.generation(),
         }
     }
 
@@ -262,6 +276,34 @@ impl InputState {
         }
         self.should_track = true;
         self.can_resume_previous_word = false;
+    }
+
+    /// Replace the current word with `raw` keys that produce `display`,
+    /// and resume tracking it.
+    pub fn set_word(&mut self, raw: &str, display: &str) {
+        self.buffer = raw.to_string();
+        self.display_buffer = display.to_string();
+        self.should_track = true;
+    }
+
+    /// Pick up changes to the config file made since this state was created.
+    ///
+    /// The typing method and enabled state are left alone; they belong to the
+    /// caller (e.g. the IBus engine name).
+    pub fn sync_config(&mut self) {
+        let mut config = CONFIG_MANAGER.lock().unwrap();
+        config.reload_if_changed();
+        if config.generation() == self.config_generation {
+            return;
+        }
+        self.config_generation = config.generation();
+        self.hotkey = Hotkey::from_str(config.get_hotkey());
+        self.is_macro_enabled = config.is_macro_enabled();
+        self.is_macro_autocap_enabled = config.is_macro_autocap_enabled();
+        self.macro_table = config.get_macro_table().clone();
+        self.is_auto_toggle_enabled = config.is_auto_toggle_enabled();
+        self.is_gox_mode_enabled = config.is_gox_mode_enabled();
+        self.is_w_literal_enabled = config.is_w_literal_enabled();
     }
 
     pub fn mark_resumable(&mut self) {
@@ -639,7 +681,8 @@ impl InputState {
             return false;
         }
 
-        let is_valid_word = vi::validation::is_valid_word(display_buffer);
+        let is_valid_word = vi::validation::is_valid_word(display_buffer)
+            && !violates_stop_final_tone(display_buffer);
         if is_valid_word {
             return false;
         }
@@ -786,6 +829,22 @@ mod diff_tests {
         assert!(sfx_start >= new_start);
         assert!(sfx_start + sfx.len() <= new_start + new.len());
         assert_eq!(sfx, "ên");
+    }
+}
+
+#[cfg(test)]
+mod validation_tests {
+    use super::violates_stop_final_tone;
+
+    #[test]
+    fn stop_final_allows_only_sac_and_nang() {
+        assert!(violates_stop_final_tone("tẽt"));
+        assert!(violates_stop_final_tone("hỏc"));
+        assert!(violates_stop_final_tone("CHÀCH"));
+        assert!(!violates_stop_final_tone("việt"));
+        assert!(!violates_stop_final_tone("các"));
+        assert!(!violates_stop_final_tone("tiền"));
+        assert!(!violates_stop_final_tone("text"));
     }
 }
 
