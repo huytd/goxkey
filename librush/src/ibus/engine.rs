@@ -89,6 +89,14 @@ pub trait IBusEngine: Send + Sync {
         async { Ok(()) }
     }
 
+    /// Whether the daemon should call [`IBusEngine::focus_in_id`] and
+    /// [`IBusEngine::focus_out_id`] instead of the plain focus methods.
+    ///
+    /// Read once when the daemon creates its proxy for the engine.
+    fn has_focus_id(&self) -> bool {
+        false
+    }
+
     /// Focus in with the client's object path and name (e.g. `gtk3-im:firefox`).
     ///
     /// Defaults to [`IBusEngine::focus_in`].
@@ -709,15 +717,16 @@ impl<T: IBusEngine + 'static> Engine<T> {
         Ok(())
     }
 
+    // Both properties are declared as `(b)` in libibus's introspection XML and
+    // the daemon unpacks them with that format, so return a 1-tuple, not `b`.
     #[zbus(property)]
-    fn focus_id(&self) -> bool {
-        // TODO
-        false
+    fn focus_id(&self) -> (bool,) {
+        (self.e.has_focus_id(),)
     }
 
     #[zbus(property)]
-    fn active_surrounding_text(&self) -> bool {
-        true
+    fn active_surrounding_text(&self) -> (bool,) {
+        (true,)
     }
 }
 
