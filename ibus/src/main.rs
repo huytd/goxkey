@@ -1,188 +1,55 @@
+mod composer;
+mod keys;
+mod respell;
+mod support;
+
 use std::error::Error;
 
 use log::{debug, info};
 use xkeysym::{KeyCode, Keysym};
 
-use goxkey_core::{get_diff_parts, InputState, TypingMethod};
+use goxkey_core::TypingMethod;
 use librush::ibus::{
-    get_ibus_addr, IBus, IBusEngine, IBusEngineBackend, IBusFactory, IBusModifierState,
+    extract_text_from_ibus_value, get_ibus_addr, IBus, IBusEngine, IBusEngineBackend,
+    IBusFactory, IBusModifierState, IBusPreeditFocusMode,
 };
 use zbus::{
     fdo, object_server::SignalEmitter, zvariant::Value, Error as ZbusError, ObjectServer,
 };
 
-fn keysym_to_char(keysym: Keysym) -> Option<char> {
-    keysym.key_char()
-}
+use composer::{Action, Composer};
+use support::ClientCache;
 
-fn is_input_char(c: char) -> bool {
-    c.is_alphabetic() || c.is_ascii_digit()
-}
-
-fn is_shift_key(keysym: Keysym) -> bool {
-    matches!(
-        keysym,
-        Keysym::Shift_L | Keysym::Shift_R | Keysym::Caps_Lock | Keysym::Shift_Lock
-    )
-}
-
-fn is_reset_modifier_key(keysym: Keysym) -> bool {
-    matches!(
-        keysym,
-        Keysym::Control_L
-            | Keysym::Control_R
-            | Keysym::Alt_L
-            | Keysym::Alt_R
-            | Keysym::Super_L
-            | Keysym::Super_R
-            | Keysym::Meta_L
-            | Keysym::Meta_R
-            | Keysym::Hyper_L
-            | Keysym::Hyper_R
-            | Keysym::Mode_switch
-            | Keysym::ISO_Level3_Shift
-            | Keysym::ISO_Level5_Shift
-    )
-}
-
-fn is_navigation_key(keysym: Keysym) -> bool {
-    keysym.is_cursor_key()
-        || matches!(
-            keysym,
-            Keysym::Delete
-                | Keysym::Insert
-                | Keysym::KP_Delete
-                | Keysym::KP_Insert
-                | Keysym::KP_Begin
-        )
-}
-
-fn is_word_separator_key(keysym: Keysym) -> bool {
-    matches!(
-        keysym,
-        Keysym::space
-            | Keysym::Return
-            | Keysym::Tab
-            | Keysym::Escape
-            | Keysym::KP_Enter
-            | Keysym::KP_Space
-            | Keysym::KP_Tab
-            | Keysym::Linefeed
-            | Keysym::Clear
-    )
-}
-
-/// Text to insert ourselves for a separator key, if any.
-///
-/// Only Space is committed via `commit_text`. Forwarding Space races with a
-/// pending `delete_surrounding_text` from the previous keystroke, which can
-/// eat the space. Return/Enter/Tab/Escape must be forwarded so apps still
-/// receive the real key (e.g. chat send on Enter, focus change on Tab).
-fn separator_commit_text(keysym: Keysym) -> Option<&'static str> {
-    match keysym {
-        Keysym::space | Keysym::KP_Space => Some(" "),
-        _ => None,
-    }
-}
-
-/// True when `c` ends a leading run of digits in VNI mode.
-///
-/// `InputState::push` drops leading digits from both the typing buffer and the
-/// display buffer in that case. The engine diffs the display buffer against
-/// what it already committed, so that would delete the digits from the screen
-/// (typing "10am" gave "am"). Starting a new word before the push keeps them.
-fn ends_leading_number(method: TypingMethod, buffer: &str, c: char) -> bool {
-    method == TypingMethod::VNI
-        && buffer.starts_with(|ch: char| ch.is_numeric())
-        && !c.is_numeric()
-}
-
-/// Emit the edit that turns `last_committed` into `target` on screen,
-/// followed by `trailing` (e.g. the separator being typed).
-async fn replace_committed(
-    se: &SignalEmitter<'_>,
-    last_committed: &str,
-    target: &str,
-    trailing: Option<&str>,
-) -> Result<(), ZbusError> {
-    let (backspace_count, suffix) = get_diff_parts(last_committed, target);
-    if backspace_count > 0 {
-        GoxkeyEngine::delete_surrounding_text(
-            se,
-            -(backspace_count as i32),
-            backspace_count as u32,
-        )
-        .await?;
-    }
-    // Fold the trailing text into the same commit to save a D-Bus round-trip.
-    let text = match trailing {
-        Some(t) => format!("{suffix}{t}"),
-        None => suffix.to_string(),
-    };
-    if !text.is_empty() {
-        GoxkeyEngine::commit_text(se, text).await?;
-    }
-    Ok(())
-}
-
-/// One engine instance exists per IBus input context, so each owns its own
-/// typing state.
+/// D-Bus side of one IBus engine: forwards calls to the [`Composer`] and
+/// emits the actions it returns.
 struct GoxkeyEngine {
-    input: InputState,
-    last_committed: String,
+    composer: Composer,
 }
 
 impl GoxkeyEngine {
-    fn new(method: TypingMethod) -> Self {
-        let mut input = InputState::new();
-        input.set_method_im(method);
-        Self {
-            input,
-            last_committed: String::new(),
-        }
-    }
-
-    /// Finalize the current word without touching the screen.
-    fn end_word(&mut self) {
-        self.input.new_word();
-        self.last_committed.clear();
-    }
-
-    /// Commit the current transformed word in-place using get_diff_parts
-    /// to delete only the changed suffix via delete_surrounding_text,
-    /// then committing the new suffix.
-    ///
-    /// For pure appends, backspace_count is 0 so no delete_surrounding_text call
-    /// is made at all. This prevents racing with client buffers and eliminates
-    /// spurious forward deletion in Wayland/Mutter when editing text.
-    async fn commit_in_place(&mut self, se: &SignalEmitter<'_>) -> Result<(), ZbusError> {
-        if let Ok((transformed, _)) = self.input.transform_keys() {
-            if transformed != self.input.get_displaying_word() {
-                self.input.replace(transformed);
+    async fn emit(se: &SignalEmitter<'_>, actions: Vec<Action>) -> Result<(), ZbusError> {
+        for action in actions {
+            match action {
+                Action::Delete(n) => {
+                    GoxkeyEngine::delete_surrounding_text(se, -(n as i32), n as u32).await?
+                }
+                Action::Commit(text) => GoxkeyEngine::commit_text(se, text).await?,
+                Action::Preedit(text) => {
+                    let len = text.chars().count() as u32;
+                    // Commit mode: the client keeps the preedit text if focus
+                    // moves or the context is reset mid-word.
+                    GoxkeyEngine::update_preedit_text(
+                        se,
+                        text,
+                        len,
+                        len > 0,
+                        IBusPreeditFocusMode::Commit,
+                    )
+                    .await?
+                }
             }
         }
-        let display = self.input.get_displaying_word().to_string();
-        replace_committed(se, &self.last_committed, &display, None).await?;
-        self.last_committed = display;
         Ok(())
-    }
-
-    /// If the current word is not valid Vietnamese, put back the raw keys the
-    /// user typed, followed by `trailing`.
-    ///
-    /// Returns false (and emits nothing) when no restore is needed.
-    async fn restore_word_if_needed(
-        &mut self,
-        se: &SignalEmitter<'_>,
-        trailing: Option<&str>,
-    ) -> Result<bool, ZbusError> {
-        if self.input.is_buffer_empty() || !self.input.should_restore_word() {
-            return Ok(false);
-        }
-        debug!("Restoring word");
-        let raw = self.input.get_typing_buffer().to_string();
-        replace_committed(se, &self.last_committed, &raw, trailing).await?;
-        Ok(true)
     }
 }
 
@@ -195,198 +62,97 @@ impl IBusEngine for GoxkeyEngine {
         _keycode: KeyCode,
         state: IBusModifierState,
     ) -> fdo::Result<bool> {
-        if state.is_keyup() {
-            return Ok(false);
-        }
-
-        // Shift / CapsLock keys alone: do not reset tracking or buffer
-        if is_shift_key(keyval) {
-            return Ok(false);
-        }
-
-        // Special modifiers active (Ctrl, Alt, Super, Meta, Hyper) OR modifier keys pressed alone:
-        // reset word tracking so shortcuts work and tracking state is cleanly reset.
-        if state.has_special_modifiers() || is_reset_modifier_key(keyval) {
-            if self.input.is_enabled() {
-                _ = self.restore_word_if_needed(&se, None).await;
-            }
-            self.end_word();
-            return Ok(false);
-        }
-
-        // Arrow/Cursor keys or navigation (Home, End, PageUp, PageDown, Delete, Insert):
-        // The word is already committed on screen. Finalize tracking and let the cursor move.
-        if is_navigation_key(keyval) {
-            self.end_word();
-            return Ok(false);
-        }
-
-        // Backspace key
-        if keyval == Keysym::BackSpace {
-            if self.input.is_enabled() && !self.input.is_buffer_empty() {
-                self.input.pop();
-                if self.input.is_buffer_empty() {
-                    replace_committed(&se, &self.last_committed, "", None).await?;
-                    self.last_committed.clear();
-                } else {
-                    self.commit_in_place(&se).await?;
-                }
-                debug!("Backspace -> buffer: {:?}", self.input.get_typing_buffer());
-                return Ok(true);
-            }
-            self.end_word();
-            return Ok(false);
-        }
-
-        // Word separators (Space, Return, Tab, Escape, etc.)
-        //
-        // Space is inserted via commit_text and consumed so it stays
-        // ordered with any pending delete_surrounding_text. Other
-        // separators are forwarded (return false) so clients still get
-        // the real key event — Enter must reach chat boxes to send, etc.
-        if is_word_separator_key(keyval) {
-            if !self.input.is_enabled() {
-                return Ok(false);
-            }
-            let sep = separator_commit_text(keyval);
-
-            if (keyval == Keysym::space || keyval == Keysym::Tab) && !self.input.is_buffer_empty() {
-                if let Some(target) = self.input.get_macro_target() {
-                    // Replace the whole word, not just the changed suffix.
-                    let len = self.last_committed.chars().count();
-                    if len > 0 {
-                        GoxkeyEngine::delete_surrounding_text(&se, -(len as i32), len as u32)
-                            .await?;
-                    }
-                    let text = match sep {
-                        Some(s) => format!("{target}{s}"),
-                        None => target,
-                    };
-                    GoxkeyEngine::commit_text(&se, text).await?;
-                    self.end_word();
-                    return Ok(sep.is_some());
-                }
-            }
-
-            let restored = self.restore_word_if_needed(&se, sep).await?;
-            self.end_word();
-            if restored {
-                return Ok(sep.is_some());
-            }
-            if let Some(s) = sep {
-                GoxkeyEngine::commit_text(&se, s.to_string()).await?;
-                return Ok(true);
-            }
-            return Ok(false);
-        }
-
-        if !self.input.is_enabled() {
-            return Ok(false);
-        }
-
-        let Some(c) = keysym_to_char(keyval) else {
-            // Keysym with no character representation (F1-F12, etc.)
-            self.end_word();
-            return Ok(false);
-        };
-
-        if is_input_char(c) {
-            if !self.input.is_tracking() {
-                return Ok(false);
-            }
-            if ends_leading_number(self.input.get_method(), self.input.get_typing_buffer(), c) {
-                self.end_word();
-            }
-            debug!("Pushing: {:?}", c);
-            self.input.push(c);
-            self.commit_in_place(&se).await?;
-
-            if self.input.should_stop_tracking() {
-                self.input.stop_tracking();
-                self.last_committed.clear();
-            }
-            return Ok(true);
-        }
-
-        // Non-input character (e.g. punctuation, symbols like ., ! ? / ; [ ] etc.)
-        self.restore_word_if_needed(&se, None).await?;
-        self.end_word();
-        Ok(false)
+        let outcome = self.composer.process_key(keyval, state);
+        GoxkeyEngine::emit(&se, outcome.actions).await?;
+        Ok(outcome.handled)
     }
 
     fn set_capabilities(&mut self, caps: u32) {
-        debug!("Capabilities: {:#x}", caps);
+        self.composer.set_capabilities(caps);
     }
 
     fn set_content_type(&mut self, purpose: u32, hints: u32) {
-        debug!("Content type: purpose={} hints={:#x}", purpose, hints);
+        self.composer.set_content_type(purpose, hints);
     }
 
     async fn set_surrounding_text(
         &mut self,
         _se: SignalEmitter<'_>,
         _server: &ObjectServer,
-        _text: Value<'_>,
-        _cursor_pos: u32,
-        _anchor_pos: u32,
+        text: Value<'_>,
+        cursor_pos: u32,
+        anchor_pos: u32,
     ) -> fdo::Result<()> {
+        if let Some(text) = extract_text_from_ibus_value(&text) {
+            self.composer
+                .set_surrounding_text(&text, cursor_pos, anchor_pos);
+        }
         Ok(())
     }
 
-    async fn set_cursor_location(
-        &mut self,
-        _se: SignalEmitter<'_>,
-        _server: &ObjectServer,
-        _x: i32,
-        _y: i32,
-        _w: i32,
-        _h: i32,
-    ) -> fdo::Result<()> {
-        Ok(())
+    fn has_focus_id(&self) -> bool {
+        true
     }
 
     async fn focus_in(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
         debug!("Focus in");
-        self.end_word();
+        self.composer.focus_in(None);
+        Ok(())
+    }
+
+    async fn focus_in_id(
+        &mut self,
+        _se: SignalEmitter<'_>,
+        _server: &ObjectServer,
+        _object_path: String,
+        client: String,
+    ) -> fdo::Result<()> {
+        debug!("Focus in: {:?}", client);
+        self.composer.focus_in(Some(&client));
         Ok(())
     }
 
     async fn focus_out(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
         debug!("Focus out");
-        self.end_word();
+        self.composer.discard_word();
         Ok(())
     }
 
     async fn reset(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
         debug!("Reset");
-        self.end_word();
+        self.composer.discard_word();
         Ok(())
     }
 
     async fn enable(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
         debug!("Enable");
-        self.end_word();
+        self.composer.discard_word();
         Ok(())
     }
 
     async fn disable(&mut self, _se: SignalEmitter<'_>, _server: &ObjectServer) -> fdo::Result<()> {
         info!("Engine disabled");
-        self.end_word();
+        self.composer.discard_word();
         Ok(())
     }
 }
 
-#[derive(Debug, Clone)]
-struct GoxkeyFactory;
+#[derive(Clone)]
+struct GoxkeyFactory {
+    cache: ClientCache,
+}
 
 impl IBusFactory<GoxkeyEngine> for GoxkeyFactory {
     fn create_engine(&mut self, name: String) -> Result<GoxkeyEngine, String> {
         debug!("Creating engine: {:?}", name);
-        match name.as_str() {
-            "goxkey-telex" => Ok(GoxkeyEngine::new(TypingMethod::Telex)),
-            "goxkey-vni" => Ok(GoxkeyEngine::new(TypingMethod::VNI)),
-            _ => Err(format!("unknown engine: {}", name)),
-        }
+        let method = match name.as_str() {
+            "goxkey-telex" => TypingMethod::Telex,
+            "goxkey-vni" => TypingMethod::VNI,
+            _ => return Err(format!("unknown engine: {}", name)),
+        };
+        Ok(GoxkeyEngine {
+            composer: Composer::new(method, self.cache.clone()),
+        })
     }
 }
 
@@ -400,7 +166,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let addr = get_ibus_addr()?;
     debug!("IBus address: {:?}", addr);
 
-    let factory = GoxkeyFactory;
+    let factory = GoxkeyFactory {
+        cache: ClientCache::load(),
+    };
     let ibus = IBus::<GoxkeyEngine, GoxkeyFactory>::new(
         addr,
         factory,
@@ -413,186 +181,4 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     std::future::pending::<()>().await;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_keysym_to_char() {
-        assert_eq!(keysym_to_char(Keysym::a), Some('a'));
-        assert_eq!(keysym_to_char(Keysym::A), Some('A'));
-        assert_eq!(keysym_to_char(Keysym::Control_L), None);
-        assert_eq!(keysym_to_char(Keysym::Shift_L), None);
-        assert_eq!(keysym_to_char(Keysym::Alt_L), None);
-        assert_eq!(keysym_to_char(Keysym::Super_L), None);
-        assert_eq!(keysym_to_char(Keysym::Left), None);
-        assert_eq!(keysym_to_char(Keysym::BackSpace), Some('\u{08}'));
-        assert_eq!(keysym_to_char(Keysym::space), Some(' '));
-    }
-
-    #[test]
-    fn test_keysym_categories() {
-        assert!(is_shift_key(Keysym::Shift_L));
-        assert!(is_shift_key(Keysym::Shift_R));
-        assert!(is_shift_key(Keysym::Caps_Lock));
-
-        assert!(is_reset_modifier_key(Keysym::Control_L));
-        assert!(is_reset_modifier_key(Keysym::Control_R));
-        assert!(is_reset_modifier_key(Keysym::Alt_L));
-        assert!(is_reset_modifier_key(Keysym::Alt_R));
-        assert!(is_reset_modifier_key(Keysym::Super_L));
-        assert!(is_reset_modifier_key(Keysym::Super_R));
-
-        assert!(is_navigation_key(Keysym::Left));
-        assert!(is_navigation_key(Keysym::Right));
-        assert!(is_navigation_key(Keysym::Up));
-        assert!(is_navigation_key(Keysym::Down));
-        assert!(is_navigation_key(Keysym::Home));
-        assert!(is_navigation_key(Keysym::End));
-        assert!(is_navigation_key(Keysym::Page_Up));
-        assert!(is_navigation_key(Keysym::Page_Down));
-        assert!(is_navigation_key(Keysym::Delete));
-        assert!(is_navigation_key(Keysym::Insert));
-
-        assert!(is_word_separator_key(Keysym::space));
-        assert!(is_word_separator_key(Keysym::Return));
-        assert!(is_word_separator_key(Keysym::Tab));
-        assert!(is_word_separator_key(Keysym::Escape));
-        assert!(is_word_separator_key(Keysym::KP_Enter));
-    }
-
-    #[test]
-    fn test_separator_commit_text() {
-        assert_eq!(separator_commit_text(Keysym::space), Some(" "));
-        assert_eq!(separator_commit_text(Keysym::KP_Space), Some(" "));
-        // Action keys must be forwarded, not inserted as text.
-        assert_eq!(separator_commit_text(Keysym::Tab), None);
-        assert_eq!(separator_commit_text(Keysym::KP_Tab), None);
-        assert_eq!(separator_commit_text(Keysym::Return), None);
-        assert_eq!(separator_commit_text(Keysym::KP_Enter), None);
-        assert_eq!(separator_commit_text(Keysym::Linefeed), None);
-        assert_eq!(separator_commit_text(Keysym::Escape), None);
-        assert_eq!(separator_commit_text(Keysym::Clear), None);
-    }
-
-    #[test]
-    fn test_in_place_diff_appends_without_deletion() {
-        // Appending characters one by one should have backspace_count == 0
-        let (bs, sfx) = get_diff_parts("", "t");
-        assert_eq!(bs, 0);
-        assert_eq!(sfx, "t");
-
-        let (bs, sfx) = get_diff_parts("t", "ti");
-        assert_eq!(bs, 0);
-        assert_eq!(sfx, "i");
-
-        let (bs, sfx) = get_diff_parts("ti", "tie");
-        assert_eq!(bs, 0);
-        assert_eq!(sfx, "e");
-
-        let (bs, sfx) = get_diff_parts("tie", "tien");
-        assert_eq!(bs, 0);
-        assert_eq!(sfx, "n");
-
-        let (bs, sfx) = get_diff_parts("tien", "tieng");
-        assert_eq!(bs, 0);
-        assert_eq!(sfx, "g");
-    }
-
-    #[test]
-    fn test_in_place_diff_transformation_minimal_delete() {
-        // When 'e' is pressed on "tie" -> "tiê": only delete 1 ('e'), commit "ê"
-        let (bs, sfx) = get_diff_parts("tie", "tiê");
-        assert_eq!(bs, 1);
-        assert_eq!(sfx, "ê");
-
-        // When 's' is pressed on "tiêng" -> "tiếng": only delete 3 ("êng"), commit "ếng"
-        let (bs, sfx) = get_diff_parts("tiêng", "tiếng");
-        assert_eq!(bs, 3);
-        assert_eq!(sfx, "ếng");
-
-        // Prefix "ti" was preserved; backspace_count (3) <= old length (5)
-        assert!(bs <= "tiêng".chars().count());
-    }
-
-    #[test]
-    fn test_in_place_diff_editing_in_middle() {
-        // Editing "tro" -> "trời"
-        let (bs, sfx) = get_diff_parts("troi", "tròi");
-        assert_eq!(bs, 2);
-        assert_eq!(sfx, "òi");
-
-        // Editing "viet" -> "việt": common prefix is "vi" (2 chars),
-        // so only 2 backspaces ("et") are needed, committing "ệt"
-        let (bs, sfx) = get_diff_parts("viet", "việt");
-        assert_eq!(bs, 2);
-        assert_eq!(sfx, "ệt");
-    }
-
-    #[test]
-    fn test_ends_leading_number() {
-        assert!(ends_leading_number(TypingMethod::VNI, "1", 'a'));
-        assert!(ends_leading_number(TypingMethod::VNI, "10", 'a'));
-        assert!(!ends_leading_number(TypingMethod::VNI, "10", '0'));
-        assert!(!ends_leading_number(TypingMethod::VNI, "", 'a'));
-        // Digits after letters are VNI tone/mark keys, not a number.
-        assert!(!ends_leading_number(TypingMethod::VNI, "a1", 'n'));
-        assert!(!ends_leading_number(TypingMethod::Telex, "10", 'a'));
-    }
-
-    /// Mirrors the letter path of `process_key_event` and returns the total
-    /// number of characters the engine would delete from the screen.
-    fn vni_deletions_for(keys: &str) -> usize {
-        let mut input = goxkey_core::InputState::new();
-        input.set_method_im(TypingMethod::VNI);
-        let mut last_committed = String::new();
-        let mut deleted = 0;
-        for c in keys.chars() {
-            if ends_leading_number(input.get_method(), input.get_typing_buffer(), c) {
-                input.new_word();
-                last_committed.clear();
-            }
-            input.push(c);
-            let (out, _) = input.transform_keys().unwrap();
-            input.replace(out);
-            let display = input.get_displaying_word().to_string();
-            deleted += get_diff_parts(&last_committed, &display).0;
-            last_committed = display;
-        }
-        deleted
-    }
-
-    #[test]
-    fn test_vni_keeps_leading_digits_on_screen() {
-        // Previously "10am" deleted both digits and left "am".
-        assert_eq!(vni_deletions_for("10am"), 0);
-        assert_eq!(vni_deletions_for("2a"), 0);
-        // Tone keys still transform in place.
-        assert_eq!(vni_deletions_for("a1"), 1);
-    }
-
-    #[test]
-    fn test_words_ong_anh_viet_nam_tu_te_ong_nuoc() {
-        let cases = [
-            ("vieetj", "việt"),
-            ("nam", "nam"),
-            ("tuwr", "tử"),
-            ("tees", "tế"),
-            ("oongs", "ống"),
-            ("nuowcs", "nước"),
-            ("ongs", "óng"),
-            ("anhs", "ánh"),
-        ];
-
-        for (input_seq, expected) in cases {
-            let mut state = goxkey_core::InputState::new();
-            for c in input_seq.chars() {
-                state.push(c);
-            }
-            let (out, _) = state.transform_keys().unwrap();
-            assert_eq!(out, expected, "Failed for input sequence: {}", input_seq);
-        }
-    }
 }

@@ -34,6 +34,22 @@ The result string will be sent back to `goxkey`, and from there, it will perform
 is done using [the BACKSPACE technique](https://notes.huy.rocks/posts/go-tieng-viet-linux.html#k%C4%A9-thu%E1%BA%ADt-backspace). It's
 unreliable but it has the benefit of not having the pre-edit line so it's worth it.
 
+### Linux (IBus)
+
+The IBus engine lives in `ibus/` (`make ibus-setup` to build and install it). The typing logic is in
+`ibus/src/composer.rs`, which is plain Rust with no D-Bus and is tested against fake clients.
+
+Each word is composed in one of two modes, chosen automatically per app:
+
+- **Surrounding text**: the word is committed as you type and corrected with `DeleteSurroundingText`, with no pre-edit
+  underline. Only used once the app has shown that it applies those deletes.
+- **Pre-edit**: the word is shown underlined and committed when it ends. It works everywhere, so it's used for apps
+  that don't support surrounding text, apps that haven't been verified yet, terminals, and fields with inline
+  autocomplete.
+
+The verdict for each app is cached in `~/.cache/goxkey/ibus-clients`. Delete a line (or the file) to have an app probed
+again. Run the engine with `RUST_LOG=debug` to see the capabilities and mode decisions for each app.
+
 To get yourself familiar with IME, here are some good article on the topic:
 
 - [Vietnamese Keyboard Engine with Prolog](https://followthe.trailing.space/To-the-Root-of-the-Tree-dc170bf0e8de44a6b812ca3e01025236?p=0dd31fe76ebd45dca5b4466c9441fa1c&pm=s), lewtds
