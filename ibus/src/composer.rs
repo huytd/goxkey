@@ -265,8 +265,8 @@ impl Composer {
         }
 
         if self.input.should_stop_tracking() {
-            // Doubled tone keys or overlong words are usually English: put the
-            // typed keys back if the result is not Vietnamese.
+            // Doubled keys or an overlong word: stop transforming. Put the
+            // typed keys back only if the result has marks and is not Vietnamese.
             let text = self.final_text();
             self.end_word(&text, None, out);
             self.input.stop_tracking();
@@ -343,13 +343,21 @@ impl Composer {
 
     /// The word to leave on screen: the typed keys when the transformed word
     /// is not valid Vietnamese, otherwise the transformed word.
+    ///
+    /// Keys the user pressed twice to undo a transform ("orr" -> "or") never
+    /// come back: a plain word that is the typed keys with repeats shortened
+    /// is kept as shown, and undo keys are dropped before restoring.
     fn final_text(&self) -> String {
-        if !self.input.is_buffer_empty() && self.input.should_restore_word() {
-            debug!("Restoring word");
-            self.input.get_typing_buffer().to_string()
-        } else {
-            self.input.get_displaying_word().to_string()
+        let display = self.input.get_displaying_word();
+        let raw = self.input.get_typing_buffer();
+        if raw.is_empty() || !self.input.should_restore_word() {
+            return display.to_string();
         }
+        if display.is_ascii() && shortens_runs_of(display, raw) {
+            return display.to_string();
+        }
+        debug!("Restoring word");
+        drop_undo_keys(raw, self.input.get_method())
     }
 
     /// Update the word on screen to `target`.
@@ -416,6 +424,53 @@ impl Composer {
         let shown = self.shown.clone();
         self.end_word(&shown, None, out);
     }
+}
+
+/// Runs of repeated characters: "orr" -> [('o', 1), ('r', 2)].
+fn runs(s: &str) -> Vec<(char, usize)> {
+    let mut out: Vec<(char, usize)> = Vec::new();
+    for c in s.chars() {
+        match out.last_mut() {
+            Some((last, n)) if *last == c => *n += 1,
+            _ => out.push((c, 1)),
+        }
+    }
+    out
+}
+
+/// True when `short` is `long` with some runs of a repeated character made
+/// shorter, e.g. "or" from "orr" but not "oder" from "order".
+fn shortens_runs_of(short: &str, long: &str) -> bool {
+    let (short, long) = (runs(short), runs(long));
+    short.len() == long.len()
+        && short
+            .iter()
+            .zip(&long)
+            .all(|((a, n), (b, m))| a == b && n <= m)
+}
+
+/// Remove keys that only undid a transform: a doubled tone key or `w`
+/// ("orr"), a tripled `a`/`e`/`o`/`d` ("aaa") in Telex, or a doubled digit
+/// in VNI. One key of the run is dropped.
+fn drop_undo_keys(raw: &str, method: TypingMethod) -> String {
+    let chars: Vec<char> = raw.chars().collect();
+    let mut out = String::with_capacity(raw.len());
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i].to_ascii_lowercase();
+        let run = chars[i..]
+            .iter()
+            .take_while(|x| x.to_ascii_lowercase() == c)
+            .count();
+        let undo_run = match method {
+            TypingMethod::VNI => c.is_ascii_digit() && run >= 2,
+            _ => ("sfrxjw".contains(c) && run >= 2) || ("aeod".contains(c) && run >= 3),
+        };
+        let keep = if undo_run { run - 1 } else { run };
+        out.extend(&chars[i..i + keep]);
+        i += run;
+    }
+    out
 }
 
 /// The last `n` characters of `s`.
@@ -609,6 +664,24 @@ mod tests {
     }
 
     #[test]
+    fn drops_undo_keys() {
+        assert_eq!(drop_undo_keys("booss", TypingMethod::Telex), "boos");
+        assert_eq!(drop_undo_keys("inffer", TypingMethod::Telex), "infer");
+        assert_eq!(drop_undo_keys("baaan", TypingMethod::Telex), "baan");
+        assert_eq!(drop_undo_keys("bazaar", TypingMethod::Telex), "bazaar");
+        assert_eq!(drop_undo_keys("a11", TypingMethod::VNI), "a1");
+        assert_eq!(drop_undo_keys("boss", TypingMethod::VNI), "boss");
+    }
+
+    #[test]
+    fn shortened_runs() {
+        assert!(shortens_runs_of("or", "orr"));
+        assert!(shortens_runs_of("laya", "layaa"));
+        assert!(!shortens_runs_of("oder", "order"));
+        assert!(!shortens_runs_of("uindow", "window"));
+    }
+
+    #[test]
     fn tail_takes_last_chars() {
         assert_eq!(tail("tiếng việt", 4), "việt");
         assert_eq!(tail("ab", 5), "ab");
@@ -692,11 +765,21 @@ mod tests {
 
     #[test]
     fn english_words_are_restored() {
-        assert_eq!(telex("boss "), "boss ");
-        assert_eq!(telex("Office "), "Office ");
-        assert_eq!(telex("class "), "class ");
         assert_eq!(telex("text "), "text ");
         assert_eq!(telex("window "), "window ");
+        // The second r toggles the tone off but was not a doubled key.
+        assert_eq!(telex("order "), "order ");
+    }
+
+    #[test]
+    fn undo_keys_are_not_restored() {
+        // A doubled key undoes the transform; the user already sees what
+        // they want, so the raw keys must not come back.
+        assert_eq!(telex("orr "), "or ");
+        assert_eq!(telex("inffer "), "infer ");
+        assert_eq!(telex("layaa "), "laya ");
+        assert_eq!(telex("booss "), "boos ");
+        assert_eq!(telex("orr"), "or");
     }
 
     #[test]
